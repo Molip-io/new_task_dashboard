@@ -107,7 +107,7 @@ test('Given a successful collection, When the dashboard is written, Then operati
 
   const attachIndex = collector.indexOf('attachOperationalMetadata(dashboard, DATA)');
   const writeIndex = collector.indexOf("fs.writeFileSync(path.join(DATA, 'dashboard.json')");
-  const snapshotIndex = collector.indexOf('saveDailySnapshot(enrichedDashboard, DATA)');
+  const snapshotIndex = collector.indexOf('saveDailySnapshot(dashboard, DATA)');
 
   assert.ok(attachIndex >= 0);
   assert.ok(writeIndex > attachIndex);

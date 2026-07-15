@@ -19,3 +19,15 @@ test('Given Notion relation properties, When a page is flattened, Then related p
   assert.deepEqual(result['상위 항목'], ['spec-1']);
   assert.deepEqual(result['선행 작업'], ['task-0']);
 });
+
+test('Given Notion people properties, When a page is flattened, Then display names and stable user IDs are both preserved', () => {
+  const row = flatten({
+    id: 'page-1',
+    properties: {
+      담당자: { type: 'people', people: [{ id: 'user-1', name: '행크' }, { id: 'former-1', name: null }] },
+    },
+  });
+
+  assert.deepEqual(row['담당자'], ['행크', 'former-1']);
+  assert.deepEqual(row['담당자:users'], [{ id: 'user-1', name: '행크' }, { id: 'former-1', name: null }]);
+});

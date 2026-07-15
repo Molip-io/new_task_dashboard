@@ -46,11 +46,11 @@ test('Given a top-level spec with assignees, When workload is built, Then only c
   assert.equal(result.workload[0].count, 1);
   assert.equal(result.personalTaskLinks, 2);
   assert.equal(result.unassignedTasks.length, 1);
-  assert.equal(result.waitImpactMeasured, false);
-  assert.equal(result.workload[0].waitingOnMeCount, null);
+  assert.equal('waitImpactMeasured' in result, false);
+  assert.equal('waitingOnMeCount' in result.workload[0], false);
 });
 
-test('Given child task dependencies, When workload is built, Then people are ordered by downstream waiting impact', () => {
+test('Given child task dependencies, When workload is built, Then team waiting impact is not calculated or returned', () => {
   const dependencyTasks = [
     tasks[0],
     { ...tasks[1], id: 'predecessor', assignees: ['웨이드'], dependencyIds: [] },
@@ -60,11 +60,8 @@ test('Given child task dependencies, When workload is built, Then people are ord
 
   const result = buildWorkload(dependencyTasks, ['완료', '중단']);
 
-  assert.equal(result.waitImpactMeasured, true);
-  assert.equal(result.workload[0].name, '웨이드');
-  assert.equal(result.workload[0].waitingOnMeCount, 1);
-  assert.equal(result.workload[0].waitingTasks[0].id, 'downstream');
-  assert.equal(result.workload.find(person => person.name === '행크').waitingOnMeCount, 0);
+  assert.equal('waitImpactMeasured' in result, false);
+  assert.ok(result.workload.every(person => !('waitingOnMeCount' in person) && !('waitingTasks' in person)));
 });
 
 test('Given a top-level task and its children, When specs are built, Then hierarchy and completion use all child tasks', () => {
@@ -86,20 +83,22 @@ test('Given a relation-none confirmation, When specs are built, Then it counts a
 
 test('Given collected Notion tasks, When the dashboard base is built, Then hierarchy functions own specs and personal workload', () => {
   const collector = fs.readFileSync(new URL('../collect.mjs', import.meta.url), 'utf8');
+  const dashboardModel = fs.readFileSync(new URL('../lib/dashboard-model.mjs', import.meta.url), 'utf8');
+  const notionCollector = fs.readFileSync(new URL('../lib/notion-collector.mjs', import.meta.url), 'utf8');
 
-  assert.match(collector, /buildProjectSpecs\(pt, DONE_STATUSES\)/);
-  assert.match(collector, /buildWorkload\(selectedTasks, DONE_STATUSES\)/);
-  assert.match(collector, /hierarchyStats: \{ personalTaskLinks, waitImpactMeasured \}/);
-  assert.match(collector, /parentIds: pick\(r, \['상위 항목'/);
-  assert.match(collector, /dependencyReviewStatus: pick\(r, \['의존관계 검토'/);
+  assert.match(dashboardModel, /buildProjectSpecs\(projectTasks/);
+  assert.match(dashboardModel, /hierarchyStats: \{ personalTaskLinks:/);
+  assert.match(notionCollector, /parentIds: pick\(row, \['상위 항목'/);
+  assert.match(notionCollector, /dependencyReviewStatus: pick\(row, \['의존관계 검토'/);
 });
 
 test('Given the Notion project list, When collection scope is selected, Then only named projects with summary checked remain', () => {
   const collector = fs.readFileSync(new URL('../collect.mjs', import.meta.url), 'utf8');
+  const notionCollector = fs.readFileSync(new URL('../lib/notion-collector.mjs', import.meta.url), 'utf8');
 
-  assert.match(collector, /\.filter\(p => p\.name && p\.summarize\)/);
-  assert.match(collector, /selectProjectTasks\(tasks, projects\)/);
-  assert.match(collector, /excludePausedHierarchy\(\[\.\.\.taskById\.values\(\)\]\)/);
+  assert.match(notionCollector, /allProjects\.filter\(project => project\.summarize\)/);
+  assert.match(collector, /selectProjectTasks\(notion\.tasks, notion\.projects\)/);
+  assert.match(notionCollector, /excludePausedHierarchy\(\[\.\.\.tasks\.values\(\)\]\)/);
 });
 
 test('Given tasks from checked and unchecked projects, When project scope is applied, Then unchecked tasks cannot re-enter cards or workload', () => {

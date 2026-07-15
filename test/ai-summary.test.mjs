@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { aiEnrich, buildLegacySummaryPrompt } from '../lib/legacy-ai-summary.mjs';
+import { aiEnrich, buildSummaryPrompt } from '../lib/ai-summary.mjs';
 
 const dashboard = {
   generatedAt: '2026-07-15T07:30:00.000Z',
@@ -18,12 +18,13 @@ const dashboard = {
 };
 
 test('Given dashboard facts, When the legacy prompt is built, Then Notion, meeting, and Slack evidence remain in its input', () => {
-  const prompt = buildLegacySummaryPrompt(dashboard);
+  const prompt = buildSummaryPrompt(dashboard);
 
   assert.match(prompt, /피자레디/);
   assert.match(prompt, /QA 회의/);
   assert.match(prompt, /QA 기간 유지/);
-  assert.match(prompt, /상태를 변경하지 말고/);
+  assert.match(prompt, /상태를 새로 판정하거나/);
+  assert.match(prompt, /gitCommits/);
 });
 
 test('Given a runner that returns fenced JSON, When AI enrichment completes, Then the parsed object is returned', async () => {

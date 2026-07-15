@@ -1,7 +1,20 @@
 {
   "port": 5678,
   "scheduleTime": "07:30",
+  "timeZone": "Asia/Seoul",
+  "dashboardUrl": "http://localhost:5678",
+  "staleBusinessDays": 3,
   "slackDaysDefault": 3,
+  "ignoredNotionUserIds": [
+    "341d872b-594c-81d0-81be-0002dd479324"
+  ],
+  "git": {
+    "sinceDays": 30,
+    "repositories": []
+  },
+  "features": {
+    "slackNotifications": false
+  },
   "notion": {
     "projectListDbId": "27eb4a46-5003-8016-a5fe-f8ce4bff328c",
     "summaryDbId": "351b4a46-5003-80ff-8b85-f772cb93da32",

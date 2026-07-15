@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { loadEnv, loadConfig, ROOT } from './lib/env.mjs';
+import { shouldRunDaily, zonedClock } from './lib/scheduler.mjs';
 
 loadEnv();
 const config = loadConfig();
@@ -56,19 +57,20 @@ const server = http.createServer((req, res) => {
 });
 
 // 매일 config.scheduleTime 에 자동 수집
-let lastRunDay = null;
-setInterval(() => {
-  const now = new Date();
-  const hhmm = now.toTimeString().slice(0, 5);
-  const day = now.toISOString().slice(0, 10);
-  if (hhmm === config.scheduleTime && lastRunDay !== day) {
-    lastRunDay = day;
-    console.log(`⏰ ${config.scheduleTime} 정기 수집 시작`);
+const lastStatus = readJson('collect-status.json');
+let lastRunDay = lastStatus?.state === 'done' && lastStatus.at ? zonedClock(new Date(lastStatus.at), config.timeZone).day : null;
+function checkSchedule() {
+  const result = shouldRunDaily({ scheduleTime: config.scheduleTime, lastRunDay, timeZone: config.timeZone || 'Asia/Seoul' });
+  if (result.shouldRun) {
+    lastRunDay = result.day;
+    console.log(`⏰ ${config.scheduleTime} ${config.timeZone || 'Asia/Seoul'} 정기 수집 시작`);
     runCollect();
   }
-}, 30_000);
+}
+setInterval(checkSchedule, 30_000);
 
 server.listen(config.port, () => {
   console.log(`업무현황 대시보드: http://localhost:${config.port}`);
-  console.log(`정기 수집: 매일 ${config.scheduleTime} (서버 실행 중일 때)`);
+  console.log(`정기 수집: 매일 ${config.scheduleTime} ${config.timeZone || 'Asia/Seoul'} (서버 실행 중일 때)`);
+  checkSchedule();
 });
