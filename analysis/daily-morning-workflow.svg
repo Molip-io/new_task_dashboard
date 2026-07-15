@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Slack을 포함한 매일 오전 업무현황 대시보드 워크플로우</title>
+  <desc id="desc">GitHub Actions가 Notion, Slack, 회의록을 수집하고 Slack 원문에서 제한된 주장 후보를 추출한다. 규칙 엔진이 진행, 병목, 결정과 커버리지를 계산한 뒤 GPT가 문장화하고 대시보드가 원문과 해석을 함께 보여준다.</desc>
+  <defs>
+    <style>
+      .bg{fill:#0b0f14}.panel{fill:#121923;stroke:#2a3544;stroke-width:2}.node{fill:#19222e;stroke:#4a5b70;stroke-width:2}.source{stroke:#39cc94}.slack{stroke:#6fb4ff}.rules{stroke:#f0b84b}.gpt{stroke:#af8cff}.ui{stroke:#ef6b73}.title{fill:#f5f7fb;font:700 30px system-ui,-apple-system,"Noto Sans KR",sans-serif}.sub{fill:#9da9b8;font:400 14px system-ui,-apple-system,"Noto Sans KR",sans-serif}.lane{fill:#f5f7fb;font:700 20px system-ui,-apple-system,"Noto Sans KR",sans-serif}.label{fill:#f5f7fb;font:700 16px system-ui,-apple-system,"Noto Sans KR",sans-serif}.body{fill:#cbd3de;font:400 12px system-ui,-apple-system,"Noto Sans KR",sans-serif}.small{fill:#8e9aac;font:400 11px system-ui,-apple-system,"Noto Sans KR",sans-serif}.green{fill:#61d9a7}.blue{fill:#75b7ff}.amber{fill:#f7ca70}.purple{fill:#c4a9ff}.red{fill:#ff858d}.arrow{stroke:#68788e;stroke-width:2.5;fill:none;marker-end:url(#a)}.feedback{stroke:#5ba4ff;stroke-width:2.5;fill:none;marker-end:url(#b)}.divider{stroke:#2a3544;stroke-width:2}
+    </style>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#68788e"/></marker>
+    <marker id="b" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#5ba4ff"/></marker>
+  </defs>
+
+  <rect class="bg" width="1600" height="900"/>
+  <text class="title" x="70" y="62">Slack을 포함한 매일 오전 업무현황 워크플로우</text>
+  <text class="sub" x="70" y="91">Slack은 필수 출처로 사용하되, 원문과 시스템 해석을 분리하고 어느 출처도 다른 출처를 자동 덮어쓰지 않습니다.</text>
+
+  <rect class="panel" x="50" y="125" width="1500" height="590" rx="18"/>
+  <text class="lane blue" x="80" y="165">자동 경로 · 매일 07:30 KST · GitHub Actions 예약 워커</text>
+
+  <rect class="node source" x="80" y="215" width="205" height="185" rx="12"/>
+  <text class="label" x="105" y="250">1. 출처 수집</text>
+  <text class="body" x="105" y="279">Notion 작업·스펙·회의 본문</text>
+  <text class="body" x="105" y="303">Slack 메시지·스레드·답글</text>
+  <text class="body" x="105" y="327">작성자·시각·채널·permalink</text>
+  <text class="small green" x="105" y="368">출처별 raw 스냅샷과 성공 시각 보존</text>
+
+  <rect class="node slack" x="330" y="215" width="220" height="185" rx="12"/>
+  <text class="label" x="355" y="250">2. Slack 제한 추출</text>
+  <text class="body" x="355" y="279">결정·범위·기한·담당</text>
+  <text class="body" x="355" y="303">의존관계·대기·블로커·변화</text>
+  <text class="body" x="355" y="327">명시적 원문 / 해석 후보 분리</text>
+  <text class="small blue" x="355" y="368">모든 주장에 원문 evidence ID 연결</text>
+
+  <rect class="node source" x="595" y="215" width="220" height="185" rx="12"/>
+  <text class="label" x="620" y="250">3. 관계 정규화</text>
+  <text class="body" x="620" y="279">프로젝트 → 핵심 스펙 → 작업</text>
+  <text class="body" x="620" y="303">의존관계 후보·확정·관계 없음</text>
+  <text class="body" x="620" y="327">결정 엔티티와 영향 작업 연결</text>
+  <text class="small green" x="620" y="368">핵심 스펙 검토 커버리지 계산</text>
+
+  <rect class="node rules" x="860" y="215" width="220" height="185" rx="12"/>
+  <text class="label" x="885" y="250">4. 규칙·충돌 엔진</text>
+  <text class="body" x="885" y="279">계획 단계 대비 실제 단계</text>
+  <text class="body" x="885" y="303">실제 대기 / 보고된 대기 / 재작업</text>
+  <text class="body" x="885" y="327">출처 충돌·결정 수명주기·delta</text>
+  <text class="small amber" x="885" y="368">커버리지 부족 시 ‘병목 없음’ 금지</text>
+
+  <rect class="node gpt" x="1125" y="215" width="190" height="185" rx="12"/>
+  <text class="label" x="1150" y="250">5. GPT 문장화</text>
+  <text class="body" x="1150" y="279">계산된 facts만 입력</text>
+  <text class="body" x="1150" y="303">결정·병목·변화 설명</text>
+  <text class="body" x="1150" y="327">Slack 신호 짧은 요약</text>
+  <text class="small purple" x="1150" y="368">상태·수치·관계 재판정 금지</text>
+
+  <rect class="node ui" x="1360" y="215" width="160" height="185" rx="12"/>
+  <text class="label" x="1385" y="250">6. 대시보드</text>
+  <text class="body" x="1385" y="279">오늘 결정</text>
+  <text class="body" x="1385" y="303">현재 병목·변화</text>
+  <text class="body" x="1385" y="327">Slack 원문 패널</text>
+  <text class="small red" x="1385" y="368">해석·반영 상태 표시</text>
+
+  <path class="arrow" d="M285 307H330"/><path class="arrow" d="M550 307H595"/><path class="arrow" d="M815 307H860"/><path class="arrow" d="M1080 307H1125"/><path class="arrow" d="M1315 307H1360"/>
+
+  <line class="divider" x1="80" y1="450" x2="1520" y2="450"/>
+  <text class="label" x="80" y="490">신뢰성 규칙</text>
+  <text class="body" x="80" y="522">① 지정 결정자의 명시 문장은 ‘결정됨·Notion 미반영’으로 기록할 수 있지만, 원문에 없는 범위까지 확장하지 않습니다.</text>
+  <text class="body" x="80" y="550">② 모호한 Slack 문장은 ‘해석 후보’이며 상태·병목·영향 인원 수치를 바꾸지 않습니다.</text>
+  <text class="body" x="80" y="578">③ 일부 채널 수집 실패 시 실패 채널과 마지막 성공 시각을 표시하고 프로젝트를 ‘완전 수집’으로 표시하지 않습니다.</text>
+  <text class="body" x="80" y="606">④ 결정은 대기 → 결정됨 → 전파됨 → Notion 반영 확인 → 종료 순으로 닫고, 미반영이면 계속 첫 화면에 남깁니다.</text>
+  <text class="body" x="80" y="634">⑤ GPT 실패 시에도 원문, 진행 기준선, 규칙 판정, 결정·병목·충돌 큐는 그대로 표시합니다.</text>
+
+  <rect class="panel" x="50" y="750" width="1500" height="105" rx="14"/>
+  <text class="label" x="80" y="790">사람 확인과 재검증</text>
+  <text class="body" x="270" y="790">원문 확인 → 해석·연결 승인 → Notion 반영 → 다음 오전 수집에서 반영 여부와 병목 해소 재검증</text>
+  <text class="small" x="270" y="820">수동 새로고침도 같은 파이프라인을 실행하며, 메시지 수와 작성량은 생산성 지표로 사용하지 않습니다.</text>
+  <path class="feedback" d="M1440 750V690H970V400"/>
+</svg>

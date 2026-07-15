@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://molip.local/schemas/dashboard-summary.schema.json",
+  "title": "Dashboard GPT Narrative",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "headline",
+    "decisionBriefs",
+    "contextRequestBriefs",
+    "bottleneckBriefs",
+    "deltaBriefs",
+    "projectBriefs",
+    "slackSignalBriefs",
+    "dataWarnings"
+  ],
+  "properties": {
+    "headline": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "decisionBriefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["decisionId", "whyNow", "recommendationSummary", "evidenceIds"],
+        "properties": {
+          "decisionId": { "type": "string", "minLength": 1 },
+          "whyNow": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "recommendationSummary": { "type": "string", "maxLength": 240 },
+          "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+        }
+      }
+    },
+    "contextRequestBriefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId", "summary", "evidenceIds"],
+        "properties": {
+          "requestId": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+        }
+      }
+    },
+    "bottleneckBriefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["bottleneckId", "summary", "evidenceIds"],
+        "properties": {
+          "bottleneckId": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+        }
+      }
+    },
+    "deltaBriefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["deltaId", "summary", "evidenceIds"],
+        "properties": {
+          "deltaId": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+        }
+      }
+    },
+    "projectBriefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["projectId", "oneLineSummary", "attentionReason", "evidenceIds"],
+        "properties": {
+          "projectId": { "type": "string", "minLength": 1 },
+          "oneLineSummary": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "attentionReason": { "type": "string", "maxLength": 240 },
+          "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+        }
+      }
+    },
+    "slackSignalBriefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["signalId", "summary", "evidenceIds"],
+        "properties": {
+          "signalId": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+        }
+      }
+    },
+    "dataWarnings": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+    }
+  },
+  "$defs": {
+    "evidenceIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

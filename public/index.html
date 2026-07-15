@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>몰입 업무현황 대시보드</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="head-left">
+    <h1>📊 업무현황 대시보드</h1>
+    <span id="meta"></span>
+    <span id="sampleBadge" class="badge warn hidden">샘플 데이터</span>
+  </div>
+  <div class="head-right">
+    <span id="collectState"></span>
+    <button id="refreshBtn">↻ 새로고침 (재수집)</button>
+  </div>
+</header>
+
+<div id="errors" class="hidden"></div>
+
+<section id="overall" class="hidden">
+  <div id="trustLine" class="trust-line"></div>
+  <div id="kpis" class="kpis"></div>
+  <div id="aiOverall"></div>
+</section>
+
+<nav id="tabs">
+  <button data-tab="projects" class="active">프로젝트</button>
+  <button data-tab="risks">리스크 · 결정</button>
+  <button data-tab="people">팀 · 개인</button>
+  <button data-tab="feed">회의 · 슬랙</button>
+</nav>
+
+<main>
+  <div id="tab-projects" class="tab"></div>
+  <div id="tab-risks" class="tab hidden"></div>
+  <div id="tab-people" class="tab hidden"></div>
+  <div id="tab-feed" class="tab hidden"></div>
+</main>
+
+<div id="empty" class="hidden">
+  <h2>아직 데이터가 없습니다</h2>
+  <p><code>.env</code> 설정 후 <b>새로고침</b> 버튼을 누르면 노션·슬랙에서 수집을 시작합니다.</p>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

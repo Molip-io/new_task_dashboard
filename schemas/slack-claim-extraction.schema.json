@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://molip.local/schemas/slack-claim-extraction.schema.json",
+  "title": "Slack Claim Extraction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["claims"],
+  "properties": {
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "messageId",
+          "threadTs",
+          "authorId",
+          "channelId",
+          "permalink",
+          "claimType",
+          "explicitness",
+          "subjectText",
+          "actionOrState",
+          "objectText",
+          "excerpt",
+          "projectCandidateIds",
+          "specCandidateIds",
+          "taskCandidateIds",
+          "requiresHumanConfirmation",
+          "reason"
+        ],
+        "properties": {
+          "messageId": { "type": "string", "minLength": 1 },
+          "threadTs": { "type": ["string", "null"] },
+          "authorId": { "type": "string", "minLength": 1 },
+          "channelId": { "type": "string", "minLength": 1 },
+          "permalink": { "type": ["string", "null"], "format": "uri" },
+          "claimType": {
+            "enum": ["decision", "scope", "due_date", "owner", "dependency", "blocker_waiting", "status_change"]
+          },
+          "explicitness": { "enum": ["explicit", "interpretation_candidate"] },
+          "subjectText": { "type": "string", "maxLength": 160 },
+          "actionOrState": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "objectText": { "type": "string", "maxLength": 240 },
+          "excerpt": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "projectCandidateIds": { "$ref": "#/$defs/idCandidates" },
+          "specCandidateIds": { "$ref": "#/$defs/idCandidates" },
+          "taskCandidateIds": { "$ref": "#/$defs/idCandidates" },
+          "requiresHumanConfirmation": { "type": "boolean" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 240 }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "explicitness": { "const": "interpretation_candidate" } },
+              "required": ["explicitness"]
+            },
+            "then": {
+              "properties": { "requiresHumanConfirmation": { "const": true } }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "idCandidates": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

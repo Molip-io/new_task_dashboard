@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1180" viewBox="0 0 1600 1180" role="img" aria-labelledby="title desc">
+  <title id="title">업무현황 대시보드 실제 워크플로우와 목표 워크플로우 비교</title>
+  <desc id="desc">현재 구현은 노션과 슬랙을 평면 작업 데이터로 합치고 AI가 상태를 판단한다. 목표 구현은 출처별 증거를 보존하고 스펙 및 의존관계 그래프와 규칙 엔진으로 결정, 병목, 변화를 산출한다.</desc>
+  <defs>
+    <style>
+      .bg{fill:#0b0f14}.panel{fill:#111821;stroke:#273241;stroke-width:2}.node{fill:#18212c;stroke:#405066;stroke-width:2}.ok{stroke:#36c98f}.partial{stroke:#f0b84b}.missing{stroke:#ef6b73}.decision{fill:#1a2230;stroke:#5ba4ff}.title{fill:#f4f7fb;font:700 30px system-ui,-apple-system,"Noto Sans KR",sans-serif}.subtitle{fill:#a9b4c3;font:400 15px system-ui,-apple-system,"Noto Sans KR",sans-serif}.lane{fill:#f4f7fb;font:700 22px system-ui,-apple-system,"Noto Sans KR",sans-serif}.label{fill:#f4f7fb;font:700 16px system-ui,-apple-system,"Noto Sans KR",sans-serif}.body{fill:#cbd3dd;font:400 13px system-ui,-apple-system,"Noto Sans KR",sans-serif}.small{fill:#8f9bac;font:400 12px system-ui,-apple-system,"Noto Sans KR",sans-serif}.red{fill:#ff8990}.amber{fill:#f5c660}.green{fill:#61d9a7}.blue{fill:#77b7ff}.arrow{stroke:#65758a;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.badArrow{stroke:#ef6b73;stroke-width:2.5;fill:none;stroke-dasharray:8 7;marker-end:url(#arrowRed)}.goodArrow{stroke:#5ba4ff;stroke-width:2.5;fill:none;marker-end:url(#arrowBlue)}.divider{stroke:#273241;stroke-width:2}.tag{font:700 11px system-ui,-apple-system,"Noto Sans KR",sans-serif}.num{fill:#0b0f14;font:800 13px system-ui,-apple-system,"Noto Sans KR",sans-serif}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#65758a"/></marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ef6b73"/></marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#5ba4ff"/></marker>
+  </defs>
+
+  <rect class="bg" width="1600" height="1180"/>
+  <text class="title" x="70" y="62">업무현황 대시보드 워크플로우 점검</text>
+  <text class="subtitle" x="70" y="91">결론: 화면 렌더링은 동작하지만, 의사결정·병목 시스템의 핵심 데이터 흐름은 아직 연결되지 않았습니다.</text>
+
+  <rect class="panel" x="50" y="125" width="1500" height="410" rx="16"/>
+  <text class="lane" x="80" y="165">A. 현재 실제로 동작하는 흐름</text>
+
+  <rect class="node ok" x="80" y="205" width="200" height="120" rx="12"/>
+  <text class="label" x="105" y="240">Notion</text>
+  <text class="body" x="105" y="267">작업 DB · 회의 목록</text>
+  <text class="body" x="105" y="289">요약 DB · 프로젝트 설정</text>
+  <text class="small red" x="105" y="312">회의 본문·relation 미수집</text>
+
+  <rect class="node partial" x="80" y="350" width="200" height="120" rx="12"/>
+  <text class="label" x="105" y="385">Slack</text>
+  <text class="body" x="105" y="412">채널 상위 메시지 수집</text>
+  <text class="body" x="105" y="434">사용자 이름 변환</text>
+  <text class="small red" x="105" y="457">스레드·permalink 미수집</text>
+
+  <rect class="node partial" x="355" y="255" width="235" height="160" rx="12"/>
+  <text class="label" x="380" y="290">collect.mjs</text>
+  <text class="body" x="380" y="317">평면 task 배열로 변환</text>
+  <text class="body" x="380" y="339">프로젝트별 건수·지연 계산</text>
+  <text class="body" x="380" y="361">매번 dashboard.json 덮어쓰기</text>
+  <text class="small red" x="380" y="390">스펙·선행·후속 관계 소실</text>
+
+  <rect class="node partial" x="670" y="255" width="235" height="160" rx="12"/>
+  <text class="label" x="695" y="290">Claude 요약</text>
+  <text class="body" x="695" y="317">상태·블로커·결정을 동시에 생성</text>
+  <text class="body" x="695" y="339">정상 / 주의 / 개입필요</text>
+  <text class="small red" x="695" y="370">근거 ID·스키마 검증 없음</text>
+  <text class="small red" x="695" y="392">출처 충돌도 AI 문장에 합쳐짐</text>
+
+  <rect class="node ok" x="985" y="205" width="240" height="120" rx="12"/>
+  <text class="label" x="1010" y="240">server.mjs API</text>
+  <text class="body" x="1010" y="267">dashboard · status · refresh</text>
+  <text class="body" x="1010" y="289">샘플 fallback · 일일 스케줄</text>
+
+  <rect class="node partial" x="985" y="350" width="240" height="120" rx="12"/>
+  <text class="label" x="1010" y="385">현재 앱 UI</text>
+  <text class="body" x="1010" y="412">프로젝트 · 리스크 · 업무량</text>
+  <text class="small red" x="1010" y="440">결정 질문은 숨은 탭에 위치</text>
+
+  <rect class="node missing" x="1300" y="255" width="205" height="160" rx="12"/>
+  <text class="label" x="1325" y="290">새 프로토타입</text>
+  <text class="body" x="1325" y="317">탭 전환 · 선택 강조</text>
+  <text class="small red" x="1325" y="348">결정 기록 연결 없음</text>
+  <text class="small red" x="1325" y="370">확인 요청 연결 없음</text>
+  <text class="small red" x="1325" y="392">실데이터 연결 없음</text>
+
+  <path class="arrow" d="M280 265 H355"/>
+  <path class="arrow" d="M280 410 H320 V365 H355"/>
+  <path class="arrow" d="M590 335 H670"/>
+  <path class="arrow" d="M905 335 H945 V265 H985"/>
+  <path class="arrow" d="M1105 325 V350"/>
+  <path class="badArrow" d="M1225 410 H1260 V335 H1300"/>
+
+  <rect class="panel" x="50" y="570" width="1500" height="520" rx="16"/>
+  <text class="lane" x="80" y="610">B. 의사결정을 실제로 지원하려면 필요한 흐름</text>
+
+  <rect class="node ok" x="80" y="655" width="205" height="170" rx="12"/>
+  <text class="label" x="105" y="690">출처별 원본 증거</text>
+  <text class="body" x="105" y="717">Notion 구조화 데이터</text>
+  <text class="body" x="105" y="739">Slack 스레드 + 링크</text>
+  <text class="body" x="105" y="761">회의 본문 + 링크</text>
+  <text class="small" x="105" y="793">최신 출처를 임의로 승자 처리하지 않음</text>
+
+  <rect class="node missing" x="350" y="655" width="230" height="170" rx="12"/>
+  <text class="label" x="375" y="690">정규화 관계 그래프</text>
+  <text class="body" x="375" y="717">프로젝트 → 핵심 스펙</text>
+  <text class="body" x="375" y="739">스펙 → 파트 작업</text>
+  <text class="body" x="375" y="761">선행 → 후속 의존관계</text>
+  <text class="small red" x="375" y="793">현재 데이터 모델에 없음</text>
+
+  <rect class="node missing" x="645" y="635" width="230" height="105" rx="12"/>
+  <text class="label" x="670" y="670">충돌 탐지</text>
+  <text class="body" x="670" y="697">출처·내용을 함께 보존</text>
+  <text class="small red" x="670" y="720">확인 필요 큐 생성</text>
+
+  <rect class="node missing" x="645" y="765" width="230" height="105" rx="12"/>
+  <text class="label" x="670" y="800">규칙 엔진</text>
+  <text class="body" x="670" y="827">실제 대기 / 재작업 위험</text>
+  <text class="small red" x="670" y="850">명시 관계만 병목 계산</text>
+
+  <rect class="node missing" x="940" y="655" width="235" height="170" rx="12"/>
+  <text class="label" x="965" y="690">운영 큐</text>
+  <text class="body" x="965" y="717">오늘 결정할 것</text>
+  <text class="body" x="965" y="739">현재 막힌 것</text>
+  <text class="body" x="965" y="761">어제와 달라진 것</text>
+  <text class="body" x="965" y="783">확인 필요</text>
+  <text class="small red" x="965" y="806">스냅샷·delta 현재 없음</text>
+
+  <rect class="decision" x="1240" y="635" width="265" height="210" rx="12"/>
+  <text class="label" x="1265" y="670">대표 브리핑 UI</text>
+  <text class="body" x="1265" y="700">1. 오늘 결정할 것</text>
+  <text class="body" x="1265" y="724">2. 현재 막힌 것</text>
+  <text class="body" x="1265" y="748">3. 어제와 달라진 것</text>
+  <text class="body" x="1265" y="772">개인: 누가 누구를 기다리는지</text>
+  <text class="small amber" x="1265" y="807">화면만 프로토타입으로 존재</text>
+
+  <rect class="node missing" x="940" y="905" width="235" height="120" rx="12"/>
+  <text class="label" x="965" y="940">결정 수명주기</text>
+  <text class="body" x="965" y="967">open → decided → communicated</text>
+  <text class="body" x="965" y="989">→ verified → closed / reopened</text>
+
+  <rect class="node missing" x="1240" y="905" width="265" height="120" rx="12"/>
+  <text class="label" x="1265" y="940">기록·재검증</text>
+  <text class="body" x="1265" y="967">결정 결과 저장 · 관련 작업 갱신</text>
+  <text class="body" x="1265" y="989">다음 수집에서 병목 해소 확인</text>
+
+  <path class="goodArrow" d="M285 740 H350"/>
+  <path class="goodArrow" d="M580 705 H645"/>
+  <path class="goodArrow" d="M580 785 H645"/>
+  <path class="goodArrow" d="M875 688 H940"/>
+  <path class="goodArrow" d="M875 818 H940"/>
+  <path class="goodArrow" d="M1175 740 H1240"/>
+  <path class="goodArrow" d="M1372 845 V885 H1175 V925"/>
+  <path class="goodArrow" d="M1175 965 H1240"/>
+  <path class="goodArrow" d="M1372 1025 V1055 H760 V870"/>
+
+  <line class="divider" x1="70" y1="1120" x2="1530" y2="1120"/>
+  <circle cx="90" cy="1148" r="8" fill="#36c98f"/><text class="small" x="108" y="1153">동작 확인</text>
+  <circle cx="225" cy="1148" r="8" fill="#f0b84b"/><text class="small" x="243" y="1153">부분 구현</text>
+  <circle cx="360" cy="1148" r="8" fill="#ef6b73"/><text class="small" x="378" y="1153">미구현 또는 연결 없음</text>
+  <text class="small" x="1160" y="1153">점검 기준: 2026-07-14 · 샘플 모드 실행 + 코드 추적</text>
+</svg>

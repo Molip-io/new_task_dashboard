@@ -1,0 +1,13 @@
+.env
+data/*
+!data/dashboard.sample.json
+!data/.gitkeep
+node_modules/
+._*
+.DS_Store
+.gstack/
+.claude/
+.tmp/
+graphify-out/
+tools/__pycache__/
+decision-dashboard.zip

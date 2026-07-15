@@ -1,0 +1,10 @@
+{
+  "port": 5678,
+  "scheduleTime": "07:30",
+  "slackDaysDefault": 3,
+  "notion": {
+    "projectListDbId": "27eb4a46-5003-8016-a5fe-f8ce4bff328c",
+    "summaryDbId": "351b4a46-5003-80ff-8b85-f772cb93da32",
+    "masterWorkDbId": "ad7f7eab-8df5-4fb0-9e5e-0133bffc9e88"
+  }
+}
