@@ -5,7 +5,8 @@ import path from 'node:path';
 import { loadEnv, loadConfig, ROOT } from './lib/env.mjs';
 import { collectNotionData } from './lib/notion-collector.mjs';
 import { channelHistory } from './lib/slack.mjs';
-import { collectGitActivity } from './lib/git-activity.mjs';
+import { collectGitActivity, collectGitHubActivity } from './lib/git-activity.mjs';
+import { resolveGitRepositories } from './lib/git-repositories.mjs';
 import { buildBaseDashboard } from './lib/base-dashboard.mjs';
 import { validateWorkManagement } from './lib/work-validation.mjs';
 import { buildManagementDashboard } from './lib/dashboard-model.mjs';
@@ -43,13 +44,6 @@ async function collectSlack(projects, errors) {
   return out;
 }
 
-function gitRepositories() {
-  return (config.git?.repositories || []).map(repository => ({
-    ...repository,
-    path: path.isAbsolute(repository.path) ? repository.path : path.resolve(ROOT, repository.path),
-  }));
-}
-
 async function main() {
   writeStatus('running');
   const errors = [];
@@ -65,7 +59,18 @@ async function main() {
     console.log('▶ Slack 대화 수집...');
     const slack = await collectSlack(notion.projects, errors);
     console.log('▶ Git 활동 수집...');
-    const git = collectGitActivity({ repositories: gitRepositories(), tasks, sinceDays: config.git?.sinceDays || 30 });
+    const repositorySources = resolveGitRepositories({
+      projects: notion.projects,
+      configured: config.git?.repositories || [],
+      root: ROOT,
+    });
+    const localGit = collectGitActivity({ repositories: repositorySources.local, tasks, sinceDays: config.git?.sinceDays || 30 });
+    const remoteGit = await collectGitHubActivity({ repositories: repositorySources.remote, tasks, sinceDays: config.git?.sinceDays || 30 });
+    const git = {
+      repositories: [...localGit.repositories, ...remoteGit.repositories],
+      commits: [...localGit.commits, ...remoteGit.commits].sort((left, right) => (right.committedAt || '').localeCompare(left.committedAt || '')),
+      errors: [...localGit.errors, ...remoteGit.errors],
+    };
     errors.push(...git.errors);
 
     const now = new Date().toISOString();
@@ -74,6 +79,7 @@ async function main() {
       tasks,
       projects: notion.projects,
       gitActivity: git.commits,
+      gitRepositories: git.repositories,
       previousSnapshot,
       now,
       staleBusinessDays: config.staleBusinessDays || 3,

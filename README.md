@@ -29,14 +29,16 @@ node server.mjs          # http://localhost:5678
 
 ### 3. .env 작성
 ```bash
-cp .env.example .env   # 열어서 두 토큰 입력
+cp .env.example .env   # 열어서 Notion·Slack·GitHub 토큰 입력
 ```
 
 퇴사자 Notion 사용자 ID는 `.env`의 `IGNORED_NOTION_USER_IDS`에 쉼표로 추가합니다. 해당 사용자만 연결된 진행 중 작업항목은 숨기지 않고 `담당자 재지정 필요`로 표시합니다.
 
 ### 4. Git 저장소 연결
 
-`config.json`의 `git.repositories`에 프로젝트별 로컬 저장소를 연결합니다.
+Notion **프로젝트 리스트 DB**의 `git` 속성에 GitHub 저장소 URL을 입력합니다. 대시보드는 저장소를 복제하지 않고 GitHub API로 기본 브랜치, 최근 push, 열린 PR의 활동을 수집합니다. 비공개 저장소는 `.env`의 `GITHUB_TOKEN`에 `repo` 읽기 권한이 필요하며, 로컬에서는 토큰이 없을 때 현재 `gh` 로그인을 보조 수단으로 사용합니다.
+
+`config.json`의 `git.repositories`는 특정 프로젝트를 로컬 저장소로 대체해야 할 때만 사용합니다.
 
 ```json
 "git": {
@@ -47,7 +49,7 @@ cp .env.example .env   # 열어서 두 토큰 입력
 }
 ```
 
-작업항목과 커밋을 연결하려면 Notion 작업항목의 `Git 키` 속성 값을 커밋 제목에 포함합니다. Git은 진행 근거일 뿐이며 Git 활동만으로 Notion 상태를 자동 변경하지 않습니다.
+작업항목과 커밋을 연결하려면 Notion 작업항목의 `Git 키` 속성 값을 커밋 제목에 포함합니다. 연결되지 않은 커밋은 프로젝트별 한 건의 관리 항목으로 집계합니다. Git은 진행 근거일 뿐이며 Git 활동만으로 Notion 상태를 자동 변경하지 않습니다.
 
 ## 데이터 갱신
 
@@ -65,7 +67,7 @@ collect.mjs
  │   ├─ "회의록" DB 자동 탐색   → 최근 14일 회의
  │   └─ 업무현황 요약 DB       → 기존 에이전트 요약 재활용
  ├─ Slack API → 프로젝트 채널 최근 N일 대화
- ├─ Git → 최근 커밋·작성자·메시지·변경 파일·브랜치 수집
+ ├─ GitHub API → Notion의 git URL에서 최근 커밋·push·PR 활동 수집
  ├─ 규칙 처리
  │   ├─ `요약`이 체크된 프로젝트만 포함
  │   ├─ `일시 정지` 스펙·일감과 그 하위 일감은 수집 결과에서 제외

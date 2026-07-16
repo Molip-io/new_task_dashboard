@@ -14,6 +14,7 @@ const tasks = [
     parentIds: [],
     dependencyReviewStatus: '확정',
     core: true,
+    sprint: 'Sprint61',
   },
   {
     id: 'task-1',
@@ -73,6 +74,7 @@ test('Given a top-level task and its children, When specs are built, Then hierar
   assert.equal(specs[0].childStats.done, 0);
   assert.equal(specs[0].childStats.unassigned, 1);
   assert.equal(specs[0].dependencyReviewStatus, 'confirmed');
+  assert.equal(specs[0].sprint, 'Sprint61');
 });
 
 test('Given a relation-none confirmation, When specs are built, Then it counts as reviewed coverage', () => {
