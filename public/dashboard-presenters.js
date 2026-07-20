@@ -1,7 +1,6 @@
 import { groupIssuesByProjectItem } from './dashboard-view-model.js';
 import { briefingDetailItems, gitRepositoryStatus, issuePresentation, primaryActionSummary } from './dashboard-management.js';
 
-const SEVERITY = { error: '🔴', warning: '🟠', check: '🟡', info: '🔵' };
 const SEVERITY_RANK = { error: 0, warning: 1, check: 2, info: 3 };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 const safeUrl = value => /^(https?:\/\/|#)/.test(String(value || '')) ? value : '#';
@@ -25,7 +24,7 @@ export function issueGroupRowHtml(group, dashboard) {
   const summary = primaryActionSummary(issues);
   const categories = [...new Set(issues.map(issue => issuePresentation(issue).categoryLabel))];
   const detectedAt = issues.map(issue => issue.detectedAt).filter(Boolean).sort().at(-1);
-  return `<details class="issue-row ${esc(group.severity)}"><summary><strong>${SEVERITY[group.severity] || '•'} ${esc(title)} · ${esc(summary.label)}</strong><small>${esc(context)} · ${esc(categories.join(' · '))}${detectedAt ? ` · 감지 ${fmt(detectedAt)}` : ''}</small></summary><div class="management-actions">${issues.map(issue => managementActionHtml(issue, item?.url || spec?.url || commit?.url)).join('')}</div></details>`;
+  return `<details class="issue-row ${esc(group.severity)}"><summary><strong><span class="dot ${esc(group.severity)}"></span>${esc(title)} · ${esc(summary.label)}</strong><small>${esc(context)} · ${esc(categories.join(' · '))}${detectedAt ? ` · 감지 ${fmt(detectedAt)}` : ''}</small></summary><div class="management-actions">${issues.map(issue => managementActionHtml(issue, item?.url || spec?.url || commit?.url)).join('')}</div></details>`;
 }
 
 function kpi(key, value, label, tone, selectedDetail) {
@@ -56,9 +55,9 @@ export function briefingHtml(dashboard, selectedDetail, taskRows) {
   const decisions = [...(dashboard.ai?.overall?.decisionsForCEO || []), ...dashboard.projects.filter(project => project.notionSummary?.decision).map(project => ({ project: project.name, question: project.notionSummary.decision, context: 'Notion 업무현황 요약' }))];
   const priorityIssues = groupIssuesByProjectItem(dashboard.validationIssues).flatMap(group => group.items).sort((left, right) => (SEVERITY_RANK[left.severity] ?? 9) - (SEVERITY_RANK[right.severity] ?? 9)).slice(0, 5);
   return `<div class="section-head"><div><h2>오늘의 업무 브리핑</h2><p>판단할 것 → 관리상 막힌 것 → 어제와 달라진 것 순서입니다. 이 화면은 읽기 전용입니다.</p></div></div>
-    <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}</div>
+    <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', '', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', '', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}</div>
     ${briefingDetailHtml(dashboard, selectedDetail, taskRows)}
     <div class="card briefing-section"><h3>1. 대표가 확인할 판단</h3><div class="decision-list">${decisions.length ? decisions.slice(0, 5).map(item => `<div class="decision"><strong>[${esc(item.project)}] ${esc(item.question)}</strong><small>${esc(item.context || '')}</small></div>`).join('') : '<div class="summary">명시된 판단 안건이 없습니다.</div>'}</div></div>
     <div class="grid-2"><div class="card"><h3>2. 현재 관리상 막힌 것</h3><div class="issue-list">${priorityIssues.length ? priorityIssues.map(group => issueGroupRowHtml(group, dashboard)).join('') : '<div class="summary">즉시 확인할 문제가 없습니다.</div>'}</div></div>
-    <div class="card"><h3>3. 어제와 달라진 것</h3>${dashboard.deltas.length ? dashboard.deltas.slice(0, 5).map(delta => `<div class="issue-row info"><strong>🔵 [${esc(delta.project)}] ${esc(delta.taskTitle || '프로젝트')} · ${esc(delta.field)}</strong><small>${esc(JSON.stringify(delta.from))} → ${esc(JSON.stringify(delta.to))}</small></div>`).join('') : `<div class="summary">${esc(dashboard.snapshotComparison?.reason || '변화가 감지되지 않았습니다.')}</div>`}</div></div>`;
+    <div class="card"><h3>3. 어제와 달라진 것</h3>${dashboard.deltas.length ? dashboard.deltas.slice(0, 5).map(delta => `<div class="issue-row info"><strong><span class="dot info"></span>[${esc(delta.project)}] ${esc(delta.taskTitle || '프로젝트')} · ${esc(delta.field)}</strong><small>${esc(JSON.stringify(delta.from))} → ${esc(JSON.stringify(delta.to))}</small></div>`).join('') : `<div class="summary">${esc(dashboard.snapshotComparison?.reason || '변화가 감지되지 않았습니다.')}</div>`}</div></div>`;
 }
