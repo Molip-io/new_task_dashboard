@@ -351,6 +351,14 @@ function activateTab(tab) {
 }
 
 document.querySelectorAll('#tabs button').forEach(button => button.onclick = () => activateTab(button.dataset.tab));
+function syncThemeToggle() { $('#themeToggle').textContent = document.documentElement.dataset.theme === 'light' ? '다크 모드' : '라이트 모드'; }
+$('#themeToggle').onclick = () => {
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('dashboard-theme', next);
+  syncThemeToggle();
+};
+syncThemeToggle();
 $('#refreshBtn').onclick = async () => {
   const button = $('#refreshBtn');
   const stateLabel = $('#collectState');

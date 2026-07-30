@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>몰입 업무현황 대시보드</title>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem('dashboard-theme')
+      || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,6 +20,7 @@
     <div class="header-actions">
       <span id="sampleBadge" class="badge check hidden">샘플 데이터</span>
       <span id="collectState" class="muted"></span>
+      <button id="themeToggle" aria-label="테마 전환"></button>
       <button id="refreshBtn">데이터 다시 수집</button>
     </div>
   </header>
@@ -37,6 +42,10 @@
     <section id="tab-checks" class="tab hidden"></section>
   </main>
 
+  <div id="loading" class="empty">
+    <h2>데이터를 불러오는 중…</h2>
+    <p>마지막 수집 결과를 여는 중입니다.</p>
+  </div>
   <div id="empty" class="empty hidden">
     <h2>아직 수집된 데이터가 없습니다</h2>
     <p><code>.env</code>를 설정한 뒤 데이터 다시 수집을 누르세요.</p>
