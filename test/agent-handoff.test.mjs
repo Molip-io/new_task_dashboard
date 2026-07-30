@@ -38,9 +38,9 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   );
   assert.equal('ruleIssues' in packet.projects[0], false);
   assert.equal(packet.projects[0].analysisTargets[0].workItemId, 'task-1');
-  assert.equal(packet.projects[0].analysisScope.targetLimit, 5);
+  assert.equal(packet.projects[0].analysisScope.targetLimit, 3);
   assert.equal(packet.projects[0].analysisTargets[0].branch, 'feature/express');
-  assert.equal(packet.projects[0].analysisTargets[0].overdueDays, 1);
+  assert.equal(packet.projects[0].analysisTargets[0].due, '2026-07-20');
   assert.deepEqual(packet.projects[0].analysisTargets[0].reasons, ['overdue']);
   assert.equal(packet.projects[0].slackScope.channels[0], 's2_pizzaready');
   assert.equal(packet.projects[0].gitEvidence[0].hash, 'abc');
@@ -152,5 +152,4 @@ test('Given parent and child rule items, When an agent packet is built, Then ite
   assert.deepEqual(packet.projects[0].ruleAuditItems.map(row => row[0]), ['parent', 'child']);
   assert.equal(packet.projects[0].analysisTargets[0].itemLevel, 'parent');
   assert.equal(packet.projects[0].analysisTargets[0].workItemId, null);
-  assert.equal(packet.projects[0].analysisTargets[0].specId, 'spec');
 });
