@@ -30,7 +30,7 @@ function fakeGitHub(responses) {
       const route = Object.entries(responses).find(([suffix]) => String(url).endsWith(suffix));
       if (!route) return new Response(JSON.stringify({ message: 'missing fixture' }), { status: 500 });
       const value = typeof route[1] === 'function' ? route[1](url, options) : route[1];
-      return new Response(JSON.stringify(value.body), { status: value.status || 200 });
+      return new Response(JSON.stringify(value.body), { status: value.status || 200, headers: value.headers });
     },
   };
 }
@@ -86,6 +86,101 @@ test('Given a Notion GitHub URL with default, pushed, and PR commits, When activ
   });
   assert.equal(github.requests[0].options.headers.Authorization, 'Bearer environment-token');
   assert.deepEqual(result.errors, []);
+});
+
+test('Given work items with exact and similar branch names, When GitHub activity is collected, Then matching branch histories are fetched and mapped', async () => {
+  const exact = githubCommit('exact-sha', 'implement exact branch', '2026-07-15T02:00:00Z', ['exact.js']);
+  const similar = githubCommit('similar-sha', 'implement reward balance', '2026-07-15T03:00:00Z', ['reward.js']);
+  const github = fakeGitHub({
+    '/repos/Molip-io/game': { body: { name: 'game', full_name: 'Molip-io/game', html_url: 'https://github.com/Molip-io/game', default_branch: 'main' } },
+    '/repos/Molip-io/game/commits?sha=main&since=2026-06-16T00%3A00%3A00.000Z&per_page=100': { body: [] },
+    '/repos/Molip-io/game/events?per_page=100': { body: [] },
+    '/repos/Molip-io/game/pulls?state=open&sort=updated&direction=desc&per_page=100': { body: [] },
+    '/repos/Molip-io/game/branches?per_page=100': { body: [
+      { name: 'main', commit: { sha: 'main-sha' } },
+      { name: 'feature/exact', commit: { sha: 'exact-sha' } },
+      { name: 'feature/pizza-42-reward', commit: { sha: 'similar-sha' } },
+    ] },
+    '/repos/Molip-io/game/commits?sha=feature%2Fexact&since=2026-06-16T00%3A00%3A00.000Z&per_page=25': { body: [exact] },
+    '/repos/Molip-io/game/commits?sha=feature%2Fpizza-42-reward&since=2026-06-16T00%3A00%3A00.000Z&per_page=25': { body: [similar] },
+    '/repos/Molip-io/game/commits/exact-sha': { body: exact },
+    '/repos/Molip-io/game/commits/similar-sha': { body: similar },
+  });
+
+  const result = await gitActivity.collectGitHubActivity({
+    repositories: [{ project: '피자레디', gitUrl: 'https://github.com/Molip-io/game.git', source: 'notion' }],
+    tasks: [
+      { id: 'exact-work', project: '피자레디', branch: 'feature/exact' },
+      { id: 'similar-work', project: '피자레디', branch: 'pizza-42 reward' },
+    ],
+    fetchImpl: github.fetchImpl,
+    env: { GITHUB_TOKEN: 'environment-token' },
+    now: () => new Date('2026-07-16T00:00:00Z'),
+  });
+
+  assert.deepEqual(result.commits.map(commit => commit.hash), ['similar-sha', 'exact-sha']);
+  assert.deepEqual(result.commits.map(commit => commit.workItemId), ['similar-work', 'exact-work']);
+  assert.deepEqual(result.commits.map(commit => commit.branch), ['feature/pizza-42-reward', 'feature/exact']);
+  assert.deepEqual(result.repositories[0].requestedBranches, ['feature/exact', 'pizza-42 reward']);
+  assert.deepEqual(result.repositories[0].matchedBranches, ['feature/exact', 'feature/pizza-42-reward']);
+  assert.deepEqual(result.repositories[0].unmatchedBranches, []);
+  assert.deepEqual(result.repositories[0].branchMatches, [
+    { requested: 'feature/exact', actual: 'feature/exact', matchType: 'exact' },
+    { requested: 'pizza-42 reward', actual: 'feature/pizza-42-reward', matchType: 'normalized' },
+  ]);
+  assert.equal(result.repositories[0].status, 'ok');
+  assert.deepEqual(result.errors, []);
+});
+
+test('Given a requested work branch that does not safely match, When GitHub activity is collected, Then the repository reports a partial branch gap', async () => {
+  const github = fakeGitHub({
+    '/repos/Molip-io/game': { body: { name: 'game', full_name: 'Molip-io/game', html_url: 'https://github.com/Molip-io/game', default_branch: 'main' } },
+    '/repos/Molip-io/game/commits?sha=main&since=2026-06-16T00%3A00%3A00.000Z&per_page=100': { body: [] },
+    '/repos/Molip-io/game/events?per_page=100': { body: [] },
+    '/repos/Molip-io/game/pulls?state=open&sort=updated&direction=desc&per_page=100': { body: [] },
+    '/repos/Molip-io/game/branches?per_page=100': { body: [{ name: 'main', commit: { sha: 'main-sha' } }] },
+  });
+
+  const result = await gitActivity.collectGitHubActivity({
+    repositories: [{ project: '피자레디', gitUrl: 'https://github.com/Molip-io/game.git' }],
+    tasks: [{ id: 'missing-work', project: '피자레디', branch: 'feature/missing-work' }],
+    fetchImpl: github.fetchImpl,
+    env: { GITHUB_TOKEN: 'environment-token' },
+    now: () => new Date('2026-07-16T00:00:00Z'),
+  });
+
+  assert.equal(result.repositories[0].status, 'partial');
+  assert.deepEqual(result.repositories[0].unmatchedBranches, ['feature/missing-work']);
+  assert.match(result.errors.join('\n'), /branch not found: feature\/missing-work/);
+});
+
+test('Given a requested branch on a later GitHub branch page, When activity is collected, Then branch pagination finds it', async () => {
+  const paged = githubCommit('paged-sha', 'paged branch work', '2026-07-15T03:00:00Z');
+  const github = fakeGitHub({
+    '/repos/Molip-io/game': { body: { name: 'game', full_name: 'Molip-io/game', html_url: 'https://github.com/Molip-io/game', default_branch: 'main' } },
+    '/repos/Molip-io/game/commits?sha=main&since=2026-06-16T00%3A00%3A00.000Z&per_page=100': { body: [] },
+    '/repos/Molip-io/game/events?per_page=100': { body: [] },
+    '/repos/Molip-io/game/pulls?state=open&sort=updated&direction=desc&per_page=100': { body: [] },
+    '/repos/Molip-io/game/branches?per_page=100': {
+      body: [{ name: 'main', commit: { sha: 'main-sha' } }],
+      headers: { Link: '<https://api.github.com/repos/Molip-io/game/branches?per_page=100&page=2>; rel="next"' },
+    },
+    '/repos/Molip-io/game/branches?per_page=100&page=2': { body: [{ name: 'feature/paged-work', commit: { sha: 'paged-sha' } }] },
+    '/repos/Molip-io/game/commits?sha=feature%2Fpaged-work&since=2026-06-16T00%3A00%3A00.000Z&per_page=25': { body: [paged] },
+    '/repos/Molip-io/game/commits/paged-sha': { body: paged },
+  });
+
+  const result = await gitActivity.collectGitHubActivity({
+    repositories: [{ project: '피자레디', gitUrl: 'https://github.com/Molip-io/game.git' }],
+    tasks: [{ id: 'paged-work', project: '피자레디', branch: 'feature/paged-work' }],
+    fetchImpl: github.fetchImpl,
+    env: { GITHUB_TOKEN: 'environment-token' },
+    now: () => new Date('2026-07-16T00:00:00Z'),
+  });
+
+  assert.deepEqual(result.repositories[0].matchedBranches, ['feature/paged-work']);
+  assert.equal(result.commits[0].workItemId, 'paged-work');
+  assert.equal(result.repositories[0].status, 'ok');
 });
 
 test('Given no GITHUB_TOKEN and a repository without recent activity, When collection uses the local gh token, Then the repository is connected with zero commits', async () => {
@@ -214,6 +309,36 @@ test('Given a configured local repository, When Git activity is collected, Then 
   assert.equal(result.repositories[0].defaultBranch, 'main');
   assert.equal(result.repositories[0].mappedCommitCount, 1);
   assert.match(result.repositories[0].lastFetchedAt, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('Given a local work branch while main is checked out, When Git activity is collected, Then the work branch commit is mapped', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dashboard-git-branch-'));
+  execFileSync('git', ['init', '-b', 'main'], { cwd: directory });
+  execFileSync('git', ['config', 'user.name', 'Tester'], { cwd: directory });
+  execFileSync('git', ['config', 'user.email', 'tester@example.com'], { cwd: directory });
+  fs.writeFileSync(path.join(directory, 'base.txt'), 'base');
+  execFileSync('git', ['add', 'base.txt'], { cwd: directory });
+  execFileSync('git', ['commit', '-m', 'initial'], { cwd: directory });
+  execFileSync('git', ['switch', '-c', 'feature/pizza-42-reward'], { cwd: directory });
+  fs.writeFileSync(path.join(directory, 'reward.txt'), 'reward');
+  execFileSync('git', ['add', 'reward.txt'], { cwd: directory });
+  execFileSync('git', ['commit', '-m', 'implement reward'], { cwd: directory });
+  execFileSync('git', ['switch', 'main'], { cwd: directory });
+
+  const result = collectGitActivity({
+    repositories: [{ project: '피자레디', path: directory }],
+    tasks: [{ id: 'reward-work', project: '피자레디', branch: 'pizza-42 reward' }],
+    sinceDays: 30,
+  });
+
+  const rewardCommit = result.commits.find(commit => commit.message === 'implement reward');
+  const mainCommit = result.commits.find(commit => commit.message === 'initial');
+  assert.equal(rewardCommit.branch, 'feature/pizza-42-reward');
+  assert.equal(rewardCommit.workItemId, 'reward-work');
+  assert.equal(mainCommit.branch, 'main');
+  assert.equal(mainCommit.workItemId, null);
+  assert.deepEqual(result.repositories[0].matchedBranches, ['feature/pizza-42-reward']);
+  assert.equal(result.repositories[0].status, 'ok');
 });
 
 test('Given a repository without a selected project mapping, When Git activity is collected, Then its commits remain unmapped', () => {

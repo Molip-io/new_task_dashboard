@@ -14,7 +14,15 @@ test('Given two projects with connected repositories, When Git briefing details 
     ],
     git: { repositories: [
       { project: '포지 앤 포춘', remote: 'https://github.com/Molip-io/Forge', status: 'no-activity', commitCount: 0 },
-      { project: '피자레디', remote: 'https://github.com/MolipLtd/Pizza-Idle', status: 'ok', commitCount: 117, mappedCommitCount: 0 },
+      {
+        project: '피자레디',
+        remote: 'https://github.com/MolipLtd/Pizza-Idle',
+        status: 'ok',
+        commitCount: 117,
+        mappedCommitCount: 0,
+        matchedBranches: ['feature/pizza-reward'],
+        unmatchedBranches: ['feature/missing'],
+      },
     ] },
   };
 
@@ -23,4 +31,5 @@ test('Given two projects with connected repositories, When Git briefing details 
   assert.equal(html.match(/https:\/\/github\.com\/Molip-io\/Forge/g)?.length, 1);
   assert.equal(html.match(/https:\/\/github\.com\/MolipLtd\/Pizza-Idle/g)?.length, 1);
   assert.match(html, /피자레디 · 연결됨 · 최근 활동 있음/);
+  assert.match(html, /브랜치 feature\/pizza-reward · 미확인 feature\/missing/);
 });
