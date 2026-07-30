@@ -38,6 +38,7 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   );
   assert.equal('ruleIssues' in packet.projects[0], false);
   assert.equal(packet.projects[0].analysisTargets[0].workItemId, 'task-1');
+  assert.equal(packet.projects[0].analysisScope.targetLimit, 5);
   assert.equal(packet.projects[0].analysisTargets[0].branch, 'feature/express');
   assert.equal(packet.projects[0].analysisTargets[0].overdueDays, 1);
   assert.deepEqual(packet.projects[0].analysisTargets[0].reasons, ['overdue']);
