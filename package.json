@@ -6,7 +6,10 @@
   "engines": { "node": ">=18" },
   "scripts": {
     "start": "node server.mjs",
+    "test": "node --test",
     "collect": "node collect.mjs",
-    "collect:raw": "node collect.mjs --no-ai"
+    "collect:raw": "node collect.mjs --no-ai",
+    "collect:direct-ai": "AI_SUMMARY_PROVIDER=openai node collect.mjs",
+    "sync:agent-summary": "node sync-agent-summary.mjs"
   }
 }

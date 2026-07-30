@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1420" viewBox="0 0 1600 1420" role="img" aria-labelledby="title desc">
+  <title id="title">업무 대시보드 예전 워크플로우와 현재 워크플로우 비교</title>
+  <desc id="desc">예전에는 GPT 내장 에이전트가 Notion, Slack, Git을 읽고 Notion 요약 DB에 저장했다. 현재는 코드가 데이터를 수집하고 규칙으로 판정한 뒤 선택적으로 OpenAI API를 호출한다.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#8190aa"/></marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#ff766f"/></marker>
+    <style>
+      .bg { fill:#0b1020; }
+      .panel { fill:#111827; stroke:#2c3850; stroke-width:2; }
+      .oldHead { fill:#30224f; stroke:#9b7bff; stroke-width:2; }
+      .newHead { fill:#42232d; stroke:#ff766f; stroke-width:2; }
+      .node { fill:#182337; stroke:#52627f; stroke-width:1.5; }
+      .aiNode { fill:#352b55; stroke:#a889ff; stroke-width:1.5; }
+      .costNode { fill:#4a242c; stroke:#ff766f; stroke-width:2; }
+      .freeNode { fill:#19382f; stroke:#55c7a1; stroke-width:1.5; }
+      .mutedNode { fill:#202938; stroke:#68768e; stroke-width:1.5; }
+      .title { fill:#f5f7fb; font:700 30px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .subtitle { fill:#aeb8ca; font:400 15px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .panelTitle { fill:#fff; font:700 23px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .panelSub { fill:#cbd4e3; font:400 13px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .nodeTitle { fill:#f5f7fb; font:700 16px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .nodeText { fill:#c2ccdc; font:400 13px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .tiny { fill:#aeb8ca; font:400 12px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .cost { fill:#ff9a94; font:700 12px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .free { fill:#73dfbb; font:700 12px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .line { stroke:#8190aa; stroke-width:2; fill:none; marker-end:url(#arrow); }
+      .redLine { stroke:#ff766f; stroke-width:2; fill:none; marker-end:url(#arrowRed); }
+      .tableHead { fill:#cbd4e3; font:700 13px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .tableText { fill:#d8dfeb; font:400 13px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; }
+      .tableLine { stroke:#2c3850; stroke-width:1; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1600" height="1420"/>
+  <text class="title" x="50" y="52">업무 대시보드 워크플로우와 AI 비용 지점</text>
+  <text class="subtitle" x="50" y="82">예전: GPT 내장 에이전트가 수집·해석·저장까지 담당  /  현재: 코드가 수집·판정하고 AI는 별도 요약 단계로 분리</text>
+
+  <rect x="50" y="105" width="18" height="18" rx="4" class="free"/><text class="tiny" x="78" y="119">코드·외부 데이터 수집 (모델 비용 없음)</text>
+  <rect x="310" y="105" width="18" height="18" rx="4" class="aiNode"/><text class="tiny" x="338" y="119">ChatGPT/Codex 구독 사용량</text>
+  <rect x="570" y="105" width="18" height="18" rx="4" class="costNode"/><text class="tiny" x="598" y="119">OpenAI API 토큰 과금</text>
+  <rect x="830" y="105" width="18" height="18" rx="4" class="mutedNode"/><text class="tiny" x="858" y="119">저장·표시 결과</text>
+
+  <!-- 이전 워크플로우 -->
+  <rect class="panel" x="40" y="150" width="740" height="930" rx="18"/>
+  <rect class="oldHead" x="60" y="170" width="700" height="92" rx="14"/>
+  <text class="panelTitle" x="88" y="207">예전 워크플로우</text>
+  <text class="panelSub" x="88" y="233">GPT 내장 에이전트가 커넥터를 사용해 전체 흐름을 수행</text>
+  <text class="panelSub" x="88" y="252">별도 OpenAI API 키 없음 · ChatGPT/Codex 구독 한도 사용</text>
+
+  <rect class="aiNode" x="100" y="295" width="620" height="82" rx="12"/>
+  <text class="nodeTitle" x="130" y="329">오전 예약 GPT/Codex 에이전트</text>
+  <text class="nodeText" x="130" y="353">수집 순서와 요약 규칙을 실행하고 결과를 Notion에 기록</text>
+  <text class="free" x="130" y="370">추가 API 청구 없음 · 구독 사용량은 소비</text>
+
+  <path class="line" d="M410 377 V400"/>
+  <rect class="node" x="85" y="415" width="195" height="72" rx="10"/>
+  <rect class="node" x="312" y="415" width="195" height="72" rx="10"/>
+  <rect class="node" x="539" y="415" width="195" height="72" rx="10"/>
+  <text class="nodeTitle" x="115" y="444">Notion 커넥터</text><text class="nodeText" x="115" y="466">작업·회의록·요약 DB</text>
+  <text class="nodeTitle" x="342" y="444">Slack 커넥터</text><text class="nodeText" x="342" y="466">프로젝트 대화</text>
+  <text class="nodeTitle" x="569" y="444">Git 커넥터</text><text class="nodeText" x="569" y="466">커밋·변경 근거</text>
+  <path class="line" d="M182 487 V515 M410 487 V515 M637 487 V515"/>
+
+  <rect class="aiNode" x="100" y="530" width="620" height="100" rx="12"/>
+  <text class="nodeTitle" x="130" y="565">AI 통합 분석</text>
+  <text class="nodeText" x="130" y="589">진행 상황 · 병목 · 대표 결정 · Slack 신호 · 출처 충돌</text>
+  <text class="nodeText" x="130" y="609">자연어 해석과 프로젝트별 요약 문장 생성</text>
+  <path class="line" d="M410 630 V660"/>
+
+  <rect class="node" x="100" y="675" width="620" height="82" rx="12"/>
+  <text class="nodeTitle" x="130" y="710">Notion 업무현황 요약 DB에 저장</text>
+  <text class="nodeText" x="130" y="734">원천 작업 DB와 분리된 에이전트 결과 기록</text>
+  <path class="line" d="M410 757 V790"/>
+
+  <rect class="mutedNode" x="100" y="805" width="620" height="82" rx="12"/>
+  <text class="nodeTitle" x="130" y="840">웹 대시보드</text>
+  <text class="nodeText" x="130" y="864">Notion 요약 DB를 읽고 대표 화면에 표시</text>
+  <text class="tiny" x="100" y="930">핵심: AI가 읽고 판단한 결과가 Notion에 저장된 뒤 웹으로 전달됨</text>
+  <text class="tiny" x="100" y="954">비용 위치: 에이전트 실행은 구독 사용량, 별도 API 토큰 과금은 없음</text>
+
+  <!-- 현재 워크플로우 -->
+  <rect class="panel" x="820" y="150" width="740" height="930" rx="18"/>
+  <rect class="newHead" x="840" y="170" width="700" height="92" rx="14"/>
+  <text class="panelTitle" x="868" y="207">현재 프로젝트 워크플로우</text>
+  <text class="panelSub" x="868" y="233">collect.mjs가 직접 수집·판정하고 JSON을 웹에 제공</text>
+  <text class="panelSub" x="868" y="252">현재 추가된 AI 경로는 OPENAI_API_KEY가 있을 때만 실행</text>
+
+  <rect class="freeNode" x="880" y="295" width="620" height="82" rx="12"/>
+  <text class="nodeTitle" x="910" y="329">collect.mjs / 서버 수집 작업</text>
+  <text class="nodeText" x="910" y="353">Notion REST · Slack API · GitHub API를 직접 호출</text>
+  <text class="free" x="910" y="370">모델 비용 없음 · 서비스 API 호출·호스팅 비용은 별도</text>
+  <path class="line" d="M1190 377 V400"/>
+
+  <rect class="node" x="865" y="415" width="195" height="72" rx="10"/>
+  <rect class="node" x="1093" y="415" width="195" height="72" rx="10"/>
+  <rect class="node" x="1321" y="415" width="195" height="72" rx="10"/>
+  <text class="nodeTitle" x="895" y="444">Notion REST</text><text class="nodeText" x="895" y="466">작업·회의록·요약 DB</text>
+  <text class="nodeTitle" x="1123" y="444">Slack API</text><text class="nodeText" x="1123" y="466">채널 대화</text>
+  <text class="nodeTitle" x="1351" y="444">GitHub API</text><text class="nodeText" x="1351" y="466">커밋·PR 활동</text>
+  <path class="line" d="M962 487 V515 M1190 487 V515 M1418 487 V515"/>
+
+  <rect class="freeNode" x="880" y="530" width="620" height="100" rx="12"/>
+  <text class="nodeTitle" x="910" y="565">규칙 엔진</text>
+  <text class="nodeText" x="910" y="589">완료율 · 기한 초과 · 가이드 위반 · 계층 · Git/Notion 불일치</text>
+  <text class="free" x="910" y="612">AI 없이 계산 가능 · 현재 대시보드의 핵심 판단 영역</text>
+  <path class="line" d="M1190 630 V660"/>
+
+  <rect class="mutedNode" x="880" y="675" width="620" height="82" rx="12"/>
+  <text class="nodeTitle" x="910" y="710">data/dashboard.json</text>
+  <text class="nodeText" x="910" y="734">검증 결과와 원천 데이터가 웹에 직접 전달됨</text>
+  <path class="redLine" d="M1070 757 C1070 780 1030 790 1030 810"/>
+  <path class="line" d="M1310 757 C1310 780 1370 790 1370 810"/>
+
+  <rect class="costNode" x="880" y="810" width="300" height="94" rx="12"/>
+  <text class="nodeTitle" x="908" y="843">OpenAI Responses API</text>
+  <text class="cost" x="908" y="865">OPENAI_API_KEY → 토큰 과금</text>
+  <text class="nodeText" x="908" y="885">요약·출처 충돌 판독</text>
+  <rect class="mutedNode" x="1240" y="810" width="300" height="94" rx="12"/>
+  <text class="nodeTitle" x="1268" y="843">AI 비활성 또는 실패</text>
+  <text class="free" x="1268" y="865">추가 AI 비용 없음</text>
+  <text class="nodeText" x="1268" y="885">규칙 기반 화면은 유지</text>
+  <path class="redLine" d="M1030 904 V930 H1190 V950"/>
+  <path class="line" d="M1390 904 V930 H1190 V950"/>
+
+  <rect class="mutedNode" x="900" y="960" width="580" height="82" rx="12"/>
+  <text class="nodeTitle" x="930" y="995">웹 대시보드 표시</text>
+  <text class="nodeText" x="930" y="1019">현재는 JSON을 읽음 · 요약 DB는 읽지만 에이전트가 새로 쓰지는 않음</text>
+  <text class="tiny" x="880" y="1070">현재 실제 상태: OPENAI_API_KEY가 비어 있어 API 지점은 실행되지 않음</text>
+
+  <!-- 핵심 차이 표 -->
+  <rect class="panel" x="40" y="1110" width="1520" height="260" rx="18"/>
+  <text class="panelTitle" x="70" y="1152">핵심 차이</text>
+  <line class="tableLine" x1="70" y1="1175" x2="1530" y2="1175"/>
+  <text class="tableHead" x="70" y="1203">구분</text><text class="tableHead" x="330" y="1203">예전</text><text class="tableHead" x="940" y="1203">현재</text>
+  <line class="tableLine" x1="70" y1="1218" x2="1530" y2="1218"/>
+  <text class="tableText" x="70" y="1245">수집·해석</text><text class="tableText" x="330" y="1245">에이전트가 커넥터로 수집·해석</text><text class="tableText" x="940" y="1245">코드가 수집·규칙 판정, AI는 별도 단계</text>
+  <text class="tableText" x="70" y="1280">요약 저장</text><text class="tableText" x="330" y="1280">에이전트 → Notion 요약 DB</text><text class="tableText" x="940" y="1280">collect.mjs → data/dashboard.json</text>
+  <text class="tableText" x="70" y="1315">AI 비용</text><text class="tableText" x="330" y="1315">ChatGPT/Codex 구독 사용량</text><text class="tableText" x="940" y="1315">OPENAI_API_KEY 사용 시 토큰 과금</text>
+  <text class="tableText" x="70" y="1350">현재 문제</text><text class="tableText" x="330" y="1350">이전 구조를 사용</text><text class="tableText" x="940" y="1350">에이전트 DB 기록 경로가 빠지고 API 경로가 추가됨</text>
+</svg>

@@ -18,11 +18,14 @@ import {
 } from '../public/dashboard-view-model.js';
 import {
   briefingDetailItems,
+  briefingTrustOverview,
+  dashboardShareUrl,
   gitRepositoryStatus,
   gitTrustSummary,
   issueMatchesCategory,
   issuePresentation,
   primaryActionSummary,
+  slackWorkItemsMessage,
 } from '../public/dashboard-management.js';
 
 const workItems = [
@@ -87,7 +90,7 @@ test('Given a person with active and completed work, When people filters run, Th
 
 test('Given project specs across sprints, When sprint groups are built, Then groups sort naturally and completion uses all child work including done', () => {
   const specs = [
-    { id: 's1', title: '첫 스펙', sprint: 'Sprint9', tasks: [{ status: '완료' }, { status: '진행 중' }] },
+    { id: 's1', title: '첫 스펙', sprint: 'Sprint9', tasks: [{ status: '완료', overdueDays: 0 }, { status: '진행 중', overdueDays: 3 }] },
     { id: 's2', title: '다음 스펙', sprint: 'Sprint10', tasks: [{ status: '완료' }] },
     { id: 's3', title: '미지정 스펙', sprint: null, tasks: [] },
   ];
@@ -97,6 +100,28 @@ test('Given project specs across sprints, When sprint groups are built, Then gro
   assert.deepEqual(groups.map(group => group.sprint), ['Sprint10', 'Sprint9', '스프린트 미지정']);
   assert.equal(groups[1].completionRate, 50);
   assert.equal(groups[1].totalTasks, 2);
+  assert.equal(groups[1].overdueCount, 1);
+});
+
+test('Given schedule, guide, source conflict, and coverage gaps, When briefing trust is summarized, Then each confidence dimension remains distinct', () => {
+  const result = briefingTrustOverview({
+    workItems: [
+      { id: 'late', status: '진행 중', overdueDays: 2, issues: [{ type: 'OVERDUE', category: 'schedule' }] },
+      { id: 'missing', status: '진행 중', overdueDays: 0, issues: [{ type: 'MISSING_DUE_DATE', category: 'guide' }] },
+    ],
+    ai: { overall: { sourceConflicts: [{ project: '피자레디', subject: 'QA 일정', notionClaim: '7월 21일', slackClaim: '7월 25일', slackChannel: 's2_pizzaready', slackTime: '2026-07-20T01:00:00Z' }] } },
+    sourceHealth: {
+      sources: [{ id: 'notion', status: 'ok' }, { id: 'slack', status: 'partial', successful: 1, expected: 2 }],
+      dependencyCoverage: { status: 'partial', rate: 40 },
+    },
+  });
+
+  assert.equal(result.scheduleRiskCount, 1);
+  assert.equal(result.guideViolationCount, 1);
+  assert.equal(result.sourceConflicts.length, 1);
+  assert.deepEqual(result.collectionGaps, [{ id: 'slack', status: 'partial', successful: 1, expected: 2 }]);
+  assert.equal(result.dependencyCoverageRate, 40);
+  assert.equal(result.sourceComparisonAvailable, true);
 });
 
 test('Given empty, completed, and active project specs, When visible specs are selected, Then only specs with unfinished work remain', () => {
@@ -200,6 +225,74 @@ test('Given guide and schedule issues, When briefing guide details are selected,
 
   assert.deepEqual(briefingDetailItems(dashboard, 'guide').map(item => item.id), ['date']);
   assert.equal(issueMatchesCategory(dashboard.workItems[1].issues[0], 'schedule'), true);
+});
+
+test('Given selected work items, When a Slack handoff is generated, Then it includes management context and Notion links without duplicates', () => {
+  const message = slackWorkItemsMessage([
+    {
+      id: 'late',
+      title: '월드맵 HQ 연결',
+      project: '피자레디',
+      status: '진행 중',
+      assignees: ['루아'],
+      start: '2026-07-20',
+      due: '2026-07-28',
+      overdueDays: 1,
+      url: 'https://notion.so/late',
+      issues: [{ type: 'OVERDUE' }, { type: 'MISSING_DELAY_REASON' }],
+    },
+    {
+      id: 'late',
+      title: '월드맵 HQ 연결',
+      project: '피자레디',
+      status: '진행 중',
+      assignees: ['루아'],
+      due: '2026-07-28',
+      overdueDays: 1,
+      url: 'https://notion.so/late',
+      issues: [{ type: 'OVERDUE' }],
+    },
+  ], {
+    title: '기한 초과 작업항목',
+    generatedAt: '2026-07-29T02:26:49.303Z',
+    dashboardUrl: 'https://dashboard.example/?tab=briefing&detail=overdue',
+  });
+
+  assert.match(message, /^\*기한 초과 작업항목 · 1건\*/);
+  assert.match(message, /\*피자레디 · 월드맵 HQ 연결\*/);
+  assert.match(message, /담당자: 루아/);
+  assert.match(message, /2026-07-20 → 2026-07-28 · 1일 초과/);
+  assert.match(message, /확인: 지연 기록 필요 · 지연 사유 입력 필요/);
+  assert.match(message, /Notion: https:\/\/notion\.so\/late/);
+  assert.match(message, /대시보드: https:\/\/dashboard\.example\/\?tab=briefing&detail=overdue/);
+  assert.equal(message.match(/월드맵 HQ 연결/g)?.length, 1);
+
+  const overdueOnly = slackWorkItemsMessage([{
+    id: 'mixed',
+    title: '복합 확인 항목',
+    issues: [{ type: 'OVERDUE' }, { type: 'MISSING_DELAY_REASON' }],
+  }], { issueType: 'OVERDUE' });
+  assert.match(overdueOnly, /확인: 지연 기록 필요/);
+  assert.doesNotMatch(overdueOnly, /지연 사유 입력 필요/);
+});
+
+test('Given a dashboard selection, When a share URL is built, Then briefing details and confirmation filters survive reload', () => {
+  assert.equal(
+    dashboardShareUrl('https://dashboard.example/?old=value', {
+      tab: 'briefing',
+      briefingDetail: 'guide',
+      checkFilters: {},
+    }),
+    'https://dashboard.example/?tab=briefing&detail=guide',
+  );
+  assert.equal(
+    dashboardShareUrl('https://dashboard.example/', {
+      tab: 'checks',
+      briefingDetail: null,
+      checkFilters: { project: '피자레디', category: 'schedule', issueType: 'OVERDUE' },
+    }),
+    'https://dashboard.example/?tab=checks&checkProject=%ED%94%BC%EC%9E%90%EB%A0%88%EB%94%94&checkCategory=schedule&checkIssue=OVERDUE',
+  );
 });
 
 test('Given Git repository states, When trust summaries are selected, Then missing URL, authentication, and no-activity states remain distinct', () => {

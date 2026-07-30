@@ -1,4 +1,5 @@
 .env
+.vercel/
 data/*
 !data/dashboard.sample.json
 !data/.gitkeep

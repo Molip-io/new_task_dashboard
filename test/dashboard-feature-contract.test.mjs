@@ -16,11 +16,13 @@ const design = fs.readFileSync(designPath, 'utf8');
 
 test('Given the executive briefing, When reading its sections, Then decision, blockage, and delta appear in order', () => {
   const decision = presenters.indexOf('1. 대표가 확인할 판단');
-  const blocked = presenters.indexOf('2. 현재 관리상 막힌 것');
-  const changed = presenters.indexOf('3. 어제와 달라진 것');
+  const trust = presenters.indexOf('${trustSectionHtml(dashboard)}', decision);
+  const blocked = presenters.indexOf('3. 현재 관리상 막힌 것');
+  const changed = presenters.indexOf('4. 어제와 달라진 것');
 
   assert.ok(decision >= 0);
-  assert.ok(blocked > decision);
+  assert.ok(trust > decision);
+  assert.ok(blocked > trust);
   assert.ok(changed > blocked);
 });
 
@@ -58,12 +60,23 @@ test('Given the accepted review, When reading the design, Then all P0 requiremen
 test('Given the refined dashboard workflow, When reading the UI contract, Then projects group specs by sprint and people or checks do not expose completed work', () => {
   assert.match(app, /프로젝트 → 스프린트 → 스펙 → 작업항목/);
   assert.match(app, /<details class="sprint-group"/);
+  assert.match(app, /group\.overdueCount/);
+  assert.doesNotMatch(app, /완료율 <b>\$\{project\.stats\.completionRate/);
+  assert.doesNotMatch(app, /progress[^\n]*project\.stats\.completionRate/);
+  assert.doesNotMatch(presenters, /project\.stats\.completionRate/);
   assert.match(app, /data-project-card=/);
   assert.match(app, /data-people-filter="project"/);
   assert.match(app, /data-person-detail-filter="sprint"/);
   assert.match(app, /groupIssuesByProjectItem/);
   assert.match(app, /관리 확인/);
   assert.doesNotMatch(app, /Notion 갱신|최신화 필요/);
+});
+
+test('Given trust-sensitive briefing data, When reading the briefing contract, Then confirmed schedule risk, data quality, source conflict, and coverage gaps remain distinct', () => {
+  for (const label of ['확정 일정 위험', '관리 데이터 부족', 'Notion·Slack 출처 충돌', '수집·커버리지 공백']) assert.match(presenters, new RegExp(label));
+  assert.match(presenters, /기한 초과는 데이터 불신이 아니라/);
+  assert.match(presenters, /sourceComparisonStatus/);
+  assert.match(presenters, /에이전트 분석 미실행/);
 });
 
 test('Given the simplified briefing, When reading its KPI contract, Then only four accessible drill-down metrics remain', () => {
@@ -80,6 +93,17 @@ test('Given management issues, When reading task and confirmation UI, Then actio
   assert.match(app, /data-check-filter="category"/);
   for (const category of ['가이드 위반', '일정 위험', '데이터 불일치', '연동 문제']) assert.match(app, new RegExp(category));
   assert.match(app, /기한 초과는 일정 위험이며/);
+});
+
+test('Given a work-item risk list, When sharing it with Slack, Then one concise bulk-copy control and item links are available', () => {
+  assert.match(presenters, /data-copy-slack/);
+  assert.match(ui, />복사</);
+  assert.doesNotMatch(`${app}\n${presenters}`, /공유 링크 복사|data-copy-share-url/);
+  assert.match(app, /data-copy-link/);
+  assert.match(app, /navigator\.clipboard\.writeText/);
+  assert.match(app, /checkProject/);
+  assert.match(app, /checkCategory/);
+  assert.match(app, /checkIssue/);
 });
 
 test('Given Git collection health, When reading the trust line, Then it can open concrete repository details', () => {

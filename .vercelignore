@@ -1,0 +1,13 @@
+.env
+.vercel
+data
+test
+docs
+analysis
+agent-package
+tools
+*.zip
+*.docx
+._*
+.DS_Store
+node_modules

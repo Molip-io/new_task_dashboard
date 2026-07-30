@@ -157,6 +157,7 @@ export function groupSpecsBySprint(specs, controls = {}) {
       totalTasks: tasks.length,
       doneTasks,
       completionRate: tasks.length ? Math.round(doneTasks / tasks.length * 100) : 0,
+      overdueCount: tasks.filter(task => task.overdueDays > 0).length,
     };
   }).sort((left, right) => compareSprints(left.sprint, right.sprint, controls.order || 'desc'));
 }

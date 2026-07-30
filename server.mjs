@@ -13,11 +13,22 @@ const PUBLIC = path.join(ROOT, 'public');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
 let collecting = null; // 실행 중인 수집 프로세스
+let summarySyncing = null;
 
 function runCollect() {
   if (collecting) return false;
   collecting = spawn(process.execPath, [path.join(ROOT, 'collect.mjs')], { stdio: 'inherit' });
   collecting.on('close', () => { collecting = null; });
+  return true;
+}
+
+function runSummarySync(onClose) {
+  if (summarySyncing || collecting) return false;
+  summarySyncing = spawn(process.execPath, [path.join(ROOT, 'sync-agent-summary.mjs')], { stdio: 'inherit' });
+  summarySyncing.on('close', code => {
+    summarySyncing = null;
+    onClose?.(code);
+  });
   return true;
 }
 
@@ -41,7 +52,7 @@ const server = http.createServer((req, res) => {
     return send(404, { error: 'no_data', message: '아직 수집된 데이터가 없습니다. 새로고침을 눌러 수집을 시작하세요.' });
   }
   if (url.pathname === '/api/status') {
-    return send(200, { collecting: !!collecting, last: readJson('collect-status.json') });
+    return send(200, { collecting: !!collecting, summarySyncing: !!summarySyncing, last: readJson('collect-status.json'), summarySync: readJson('summary-sync-status.json') });
   }
   if (url.pathname === '/api/refresh' && req.method === 'POST') {
     const started = runCollect();
@@ -59,6 +70,9 @@ const server = http.createServer((req, res) => {
 // 매일 config.scheduleTime 에 자동 수집
 const lastStatus = readJson('collect-status.json');
 let lastRunDay = lastStatus?.state === 'done' && lastStatus.at ? zonedClock(new Date(lastStatus.at), config.timeZone).day : null;
+const lastSummaryStatus = readJson('summary-sync-status.json');
+let lastSummaryRunDay = lastSummaryStatus?.state === 'done' && lastSummaryStatus.at ? zonedClock(new Date(lastSummaryStatus.at), config.timeZone).day : null;
+let summaryRetryAfter = 0;
 function checkSchedule() {
   const result = shouldRunDaily({ scheduleTime: config.scheduleTime, lastRunDay, timeZone: config.timeZone || 'Asia/Seoul' });
   if (result.shouldRun) {
@@ -66,11 +80,20 @@ function checkSchedule() {
     console.log(`⏰ ${config.scheduleTime} ${config.timeZone || 'Asia/Seoul'} 정기 수집 시작`);
     runCollect();
   }
+  const summaryResult = shouldRunDaily({ scheduleTime: config.summarySyncTime || '09:00', lastRunDay: lastSummaryRunDay, timeZone: config.timeZone || 'Asia/Seoul' });
+  if (summaryResult.shouldRun && Date.now() >= summaryRetryAfter && !collecting && !summarySyncing) {
+    console.log(`⏰ ${config.summarySyncTime || '09:00'} ${config.timeZone || 'Asia/Seoul'} 에이전트 요약 동기화 확인`);
+    runSummarySync(code => {
+      if (code === 0) lastSummaryRunDay = summaryResult.day;
+      else summaryRetryAfter = Date.now() + 10 * 60_000;
+    });
+  }
 }
 setInterval(checkSchedule, 30_000);
 
 server.listen(config.port, () => {
   console.log(`업무현황 대시보드: http://localhost:${config.port}`);
   console.log(`정기 수집: 매일 ${config.scheduleTime} ${config.timeZone || 'Asia/Seoul'} (서버 실행 중일 때)`);
+  console.log(`에이전트 요약 동기화: ${config.summarySyncTime || '09:00'} 이후 당일 분석이 생길 때까지 10분 간격 확인`);
   checkSchedule();
 });

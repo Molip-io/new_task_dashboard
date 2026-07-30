@@ -86,6 +86,98 @@ export function briefingDetailItems(dashboard, detail) {
   return [];
 }
 
+function cleanShareText(value, fallback = '-') {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  return text || fallback;
+}
+
+function uniqueWorkItems(items = []) {
+  const unique = new Map();
+  for (const item of items) {
+    const key = item.id || `${item.project || ''}:${item.title || ''}:${item.url || ''}`;
+    if (!unique.has(key)) {
+      unique.set(key, { ...item, issues: [...(item.issues || [])] });
+      continue;
+    }
+    const existing = unique.get(key);
+    const issueKeys = new Set((existing.issues || []).map(issue => `${issue.type || ''}:${issue.message || ''}`));
+    for (const issue of item.issues || []) {
+      const issueKey = `${issue.type || ''}:${issue.message || ''}`;
+      if (!issueKeys.has(issueKey)) existing.issues.push(issue);
+    }
+  }
+  return [...unique.values()];
+}
+
+export function slackWorkItemsMessage(items = [], {
+  title = '확인할 작업항목',
+  generatedAt = null,
+  dashboardUrl = null,
+  category = null,
+  issueType = null,
+} = {}) {
+  const rows = uniqueWorkItems(items);
+  const header = `*${cleanShareText(title)} · ${rows.length}건*`;
+  const lines = [header];
+  if (generatedAt) lines.push(`_기준: ${cleanShareText(generatedAt).replace('T', ' ').slice(0, 16)}_`);
+
+  for (const item of rows) {
+    const issues = (item.issues || []).filter(issue =>
+      (!category || issueMatchesCategory(issue, category))
+      && (!issueType || issue.type === issueType));
+    const issueLabels = [...new Set(issues.map(issue => issuePresentation(issue).label))];
+    const assignees = (item.assignees || []).map(name => cleanShareText(name)).join(', ') || '미지정';
+    const period = `${cleanShareText(item.start)} → ${cleanShareText(item.due)}${item.overdueDays > 0 ? ` · ${item.overdueDays}일 초과` : ''}`;
+    lines.push(
+      '',
+      `• *${cleanShareText(item.project, '프로젝트 미분류')} · ${cleanShareText(item.title, '제목 없음')}*`,
+      `  상태: ${cleanShareText(item.status, '미정')} · 담당자: ${assignees}`,
+      `  기간: ${period}`,
+    );
+    if (issueLabels.length) lines.push(`  확인: ${issueLabels.join(' · ')}`);
+    if (item.url) lines.push(`  Notion: ${item.url}`);
+  }
+
+  if (dashboardUrl) lines.push('', `대시보드: ${dashboardUrl}`);
+  return lines.join('\n');
+}
+
+export function dashboardShareUrl(baseUrl, state = {}) {
+  const url = new URL(baseUrl);
+  url.search = '';
+  const tab = ['briefing', 'projects', 'people', 'checks'].includes(state.tab) ? state.tab : 'briefing';
+  url.searchParams.set('tab', tab);
+  if (tab === 'briefing' && ['projects', 'work-items', 'overdue', 'guide', 'git'].includes(state.briefingDetail)) {
+    url.searchParams.set('detail', state.briefingDetail);
+  }
+  if (tab === 'checks') {
+    const filters = state.checkFilters || {};
+    if (filters.project) url.searchParams.set('checkProject', filters.project);
+    if (filters.category) url.searchParams.set('checkCategory', filters.category);
+    if (filters.issueType) url.searchParams.set('checkIssue', filters.issueType);
+  }
+  return url.toString();
+}
+
+export function briefingTrustOverview(dashboard = {}) {
+  const active = (dashboard.workItems || []).filter(item => !['완료', '중단'].includes(item.status));
+  const sourceConflicts = Array.isArray(dashboard.ai?.overall?.sourceConflicts) ? dashboard.ai.overall.sourceConflicts.slice(0, 5) : [];
+  const sources = dashboard.sourceHealth?.sources || [];
+  const comparisonStatus = dashboard.ai?.sourceComparison?.status
+    || (Array.isArray(dashboard.ai?.overall?.sourceConflicts) ? 'complete' : 'not_run');
+  return {
+    scheduleRiskCount: active.filter(item => item.overdueDays > 0).length,
+    guideViolationCount: active.filter(item => (item.issues || []).some(issue => issueMatchesCategory(issue, 'guide'))).length,
+    sourceConflicts,
+    sourceComparisonAvailable: ['complete', 'partial'].includes(comparisonStatus),
+    sourceComparisonStatus: comparisonStatus,
+    agentAnalysisStatus: dashboard.ai?.analysisStatus || 'not_run',
+    agentAnalysisAt: dashboard.ai?.generatedAt || null,
+    collectionGaps: sources.filter(source => source.status !== 'ok'),
+    dependencyCoverageRate: dashboard.sourceHealth?.dependencyCoverage?.rate ?? null,
+  };
+}
+
 const CONNECTED = new Set(['ok', 'connected', 'inactive', 'no-activity', 'no_activity']);
 const AUTH = new Set(['auth-required', 'auth_required', 'authentication_required', 'unauthorized']);
 const FAILED = new Set(['failed', 'error', 'collection-failed', 'collection_failed', 'invalid-url']);

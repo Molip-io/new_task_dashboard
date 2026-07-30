@@ -8,10 +8,27 @@
     "overall": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["summary", "topRisks", "decisionsForCEO"],
+      "required": ["summary", "topRisks", "sourceConflicts", "decisionsForCEO"],
       "properties": {
         "summary": { "type": "string", "maxLength": 800 },
         "topRisks": { "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 300 } },
+        "sourceConflicts": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["project", "subject", "notionClaim", "slackClaim", "slackChannel", "slackTime"],
+            "properties": {
+              "project": { "type": "string" },
+              "subject": { "type": "string" },
+              "notionClaim": { "type": "string", "maxLength": 300 },
+              "slackClaim": { "type": "string", "maxLength": 300 },
+              "slackChannel": { "type": "string" },
+              "slackTime": { "type": "string" }
+            }
+          }
+        },
         "decisionsForCEO": {
           "type": "array",
           "items": {

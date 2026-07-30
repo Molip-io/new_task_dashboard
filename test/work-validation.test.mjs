@@ -19,6 +19,18 @@ test('Given an active work item without dates or assignees, When guide validatio
   assert.deepEqual(issueTypes(result, 'work').sort(), ['MISSING_ASSIGNEE', 'MISSING_DUE_DATE', 'MISSING_START_DATE'].sort());
 });
 
+test('Given a work item scoped through its parent but missing its own project relation, When validation runs, Then the project remains a guide violation', () => {
+  const tasks = [
+    { id: 'spec', title: '핵심 스펙', project: '피자레디', projectMissing: false, parentIds: [], status: '진행 중', start: '2026-07-01', due: '2026-07-31', assignees: ['PD'], edited: NOW },
+    { id: 'work', title: '개발 작업', project: '피자레디', projectMissing: true, projectInherited: true, parentIds: ['spec'], status: '진행 중', start: '2026-07-01', due: '2026-07-31', assignees: ['A'], edited: NOW },
+  ];
+
+  const result = validateWorkManagement({ tasks, projects: [{ name: '피자레디' }], gitActivity: [], now: NOW });
+
+  assert.ok(issueTypes(result, 'work').includes('MISSING_PROJECT'));
+  assert.equal(result.issues.find(issue => issue.workItemId === 'work' && issue.type === 'MISSING_PROJECT').project, '피자레디');
+});
+
 test('Given overdue and completed work items, When validation runs, Then overdue days and missing completion date are explicit', () => {
   const tasks = [
     { id: 'spec', title: '스펙', project: '포지', parentIds: [], status: '진행 중', start: '2026-07-01', due: '2026-07-31', assignees: ['PD'], edited: NOW },

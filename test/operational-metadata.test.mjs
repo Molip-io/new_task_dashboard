@@ -105,9 +105,9 @@ test('Given a child task that just completed, When a snapshot is saved, Then the
 test('Given a successful collection, When the dashboard is written, Then operational metadata is attached before its daily snapshot is saved', () => {
   const collector = fs.readFileSync(new URL('../collect.mjs', import.meta.url), 'utf8');
 
-  const attachIndex = collector.indexOf('attachOperationalMetadata(dashboard, DATA)');
-  const writeIndex = collector.indexOf("fs.writeFileSync(path.join(DATA, 'dashboard.json')");
-  const snapshotIndex = collector.indexOf('saveDailySnapshot(dashboard, DATA)');
+  const attachIndex = collector.indexOf('attachOperationalMetadata(dashboard, dataDirectory');
+  const writeIndex = collector.indexOf("fs.writeFileSync(path.join(dataDirectory, 'dashboard.json')");
+  const snapshotIndex = collector.indexOf('saveDailySnapshot(dashboard, dataDirectory)');
 
   assert.ok(attachIndex >= 0);
   assert.ok(writeIndex > attachIndex);

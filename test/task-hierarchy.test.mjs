@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { buildProjectSpecs, buildWorkload, excludePausedHierarchy, selectProjectTasks } from '../lib/task-hierarchy.mjs';
+import { buildProjectSpecs, buildWorkload, excludePausedHierarchy, resolveTaskProjects, selectProjectTasks } from '../lib/task-hierarchy.mjs';
 
 const tasks = [
   {
@@ -100,7 +100,8 @@ test('Given the Notion project list, When collection scope is selected, Then onl
 
   assert.match(notionCollector, /allProjects\.filter\(project => project\.summarize\)/);
   assert.match(collector, /selectProjectTasks\(notion\.tasks, notion\.projects\)/);
-  assert.match(notionCollector, /excludePausedHierarchy\(\[\.\.\.tasks\.values\(\)\]\)/);
+  assert.doesNotMatch(collector, /unresolvedTasks/);
+  assert.match(notionCollector, /excludePausedHierarchy\(resolveTaskProjects\(\[\.\.\.tasks\.values\(\)\]\)\)/);
 });
 
 test('Given tasks from checked and unchecked projects, When project scope is applied, Then unchecked tasks cannot re-enter cards or workload', () => {
@@ -111,6 +112,22 @@ test('Given tasks from checked and unchecked projects, When project scope is app
   ], [{ name: '피자레디' }, { name: '포지 앤 포춘' }]);
 
   assert.deepEqual(scoped.map(task => task.id), ['a', 'b']);
+});
+
+test('Given child tasks without projects, When projects are resolved before scope filtering, Then they inherit only for scope and unchecked hierarchies stay excluded', () => {
+  const resolved = resolveTaskProjects([
+    { id: 'checked-spec', project: '피자레디', projectMissing: false, parentIds: [] },
+    { id: 'checked-child', project: null, projectMissing: true, parentIds: ['checked-spec'] },
+    { id: 'unchecked-spec', project: 'Lane Guardians', projectMissing: false, parentIds: [] },
+    { id: 'unchecked-child', project: null, projectMissing: true, parentIds: ['unchecked-spec'] },
+    { id: 'orphan', project: null, projectMissing: true, parentIds: ['missing'] },
+  ]);
+  const scoped = selectProjectTasks(resolved, [{ name: '피자레디' }]);
+
+  assert.deepEqual(scoped.map(task => task.id), ['checked-spec', 'checked-child']);
+  assert.equal(scoped[1].project, '피자레디');
+  assert.equal(scoped[1].projectMissing, true);
+  assert.equal(scoped[1].projectSource, 'parent');
 });
 
 test('Given paused tasks and a paused parent spec, When collection scope is filtered, Then paused rows and all descendants are excluded', () => {

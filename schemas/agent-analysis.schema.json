@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Notion Agent Dashboard Analysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "generatedAt", "analysisStatus", "sourceStatus", "sourceComparison", "overall", "projects"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "runId": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "analysisStatus": { "enum": ["success", "partial", "failed"] },
+    "sourceStatus": { "type": "object", "additionalProperties": { "enum": ["success", "partial", "failed", "not_available"] } },
+    "sourceComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": { "status": { "enum": ["complete", "partial", "unavailable", "not_run"] } }
+    },
+    "overall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "topRisks", "decisionsForCEO", "changesSinceYesterday", "sourceConflicts", "confidenceLimits"],
+      "properties": {
+        "summary": { "type": "string", "maxLength": 1200 },
+        "topRisks": { "type": "array", "maxItems": 5, "items": { "type": "string", "maxLength": 400 } },
+        "decisionsForCEO": {
+          "type": "array", "maxItems": 5,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["project", "question", "context"],
+            "properties": {
+              "project": { "type": "string" }, "question": { "type": "string", "maxLength": 400 }, "context": { "type": "string", "maxLength": 500 }
+            }
+          }
+        },
+        "changesSinceYesterday": { "type": "array", "maxItems": 5, "items": { "type": "string", "maxLength": 400 } },
+        "sourceConflicts": { "$ref": "#/$defs/sourceConflicts" },
+        "confidenceLimits": { "type": "array", "items": { "type": "string", "maxLength": 400 } }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "summary", "sprintSummaries", "blockers", "sourceConflicts", "nextActions", "confidenceLimits"],
+        "properties": {
+          "name": { "type": "string" },
+          "summary": { "type": "string", "maxLength": 1200 },
+          "sprintSummaries": {
+            "type": "array",
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["sprint", "completionRate", "overdueCount", "summary"],
+              "properties": {
+                "sprint": { "type": "string" }, "completionRate": { "type": "number", "minimum": 0, "maximum": 100 },
+                "overdueCount": { "type": "integer", "minimum": 0 }, "summary": { "type": "string", "maxLength": 600 }
+              }
+            }
+          },
+          "blockers": { "type": "array", "items": { "type": "string", "maxLength": 400 } },
+          "sourceConflicts": { "$ref": "#/$defs/sourceConflicts" },
+          "nextActions": { "type": "array", "items": { "type": "string", "maxLength": 400 } },
+          "confidenceLimits": { "type": "array", "items": { "type": "string", "maxLength": 400 } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sourceConflicts": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["project", "subject", "field", "notionClaim", "otherClaim", "otherSource", "status", "evidence"],
+        "properties": {
+          "project": { "type": "string" }, "subject": { "type": "string" }, "field": { "type": "string" },
+          "notionClaim": { "type": "string", "maxLength": 500 }, "otherClaim": { "type": "string", "maxLength": 500 },
+          "otherSource": { "enum": ["slack", "meeting", "git"] }, "status": { "const": "confirmation_required" },
+          "evidence": {
+            "type": "array", "minItems": 2,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["source", "timestamp", "url", "excerpt"],
+              "properties": {
+                "source": { "type": "string" }, "timestamp": { "type": "string" }, "url": { "type": ["string", "null"] },
+                "excerpt": { "type": "string", "maxLength": 500 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

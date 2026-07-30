@@ -15,11 +15,14 @@ import {
   workStatusTone,
 } from './dashboard-view-model.js';
 import {
+  briefingDetailItems,
   gitTrustSummary,
+  dashboardShareUrl,
   ISSUE_CATEGORIES,
   issueMatchesCategory,
   issuePresentation,
   primaryActionSummary,
+  slackWorkItemsMessage,
 } from './dashboard-management.js';
 import { briefingHtml, issueGroupRowHtml, managementActionHtml } from './dashboard-presenters.js';
 
@@ -33,22 +36,28 @@ const SEVERITY = { error: ['🔴', '오류'], warning: ['🟠', '주의'], check
 
 const saved = JSON.parse(localStorage.getItem('dashboard-preferences') || '{}');
 const query = new URLSearchParams(location.search);
+const queryTab = query.get('tab');
+const queryDetail = query.get('detail');
+const queryCheckFilters = {
+  project: query.get('checkProject') || '',
+  category: query.get('checkCategory') || '',
+  issueType: query.get('checkIssue') || '',
+};
 const state = {
-  tab: query.get('tab') || saved.tab || 'briefing',
+  tab: queryTab || saved.tab || 'briefing',
   personSort: saved.personSort || 'default',
   peopleFilters: saved.peopleFilters || {},
   personDetails: saved.personDetails || {},
   projectControls: saved.projectControls || {},
-  checkFilters: saved.checkFilters || {},
-  briefingDetail: saved.briefingDetail || null,
+  checkFilters: queryTab === 'checks' ? queryCheckFilters : saved.checkFilters || {},
+  briefingDetail: queryTab === 'briefing' ? queryDetail : saved.briefingDetail || null,
   openProject: saved.openProject || null,
   openPerson: saved.openPerson || null,
 };
 
 function persist() {
   localStorage.setItem('dashboard-preferences', JSON.stringify(state));
-  const params = new URLSearchParams(); params.set('tab', state.tab);
-  history.replaceState(null, '', `${location.pathname}?${params}`);
+  history.replaceState(null, '', dashboardShareUrl(location.href, state));
 }
 
 function badge(value, severity = value) {
@@ -114,8 +123,14 @@ function normalize(raw) {
 
 function renderTrust() {
   const health = D.sourceHealth;
-  const sourceLabels = { notion: 'Notion', slack: 'Slack', meetings: '회의록' };
-  const sources = health?.sources?.map(source => `<span class="source ${source.status}">${esc(sourceLabels[source.id] || source.id)} ${source.status === 'ok' ? '성공' : source.status === 'partial' ? '부분 성공' : '실패'}${source.expected > 1 ? ` ${source.successful}/${source.expected}` : ''}</span>`).join('') || '<span class="source partial">출처 상태 미측정</span>';
+  const sourceLabels = { notion: 'Notion', slack: 'Slack', meetings: '회의록', 'agent-analysis': '통합 분석', 'rule-input': '원격 규칙 입력' };
+  const analysisLabels = { success: '성공', partial: '부분 성공', stale: '오래됨', legacy: '기존 요약', failed: '실패', not_run: '미실행' };
+  const sources = health?.sources?.map(source => {
+    const result = source.id === 'agent-analysis'
+      ? analysisLabels[source.analysisStatus] || '미실행'
+      : source.status === 'ok' ? '성공' : source.status === 'partial' ? '부분 성공' : '실패';
+    return `<span class="source ${source.status}">${esc(sourceLabels[source.id] || source.id)} ${esc(result)}${source.expected > 1 ? ` ${source.successful}/${source.expected}` : ''}</span>`;
+  }).join('') || '<span class="source partial">출처 상태 미측정</span>';
   const setup = D.notionSetup.ready ? '<span class="source ok">Notion 필수 속성 정상</span>' : `<span class="source partial">Notion 설정 확인 ${D.notionSetup.databases?.flatMap(db => db.missingProperties || []).length || 0}건</span>`;
   const git = gitTrustSummary(D.git, D.projects);
   $('#trustLine').innerHTML = `<strong>이 화면을 믿을 수 있는 범위</strong>${sources}${setup}<button type="button" class="source ${git.tone}" data-briefing-detail="git" aria-expanded="${state.briefingDetail === 'git'}">${esc(git.label)}</button><span>마지막 동기화 ${fmt(D.generatedAt)}</span>`;
@@ -128,12 +143,81 @@ function openBriefingDetail(detail) {
   persist(); renderTrust(); renderBriefing(); activateTab('briefing');
 }
 
+async function writeClipboard(text) {
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.appendChild(field);
+  field.select();
+  const copied = document.execCommand('copy');
+  field.remove();
+  if (!copied) throw new Error('clipboard_unavailable');
+}
+
+async function copyWithFeedback(button, text, successLabel) {
+  const original = button.textContent;
+  try {
+    await writeClipboard(text);
+    button.textContent = successLabel;
+    button.classList.add('copy-confirmed');
+  } catch {
+    button.textContent = '복사 실패';
+  }
+  setTimeout(() => {
+    if (!button.isConnected) return;
+    button.textContent = original;
+    button.classList.remove('copy-confirmed');
+  }, 1800);
+}
+
+function bindCopyActions(container, shareContext = null) {
+  if (!container) return;
+  container.querySelectorAll('[data-copy-link]').forEach(button => {
+    button.onclick = () => copyWithFeedback(button, button.dataset.copyLink, '링크 복사됨');
+  });
+  container.querySelectorAll('[data-copy-slack]').forEach(button => {
+    if (!shareContext?.items?.length) button.disabled = true;
+    button.onclick = () => {
+      if (!shareContext?.items?.length) return;
+      const dashboardUrl = dashboardShareUrl(location.href, state);
+      const message = slackWorkItemsMessage(shareContext.items, {
+        title: shareContext.title,
+        generatedAt: D.generatedAt,
+        dashboardUrl,
+        category: shareContext.category,
+        issueType: shareContext.issueType,
+      });
+      copyWithFeedback(button, message, `${shareContext.items.length}건 복사됨`);
+    };
+  });
+}
+
 function renderBriefing() {
   $('#tab-briefing').innerHTML = briefingHtml(D, state.briefingDetail, taskRows);
   document.querySelectorAll('#tab-briefing [data-briefing-detail]').forEach(button => button.onclick = () => openBriefingDetail(button.dataset.briefingDetail));
+  const shareDetail = state.briefingDetail;
+  const shareContext = ['overdue', 'guide'].includes(shareDetail) ? {
+    items: briefingDetailItems(D, shareDetail),
+    title: shareDetail === 'overdue' ? '기한 초과 작업항목' : '가이드 위반 작업항목',
+    category: shareDetail === 'overdue' ? 'schedule' : 'guide',
+  } : null;
+  bindCopyActions($('#tab-briefing'), shareContext);
 }
 
 function aiProject(name) { return D.ai?.projects?.find(project => project.name === name) || null; }
+
+function projectAnalysis(project) {
+  const agent = aiProject(project.name);
+  if (agent?.summary) {
+    const verifiedAgentRun = !['legacy', 'not_run'].includes(D.ai?.analysisStatus);
+    return { label: verifiedAgentRun ? '에이전트 통합 분석' : '업무현황 통합 요약', text: agent.summary };
+  }
+  if (project.notionSummary?.summary) return { label: '업무현황 요약 DB', text: project.notionSummary.summary };
+  return null;
+}
 
 function options(values, current, allLabel = '전체') {
   return `<option value="">${allLabel}</option>${[...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'ko')).map(value => `<option value="${esc(value)}" ${value === current ? 'selected' : ''}>${esc(value)}</option>`).join('')}`;
@@ -156,7 +240,9 @@ function taskRows(items, sort = 'risk') {
     const issues = visibleWorkItemIssues(item);
     const action = primaryActionSummary(issues);
     const management = closed ? badge('완료','normal') : issues.length ? `<details class="management-check" data-management-check><summary>${badge(action.label, action.tone)}</summary><div class="management-actions">${issues.map(issue => managementActionHtml(issue, item.url)).join('')}</div></details>` : badge('정상','normal');
-    return `<div class="task-row"><span class="task-title"><a href="${esc(safeUrl(item.url))}" target="_blank">${esc(item.title)}</a><small>${esc(item.project)} · ${esc(item.spec || '스펙 미지정')} · ${esc(item.team || '-')} ${item.sprint ? `· ${esc(item.sprint)}` : ''}</small></span><span>${badge(item.status || '미정', workStatusTone(item))}</span><span>${esc((item.assignees || []).join(', ') || '미지정')}</span><span class="${item.overdueDays ? 'overdue':''}">${esc(item.start || '-')} → ${esc(item.due || '-')} ${item.completedAt ? `· 완료 ${esc(item.completedAt)}` : ''} ${item.overdueDays ? `(+${item.overdueDays}일)` : ''}</span><span>${management}</span></div>`;
+    const itemUrl = safeUrl(item.url);
+    const copyLink = itemUrl !== '#' ? `<button type="button" class="link-copy" data-copy-link="${esc(itemUrl)}">링크 복사</button>` : '';
+    return `<div class="task-row"><span class="task-title"><span class="task-title-line"><a href="${esc(itemUrl)}" target="_blank">${esc(item.title)}</a>${copyLink}</span><small>${esc(item.project)} · ${esc(item.spec || '스펙 미지정')} · ${esc(item.team || '-')} ${item.sprint ? `· ${esc(item.sprint)}` : ''}</small></span><span>${badge(item.status || '미정', workStatusTone(item))}</span><span>${esc((item.assignees || []).join(', ') || '미지정')}</span><span class="${item.overdueDays ? 'overdue':''}">${esc(item.start || '-')} → ${esc(item.due || '-')} ${item.completedAt ? `· 완료 ${esc(item.completedAt)}` : ''} ${item.overdueDays ? `(+${item.overdueDays}일)` : ''}</span><span>${management}</span></div>`;
   }).join('')}`;
 }
 
@@ -165,7 +251,7 @@ function specCard(spec) {
 }
 
 function sprintGroups(groups, expandedSprint) {
-  return groups.map(group => `<details class="sprint-group" ${group.sprint === expandedSprint ? 'open' : ''}><summary><div><strong>${esc(group.sprint)}</strong><small>스펙 ${group.specs.length}개 · 작업항목 ${group.totalTasks}개</small></div><div><b>${group.completionRate}%</b><small>${group.doneTasks}/${group.totalTasks} 완료</small></div></summary><div class="spec-list">${group.specs.map(specCard).join('')}</div></details>`).join('');
+  return groups.map(group => `<details class="sprint-group" ${group.sprint === expandedSprint ? 'open' : ''}><summary><div><strong>${esc(group.sprint)}</strong><small>스펙 ${group.specs.length}개 · 작업항목 ${group.totalTasks}개</small></div><div><b>완료율 ${group.completionRate}%</b><small>${group.doneTasks}/${group.totalTasks} 완료 · 기한 초과 ${group.overdueCount}건</small></div></summary><div class="spec-list">${group.specs.map(specCard).join('')}</div></details>`).join('');
 }
 
 function renderProjects() {
@@ -176,10 +262,10 @@ function renderProjects() {
     const allSprints = specs.map(spec => spec.sprint || '스프린트 미지정');
     const controls = resolveProjectControls(state.projectControls[project.name], allSprints);
     const groups = groupSpecsBySprint(specs, controls);
-    const summary = aiProject(project.name)?.summary || project.notionSummary?.summary;
+    const analysis = projectAnalysis(project);
     const open = projectShouldBeOpen(project, state.openProject) ? 'open' : '';
     const managementLabel = { error: '관리 오류', warning: '관리 주의', check: '관리 확인', normal: '관리 정상' }[project.managementStatus] || '관리 확인';
-    return `<details class="card" data-project-card="${esc(project.name)}" ${open}><summary><div class="project-title"><strong>${esc(project.name)} ${badge(managementLabel,project.managementStatus)}</strong><span class="stat">완료율 <b>${project.stats.completionRate}%</b></span><span class="stat">진행 <b>${project.stats.inProgress}</b></span><span class="stat">기한 초과 <b class="${project.stats.overdue?'overdue':''}">${project.stats.overdue}</b></span><span class="stat">확인 <b>${project.stats.issueCount}</b></span></div></summary><div class="details-body"><div class="project-meta"><span>목표 ${esc(project.goal || '미입력')}</span><span>목표일 ${esc(project.milestones?.targetAt || '-')}</span><span>최근 Git ${fmt(project.recentGitAt)}</span></div><div class="progress"><span style="width:${project.stats.completionRate}%"></span></div>${summary ? `<p class="summary">AI 통합 요약: ${esc(summary)}</p>`:''}<div class="toolbar details-toolbar"><label>스프린트<select data-project-control="sprint" data-project-name="${esc(project.name)}">${options(allSprints, controls.sprint, '전체 스프린트')}</select></label><label>순서<select data-project-control="order" data-project-name="${esc(project.name)}">${sortOptions([['desc','최신 스프린트순'],['asc','오래된 스프린트순']],controls.order || 'desc')}</select></label></div>${groups.length ? sprintGroups(groups, controls.sprint) : '<div class="summary">선택한 스프린트에 스펙이 없습니다.</div>'}</div></details>`;
+    return `<details class="card" data-project-card="${esc(project.name)}" ${open}><summary><div class="project-title"><strong>${esc(project.name)} ${badge(managementLabel,project.managementStatus)}</strong><span class="stat">진행 <b>${project.stats.inProgress}</b></span><span class="stat">기한 초과 <b class="${project.stats.overdue?'overdue':''}">${project.stats.overdue}</b></span><span class="stat">확인 <b>${project.stats.issueCount}</b></span></div></summary><div class="details-body"><div class="project-meta"><span>목표 ${esc(project.goal || '미입력')}</span><span>목표일 ${esc(project.milestones?.targetAt || '-')}</span><span>최근 Git ${fmt(project.recentGitAt)}</span></div>${analysis ? `<p class="summary"><strong>${esc(analysis.label)}</strong>: ${esc(analysis.text)}</p>`:''}<div class="toolbar details-toolbar"><label>스프린트<select data-project-control="sprint" data-project-name="${esc(project.name)}">${options(allSprints, controls.sprint, '전체 스프린트')}</select></label><label>순서<select data-project-control="order" data-project-name="${esc(project.name)}">${sortOptions([['desc','최신 스프린트순'],['asc','오래된 스프린트순']],controls.order || 'desc')}</select></label></div>${groups.length ? sprintGroups(groups, controls.sprint) : '<div class="summary">선택한 스프린트에 스펙이 없습니다.</div>'}</div></details>`;
   }).join('') || '<div class="card summary">표시할 프로젝트가 없습니다.</div>'}</div>`;
   document.querySelectorAll('[data-project-card]').forEach(card => card.ontoggle = event => {
     const name = event.currentTarget.dataset.projectCard;
@@ -193,6 +279,7 @@ function renderProjects() {
     state.openProject = name;
     persist(); renderProjects();
   });
+  bindCopyActions($('#tab-projects'));
 }
 
 function sortOptions(rows, current) { return rows.map(([value,label]) => `<option value="${value}" ${current === value ? 'selected':''}>${label}</option>`).join(''); }
@@ -222,6 +309,7 @@ function renderPeople() {
     state.openPerson = name;
     persist(); renderPeople();
   });
+  bindCopyActions($('#tab-people'));
 }
 
 function renderChecks() {
@@ -229,11 +317,23 @@ function renderChecks() {
   const filtered = visible.filter(issue => !state.checkFilters.project || (issue.project || '프로젝트 미분류') === state.checkFilters.project).filter(issue => !state.checkFilters.category || issueMatchesCategory(issue, state.checkFilters.category)).filter(issue => !state.checkFilters.issueType || issue.type === state.checkFilters.issueType);
   const groups = groupIssuesByProjectItem(filtered);
   const itemCount = groups.reduce((sum, group) => sum + group.items.length, 0);
+  const workItemIds = new Set(filtered.map(issue => issue.workItemId).filter(Boolean));
+  const shareItems = D.workItems.filter(item => workItemIds.has(item.id));
+  const shareTitle = state.checkFilters.issueType === 'OVERDUE' ? '기한 초과 작업항목'
+    : state.checkFilters.category === 'guide' ? '가이드 위반 작업항목'
+      : state.checkFilters.category ? `${ISSUE_CATEGORIES[state.checkFilters.category]} 작업항목`
+        : '확인 필요 작업항목';
   const issueTypes = [...new Set(visible.map(issue => issue.type))].sort().map(type => `<option value="${esc(type)}" ${state.checkFilters.issueType === type ? 'selected' : ''}>${esc(issuePresentation({ type }).label)}</option>`).join('');
   const categories = Object.entries(ISSUE_CATEGORIES).map(([value, label]) => `<option value="${value}" ${state.checkFilters.category === value ? 'selected' : ''}>${label}</option>`).join('');
-  $('#tab-checks').innerHTML = `<div class="section-head"><div><h2>확인필요</h2><p>관리 문제를 가이드 위반 · 일정 위험 · 데이터 불일치 · 연동 문제로 분류했습니다. 기한 초과는 일정 위험이며, 같은 작업의 날짜 누락 등은 가이드 위반에 함께 표시될 수 있습니다. 확인 대상 ${itemCount}개 · 세부 규칙 ${filtered.length}건</p></div></div><div class="toolbar"><label>프로젝트<select data-check-filter="project">${options(visible.map(issue => issue.project || '프로젝트 미분류'),state.checkFilters.project)}</select></label><label>분류<select data-check-filter="category"><option value="">전체</option>${categories}</select></label><label>문제 유형<select data-check-filter="issueType"><option value="">전체</option>${issueTypes}</select></label><button class="reset" data-action="reset-checks">필터 초기화</button></div><div class="check-groups">${groups.map(group => `<details class="check-project" open><summary>${group.project === '프로젝트 미분류' ? '🟡 ' : ''}${esc(group.project)} · 확인 대상 ${group.items.length}개</summary><div class="check-type"><div class="issue-list">${group.items.map(item => issueGroupRowHtml(item, D)).join('')}</div></div></details>`).join('') || '<div class="card summary">현재 확인할 항목이 없습니다.</div>'}</div>`;
+  $('#tab-checks').innerHTML = `<div class="section-head"><div><h2>확인필요</h2><p>관리 문제를 가이드 위반 · 일정 위험 · 데이터 불일치 · 연동 문제로 분류했습니다. 기한 초과는 일정 위험이며, 같은 작업의 날짜 누락 등은 가이드 위반에 함께 표시될 수 있습니다. 확인 대상 ${itemCount}개 · 세부 규칙 ${filtered.length}건</p></div><div class="share-actions"><button type="button" class="share-primary" data-copy-slack data-share-checks>복사</button></div></div><div class="toolbar"><label>프로젝트<select data-check-filter="project">${options(visible.map(issue => issue.project || '프로젝트 미분류'),state.checkFilters.project)}</select></label><label>분류<select data-check-filter="category"><option value="">전체</option>${categories}</select></label><label>문제 유형<select data-check-filter="issueType"><option value="">전체</option>${issueTypes}</select></label><button class="reset" data-action="reset-checks">필터 초기화</button></div><div class="check-groups">${groups.map(group => `<details class="check-project" open><summary>${group.project === '프로젝트 미분류' ? '🟡 ' : ''}${esc(group.project)} · 확인 대상 ${group.items.length}개</summary><div class="check-type"><div class="issue-list">${group.items.map(item => issueGroupRowHtml(item, D)).join('')}</div></div></details>`).join('') || '<div class="card summary">현재 확인할 항목이 없습니다.</div>'}</div>`;
   document.querySelectorAll('[data-check-filter]').forEach(control => control.onchange = event => { state.checkFilters[event.target.dataset.checkFilter] = event.target.value || ''; persist(); renderChecks(); });
   $('[data-action="reset-checks"]').onclick = () => { state.checkFilters = {}; persist(); renderChecks(); };
+  bindCopyActions($('#tab-checks'), {
+    items: shareItems,
+    title: shareTitle,
+    category: state.checkFilters.category || null,
+    issueType: state.checkFilters.issueType || null,
+  });
 }
 
 function render() {
@@ -251,7 +351,29 @@ function activateTab(tab) {
 }
 
 document.querySelectorAll('#tabs button').forEach(button => button.onclick = () => activateTab(button.dataset.tab));
-$('#refreshBtn').onclick = async () => { await fetch('/api/refresh', { method: 'POST' }); pollStatus(); };
+$('#refreshBtn').onclick = async () => {
+  const button = $('#refreshBtn');
+  const stateLabel = $('#collectState');
+  button.disabled = true;
+  stateLabel.textContent = '수집 중…';
+  try {
+    const response = await fetch('/api/refresh', { method: 'POST' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || '수집에 실패했습니다.');
+    if (result.completed && result.dashboard) {
+      D = normalize(result.dashboard);
+      $('#empty').classList.add('hidden');
+      render();
+      stateLabel.textContent = '최신화 완료';
+      return;
+    }
+    pollStatus();
+  } catch (error) {
+    stateLabel.textContent = `수집 실패: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+};
 let pollTimer;
 async function pollStatus() {
   clearInterval(pollTimer);

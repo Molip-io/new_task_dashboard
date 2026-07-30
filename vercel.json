@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "installCommand": "",
+  "functions": {
+    "api/app.mjs": {
+      "maxDuration": 300,
+      "includeFiles": "{public/**,config.json,prompts/**,schemas/**}"
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/app.mjs"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/collect",
+      "schedule": "30 22 * * *"
+    }
+  ]
+}
