@@ -4,7 +4,7 @@ import { enrichValidationIssue, ISSUE_CATALOG, issueDefinition } from '../lib/is
 
 test('Given the shared issue catalog, When definitions are inspected, Then every type has a complete management action contract', () => {
   for (const [type, definition] of Object.entries(ISSUE_CATALOG)) {
-    assert.ok(['guide', 'schedule', 'consistency', 'integration'].includes(definition.category), `${type} category`);
+    assert.ok(['guide', 'readiness', 'schedule', 'consistency', 'integration'].includes(definition.category), `${type} category`);
     assert.ok(definition.label, `${type} label`);
     assert.ok(definition.responsibleRole, `${type} responsibleRole`);
     assert.ok(definition.actionTarget, `${type} actionTarget`);
@@ -15,6 +15,7 @@ test('Given the shared issue catalog, When definitions are inspected, Then every
 test('Given known issue domains, When definitions are selected, Then guide, schedule, consistency, and integration remain distinct', () => {
   assert.equal(issueDefinition('MISSING_DUE_DATE').category, 'guide');
   assert.equal(issueDefinition('OVERDUE').category, 'schedule');
+  assert.equal(issueDefinition('CURRENT_SPRINT_SETUP_REQUIRED').category, 'readiness');
   assert.equal(issueDefinition('GIT_NOTION_ACTIVITY_MISMATCH').category, 'consistency');
   assert.equal(issueDefinition('GIT_AUTH_REQUIRED').category, 'integration');
 });

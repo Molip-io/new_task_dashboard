@@ -79,8 +79,9 @@ test('Given trust-sensitive briefing data, When reading the briefing contract, T
   assert.match(presenters, /에이전트 분석 미실행/);
 });
 
-test('Given the simplified briefing, When reading its KPI contract, Then only four accessible drill-down metrics remain', () => {
-  for (const detail of ['projects', 'work-items', 'overdue', 'guide']) assert.ok(presenters.includes(`kpi('${detail}'`));
+test('Given the simplified briefing, When reading its KPI contract, Then five accessible drill-down metrics remain', () => {
+  for (const detail of ['projects', 'work-items', 'setup', 'overdue', 'guide']) assert.ok(presenters.includes(`kpi('${detail}'`));
+  assert.match(presenters, /진행 준비 필요 항목/);
   assert.match(app, /briefingDetail/);
   assert.match(app, /aria-expanded/);
   assert.doesNotMatch(presenters, /kpi\([^\n]*missingDateWorkItems|kpi\([^\n]*needsCheckProjects|kpi\([^\n]*recentGitProjects|kpi\([^\n]*gitNotionMismatchProjects/);
@@ -91,7 +92,7 @@ test('Given management issues, When reading task and confirmation UI, Then actio
   assert.match(app, /data-management-check/);
   assert.match(presenters, /권장 처리/);
   assert.match(app, /data-check-filter="category"/);
-  for (const category of ['가이드 위반', '일정 위험', '데이터 불일치', '연동 문제']) assert.match(app, new RegExp(category));
+  for (const category of ['진행 준비', '가이드 위반', '일정 위험', '데이터 불일치', '연동 문제']) assert.match(app, new RegExp(category));
   assert.match(app, /기한 초과는 일정 위험이며/);
 });
 

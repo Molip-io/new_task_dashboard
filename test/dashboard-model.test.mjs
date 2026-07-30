@@ -86,3 +86,85 @@ test('Given guide and schedule issues that overlap, When briefing metrics are bu
   assert.equal(dashboard.metrics.guideViolationWorkItems, 2);
   assert.equal(dashboard.metrics.missingDateWorkItems, 1);
 });
+
+test('Given current-sprint start-before items, When the dashboard model is built, Then setup readiness remains separate from guide violations', () => {
+  const base = {
+    generatedAt: '2026-07-16T00:00:00.000Z',
+    projects: [{ name: '피자레디', config: {}, notionSummary: null, meetings: [], slack: [] }],
+    meetings: [], errors: [], slack: {}, ai: null,
+  };
+  const progressSetupItems = [{
+    id: 'setup',
+    title: '준비 작업',
+    project: '피자레디',
+    status: '시작 전',
+    issues: [{ type: 'CURRENT_SPRINT_SETUP_REQUIRED', category: 'readiness', severity: 'check' }],
+  }];
+
+  const dashboard = buildManagementDashboard({
+    base,
+    tasks: [],
+    workItems: [],
+    issues: [],
+    progressSetupItems,
+    ruleStats: { futureSprintExcludedItems: 2, pastSprintNotStartedItems: 1, ruleNotEvaluatedItems: 3, excludedStatusWorkItems: 4 },
+    git: { repositories: [], commits: [], errors: [] },
+    notionSetup: { ready: true, databases: [] },
+  });
+
+  assert.equal(dashboard.metrics.progressSetupRequiredItems, 1);
+  assert.equal(dashboard.metrics.guideViolationWorkItems, 0);
+  assert.equal(dashboard.metrics.futureSprintExcludedItems, 2);
+  assert.equal(dashboard.metrics.excludedStatusWorkItems, 4);
+});
+
+test('Given a parent guide violation, When briefing metrics are built, Then the parent is counted and shareable with child work', () => {
+  const base = {
+    generatedAt: '2026-07-30T00:00:00.000Z',
+    projects: [{ name: '피자레디', config: {}, notionSummary: null, meetings: [], slack: [] }],
+    meetings: [], errors: [], slack: {}, ai: null,
+  };
+  const parentIssue = {
+    id: 'MISSING_DESCRIPTION:spec',
+    type: 'MISSING_DESCRIPTION',
+    category: 'guide',
+    severity: 'error',
+    project: '피자레디',
+    workItemId: null,
+    specId: 'spec',
+  };
+  const ruleItems = [
+    {
+      id: 'spec',
+      itemLevel: 'parent',
+      title: '상위 작업',
+      project: '피자레디',
+      status: '진행 중',
+      issues: [parentIssue],
+      assignees: ['PD'],
+    },
+    {
+      id: 'work',
+      itemLevel: 'child',
+      title: '하위 작업',
+      project: '피자레디',
+      status: '진행 중',
+      issues: [],
+      assignees: ['개발자'],
+    },
+  ];
+
+  const dashboard = buildManagementDashboard({
+    base,
+    tasks: ruleItems,
+    ruleItems,
+    workItems: [ruleItems[1]],
+    issues: [parentIssue],
+    git: { repositories: [], commits: [], errors: [] },
+    notionSetup: { ready: true, databases: [] },
+  });
+
+  assert.equal(dashboard.metrics.guideViolationWorkItems, 1);
+  assert.equal(dashboard.metrics.totalWorkItems, 2);
+  assert.deepEqual(dashboard.guideViolationItems.map(item => item.id), ['spec']);
+});

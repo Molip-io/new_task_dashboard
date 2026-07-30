@@ -23,6 +23,11 @@ const dashboard = {
     id: 'task-1', title: '기획', status: '진행 중', project: '피자레디', spec: '익스프레스',
     issues: [{ id: 'duplicate-issue' }], assignees: ['a'], rawNotion: { secret: true },
   }],
+  guideViolationItems: [{
+    id: 'spec-1', itemLevel: 'parent', title: '익스프레스', status: '진행 중', project: '피자레디',
+    issues: [{ id: 'parent-issue', type: 'MISSING_DESCRIPTION', category: 'guide', severity: 'error' }],
+    rawNotion: { secret: true },
+  }],
   workload: [{ name: 'a', teams: ['기획'], tasks: [{ id: 'task-1', rawNotion: { duplicate: true } }] }],
   validationIssues: [{ id: 'issue-1', type: 'MISSING_DUE_DATE', severity: 'error', project: '피자레디', workItemId: 'task-1', metadata: { url: 'https://notion.so/task', raw: 'drop' } }],
   git: { repositories: [], commits: [], errors: [] },
@@ -36,6 +41,9 @@ test('Given a full dashboard, When compacted for remote delivery, Then duplicate
   assert.deepEqual(compact.workload[0].tasks, [{ id: 'task-1' }]);
   assert.equal(compact.workItems[0].rawNotion, undefined);
   assert.equal(compact.workItems[0].issues, undefined);
+  assert.equal(compact.guideViolationItems[0].itemLevel, 'parent');
+  assert.equal(compact.guideViolationItems[0].issues[0].type, 'MISSING_DESCRIPTION');
+  assert.equal(compact.guideViolationItems[0].rawNotion, undefined);
   assert.equal(compact.projects[0].config.channels, undefined);
 });
 
@@ -46,6 +54,7 @@ test('Given a compact dashboard, When encoded and decoded, Then the browser payl
   assert.ok(payload.length < DASHBOARD_SNAPSHOT_MAX_PAYLOAD_LENGTH);
   assert.equal(decoded.projects[0].name, '피자레디');
   assert.equal(decoded.workItems[0].title, '기획');
+  assert.equal(decoded.guideViolationItems[0].title, '익스프레스');
 });
 
 test('Given no current snapshot, When published, Then an idempotent Notion page is created', async () => {

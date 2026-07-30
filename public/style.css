@@ -54,7 +54,7 @@ nav#tabs button.active { color: var(--text); background: var(--panel); box-shado
 main, .empty { max-width: 1500px; margin: 0 auto; }
 .section-head { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 12px; margin: 0 0 12px; }
 .section-head h2 { margin: 0; font-size: 19px; } .section-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
-.kpis { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 8px; margin-bottom: 16px; }
 .kpi { min-height: 88px; padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow); color: var(--text); text-align: left; }
 .kpi:hover, .kpi.selected { border-color: var(--blue); background: var(--blue-bg); } .kpi:focus-visible, button.source:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .kpi .value, .kpi .label { display: block; } .kpi .value { font-size: 28px; font-weight: 750; letter-spacing: -.03em; } .kpi .label { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }

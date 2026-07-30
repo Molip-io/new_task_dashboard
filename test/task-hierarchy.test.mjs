@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { buildProjectSpecs, buildWorkload, excludePausedHierarchy, resolveTaskProjects, selectProjectTasks } from '../lib/task-hierarchy.mjs';
+import { buildProjectSpecs, buildWorkload, excludePausedHierarchy, excludeUncollectedHierarchy, resolveTaskProjects, selectProjectTasks } from '../lib/task-hierarchy.mjs';
 
 const tasks = [
   {
@@ -101,7 +101,7 @@ test('Given the Notion project list, When collection scope is selected, Then onl
   assert.match(notionCollector, /allProjects\.filter\(project => project\.summarize\)/);
   assert.match(collector, /selectProjectTasks\(notion\.tasks, notion\.projects\)/);
   assert.doesNotMatch(collector, /unresolvedTasks/);
-  assert.match(notionCollector, /excludePausedHierarchy\(resolveTaskProjects\(\[\.\.\.tasks\.values\(\)\]\)\)/);
+  assert.match(notionCollector, /excludeUncollectedHierarchy\(resolvedTasks\)/);
 });
 
 test('Given tasks from checked and unchecked projects, When project scope is applied, Then unchecked tasks cannot re-enter cards or workload', () => {
@@ -141,4 +141,16 @@ test('Given paused tasks and a paused parent spec, When collection scope is filt
   ]);
 
   assert.deepEqual(filtered.map(task => task.id), ['active-spec', 'active-child']);
+});
+
+test('Given completed, paused, or stopped items, When collection scope is filtered, Then those rows and descendants are excluded', () => {
+  const filtered = excludeUncollectedHierarchy([
+    { id: 'active', status: '진행 중', parentIds: [] },
+    { id: 'done', status: '완료', parentIds: [] },
+    { id: 'paused', status: '일시 정지', parentIds: [] },
+    { id: 'stopped', status: '중단', parentIds: [] },
+    { id: 'child-of-done', status: '진행 중', parentIds: ['done'] },
+  ]);
+
+  assert.deepEqual(filtered.map(item => item.id), ['active']);
 });

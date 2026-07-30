@@ -34,6 +34,9 @@
             "unresolvedProjectWorkItems",
             "startBeforeExcludedWorkItems",
             "startBeforeExcludedReasons",
+            "excludedStatusWorkItems",
+            "futureSprintExcludedWorkItems",
+            "pastSprintNotStartedWorkItems",
             "ruleNotEvaluatedWorkItems",
             "notes"
           ],
@@ -45,6 +48,9 @@
             "unresolvedProjectWorkItems": { "type": "integer", "minimum": 0 },
             "startBeforeExcludedWorkItems": { "type": "integer", "minimum": 0 },
             "startBeforeExcludedReasons": { "type": "integer", "minimum": 0 },
+            "excludedStatusWorkItems": { "type": "integer", "minimum": 0 },
+            "futureSprintExcludedWorkItems": { "type": "integer", "minimum": 0 },
+            "pastSprintNotStartedWorkItems": { "type": "integer", "minimum": 0 },
             "ruleNotEvaluatedWorkItems": { "type": "integer", "minimum": 0 },
             "notes": { "type": "array", "items": { "type": "string", "maxLength": 400 } }
           }
@@ -104,12 +110,27 @@
     "ruleMetricSet": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["guideViolationWorkItems", "missingDateWorkItems", "totalWorkItems", "overdueWorkItems"],
+      "required": [
+        "guideViolationWorkItems",
+        "missingDateWorkItems",
+        "totalWorkItems",
+        "overdueWorkItems",
+        "progressSetupRequiredItems",
+        "pastSprintNotStartedItems",
+        "futureSprintExcludedItems",
+        "ruleNotEvaluatedItems",
+        "excludedStatusWorkItems"
+      ],
       "properties": {
         "guideViolationWorkItems": { "type": "integer", "minimum": 0 },
         "missingDateWorkItems": { "type": "integer", "minimum": 0 },
         "totalWorkItems": { "type": "integer", "minimum": 0 },
-        "overdueWorkItems": { "type": "integer", "minimum": 0 }
+        "overdueWorkItems": { "type": "integer", "minimum": 0 },
+        "progressSetupRequiredItems": { "type": "integer", "minimum": 0 },
+        "pastSprintNotStartedItems": { "type": "integer", "minimum": 0 },
+        "futureSprintExcludedItems": { "type": "integer", "minimum": 0 },
+        "ruleNotEvaluatedItems": { "type": "integer", "minimum": 0 },
+        "excludedStatusWorkItems": { "type": "integer", "minimum": 0 }
       }
     },
     "sourceConflicts": {

@@ -1,6 +1,6 @@
 const severityOrder = { error: 0, warning: 1, check: 2, info: 3 };
 const issueTypeOrder = { MISSING_PROJECT: 0, INVALID_HIERARCHY: 1, MISSING_START_DATE: 2, MISSING_DUE_DATE: 2, OVERDUE: 3, GIT_NOTION_ACTIVITY_MISMATCH: 4, UNMAPPED_GIT_ACTIVITY: 5 };
-const closedStatuses = new Set(['완료', '중단']);
+const closedStatuses = new Set(['완료', '일시 정지', '정지', '중단']);
 
 export function isClosedWorkItem(item) {
   return closedStatuses.has(item?.status);
@@ -60,7 +60,7 @@ export function filterWorkItems(items, filters = {}) {
   });
 }
 
-const statusOrder = { '진행 중': 0, '확인 요청': 1, '검토중': 1, '진행 예정': 2, '시작 전': 3, '완료': 4 };
+const statusOrder = { '진행 중': 0, '확인 요청': 1, '검토중': 1, '추가 진행': 1, '진행 예정': 2, '시작 전': 3, '일시 정지': 4, '정지': 4, '중단': 4, '완료': 4 };
 
 export function sortWorkItems(items, sort = 'risk') {
   const copy = [...items];

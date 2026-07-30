@@ -6,14 +6,14 @@ test('Given a work database with required properties, When setup is inspected, T
   const setup = inspectWorkDatabaseSetup([{
     id: 'db',
     title: '피자레디 작업 현황',
-    properties: Object.fromEntries(['작업', 'Status', '팀', '담당자', '상위 항목', '기간', '완료일', '프로젝트', '스프린트'].map(name => [name, {}])),
+    properties: Object.fromEntries(['작업', 'Status', '담당자', '상위 항목', '기간', '프로젝트', '스프린트', '우선순위', 'Branch'].map(name => [name, {}])),
   }]);
 
   assert.equal(setup.ready, true);
   assert.deepEqual(setup.databases[0].missingProperties, []);
 });
 
-test('Given a work database without completion and sprint fields, When setup is inspected, Then missing properties are explicit', () => {
+test('Given a work database without sprint, priority, and branch fields, When setup is inspected, Then missing properties are explicit', () => {
   const setup = inspectWorkDatabaseSetup([{
     id: 'db',
     title: '작업 현황',
@@ -21,5 +21,5 @@ test('Given a work database without completion and sprint fields, When setup is 
   }]);
 
   assert.equal(setup.ready, false);
-  assert.deepEqual(setup.databases[0].missingProperties, ['완료일', '스프린트']);
+  assert.deepEqual(setup.databases[0].missingProperties, ['스프린트', '우선순위', '브랜치']);
 });

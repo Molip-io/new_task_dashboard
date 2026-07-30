@@ -47,10 +47,16 @@ function briefingDetailHtml(dashboard, detail, taskRows) {
     });
     return `<section class="card briefing-detail" aria-live="polite"><h3>Git 저장소 수집 상세</h3>${rows.join('') || '<div class="summary">표시할 프로젝트가 없습니다.</div>'}</section>`;
   }
-  const labels = { projects: '진행 중 프로젝트', 'work-items': '진행 중 작업항목', overdue: '기한 초과 작업항목', guide: '가이드 위반 작업항목' };
+  const labels = {
+    projects: '진행 중 프로젝트',
+    'work-items': '진행 중 작업항목',
+    overdue: '기한 초과 작업항목',
+    guide: '가이드 위반 작업항목',
+    setup: '진행 준비 필요 항목',
+  };
   const items = briefingDetailItems(dashboard, detail);
   if (detail === 'projects') return `<section class="card briefing-detail" aria-live="polite"><h3>${labels[detail]} ${items.length}개</h3>${items.map(project => `<div class="briefing-row"><strong>${esc(project.name)}</strong><small>진행 ${project.stats.inProgress}건 · 기한 초과 ${project.stats.overdue}건 · 관리 확인 ${project.stats.issueCount}건</small></div>`).join('') || '<div class="summary">해당 프로젝트가 없습니다.</div>'}</section>`;
-  const shareActions = ['overdue', 'guide'].includes(detail)
+  const shareActions = ['overdue', 'guide', 'setup'].includes(detail)
     ? `<div class="share-actions"><button type="button" class="share-primary" data-copy-slack data-share-detail="${esc(detail)}">복사</button></div>`
     : '';
   return `<section class="card briefing-detail" aria-live="polite"><div class="detail-heading"><div><h3>${labels[detail]} ${items.length}개</h3>${shareActions ? '<p>현재 목록의 담당자·기한·확인사항·Notion 링크를 공유합니다.</p>' : ''}</div>${shareActions}</div>${taskRows(items, detail === 'overdue' ? 'overdue' : 'risk')}</section>`;
@@ -93,7 +99,7 @@ export function briefingHtml(dashboard, selectedDetail, taskRows) {
   const overallSummary = dashboard.ai?.overall?.summary;
   const priorityIssues = groupIssuesByProjectItem(dashboard.validationIssues).flatMap(group => group.items).sort((left, right) => (SEVERITY_RANK[left.severity] ?? 9) - (SEVERITY_RANK[right.severity] ?? 9)).slice(0, 5);
   return `<div class="section-head"><div><h2>오늘의 업무 브리핑</h2><p>판단할 것 → 데이터 신뢰 확인 → 관리상 막힌 것 → 어제와 달라진 것 순서입니다. 이 화면은 읽기 전용입니다.</p></div></div>
-    <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}</div>
+    <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', metrics.progressSetupRequiredItems ? 'warning' : '', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}</div>
     ${briefingDetailHtml(dashboard, selectedDetail, taskRows)}
     <div class="card briefing-section"><h3>1. 대표가 확인할 판단</h3>${overallSummary ? `<p class="summary analysis-summary"><strong>에이전트 통합 분석</strong> · ${esc(overallSummary)}</p>` : ''}<div class="decision-list">${decisions.length ? decisions.slice(0, 5).map(item => `<div class="decision"><strong>[${esc(item.project)}] ${esc(item.question)}</strong><small>${esc(item.context || '')}</small></div>`).join('') : '<div class="summary">명시된 판단 안건이 없습니다.</div>'}</div></div>
     ${trustSectionHtml(dashboard)}

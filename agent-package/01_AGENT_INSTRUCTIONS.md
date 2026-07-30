@@ -18,9 +18,8 @@
 - 스프린트별 완료율
 - 진행 중 작업항목 수
 - 기한 초과 여부와 초과 일수
-- 날짜·완료일·담당자 누락
+- 상태별 필수 속성 누락
 - 계층 및 상하위 상태 위반
-- 완료 후 재작업 의심
 - Git·Notion 활동 불일치 후보
 - 출처 수집 상태와 커버리지
 
@@ -43,6 +42,58 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - 출처 충돌의 임의 해결
 - 개인 성과·생산성·순위 평가
 - 관련 없는 Slack 채널·Notion 페이지·저장소 탐색
+
+### 수집 제외 상태
+
+다음 상태의 항목은 활성 업무가 아니므로 규칙 평가·기한 초과·가이드 위반·진행 준비·출처 대조·요약·저장 집계에서 제외한다.
+
+- `완료`
+- `일시 정지`
+- `정지`
+- `중단`
+
+제외 상태인 상위항목의 모든 하위항목도 하위 상태와 관계없이 함께 제외한다. 원격 규칙 입력에 포함되어 있더라도 분석 대상으로 되살리지 않는다. 제외 건수는 `excludedStatusWorkItems`에만 기록한다.
+
+### 상위항목 가이드
+
+상위항목은 부모가 없는 핵심 작업 페이지다. 상태와 관계없이 다음 항목이 모두 필요하다.
+
+- 프로젝트
+- 스프린트
+- 작업명
+- 작업 내용 설명 3줄 내외 또는 목적·범위·완료 기준에 준하는 내용
+- 담당자: 프로젝트 리스트 DB의 `PD` 전원과 `팀장` 전원
+- 상태
+
+프로젝트 리스트 DB의 `PD` 또는 `팀장`을 읽을 수 없거나 설정이 비어 있어 필수 담당자를 판정할 수 없으면 임의 추정하지 않고 `RULE_NOT_EVALUATED`로 기록한다.
+
+### 하위항목 가이드
+
+하위항목은 상위 핵심 작업 바로 아래의 팀별 작업 페이지다. 3단계 이상의 하위 구조는 허용하지 않는다.
+
+모든 수집 대상 상태의 공통 필수 항목은 다음과 같다.
+
+- 프로젝트
+- 스프린트
+- 작업명
+- 상태
+
+상태별 추가 규칙은 다음과 같다.
+
+- `시작 전`: 공통 필수 항목만 검사한다. 담당자·우선순위·기간·브랜치가 없어도 가이드 위반으로 세지 않는다.
+- `확인 요청`: 댓글에서 프로젝트 `PD` 또는 작업 완료처리 담당자를 실제로 태그해야 한다. 댓글이나 멘션을 읽을 권한이 없거나 비교할 담당자를 알 수 없으면 위반을 단정하지 않고 `RULE_NOT_EVALUATED`로 기록한다.
+- `진행 예정`, `진행 중`, `검토중`, `추가 진행`: 공통 필수 항목과 메인 담당자·우선순위·시작날짜~Dead Line·브랜치가 모두 필요하다.
+
+### 스프린트 판정과 진행 준비
+
+프로젝트 리스트 DB의 `현재 스프린트`를 프로젝트별 기준으로 사용한다. 여러 값이 있으면 모두 현재 스프린트로 인정한다. `Sprint60`, `Sprint 60`, `스프린트60`처럼 표기만 다른 값은 숫자를 기준으로 정규화하되, 다른 숫자를 유사값으로 추정하지 않는다.
+
+- 현재 스프린트 + `시작 전`: `진행 준비 필요 항목`으로 분류한다. 가이드에 맞는 진행 정보 입력 후 빠른 시일 내 `진행 예정`으로 변경하도록 안내한다.
+- 미래 스프린트 + `시작 전`: `진행 준비 필요 항목`에서 제외한다. 하위항목 공통 필수 항목만 검사하며 담당자·우선순위·기간·브랜치 누락을 위반으로 만들지 않는다.
+- 지난 스프린트 + `시작 전`: `지난 스프린트 미착수`로 분류한다.
+- 현재 스프린트 설정이 없거나 관계를 판정할 수 없음: 임의 분류하지 않고 `RULE_NOT_EVALUATED`로 기록한다.
+
+`진행 준비 필요 항목`은 가이드 위반과 별도 범주다. 같은 작업이 공통 필수 항목도 누락했다면 두 범주에 동시에 포함될 수 있다.
 
 ## 3. 실행 필수 조건
 
@@ -69,11 +120,15 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - `payload.outputSchema`: 최종 출력 JSON이 따라야 할 전체 스키마
 - `payload.rules.metrics`: 대시보드 원본 집계
 - `payload.rules.deltas`: 전일 대비 변경
+- `payload.projects[].currentSprints`: 프로젝트 리스트 DB의 현재 스프린트 값
+- `payload.projects[].pdUserIds`, `payload.projects[].teamLeadUserIds`: 상위항목 담당자와 확인 요청 댓글 태그 검사 기준
 - `payload.projects[].ruleAuditFormat`: 압축 감사 행의 열 순서, `missingFieldBits`, `issueTypes` 사전
-- `payload.projects[].ruleAuditItems`: 요약 대상 프로젝트의 활성 작업 전체. 각 행은 `ruleAuditFormat.columns` 순서다. `missingFieldMask & missingFieldBits.<field>`가 0이 아니면 해당 필드가 원본에서 누락된 것이다. `projectInherited = 1`은 하위 작업이 상위 프로젝트를 분석 범위 판정용으로 상속했음을 뜻한다. 행에는 작업 ID가 없으므로 개별 근거 대조는 `analysisTargets`를 사용한다.
+- `payload.projects[].ruleAuditItems`: 요약 대상 프로젝트의 수집 대상 상위·하위 작업 전체. 각 행은 `ruleAuditFormat.columns` 순서다. 현재 열은 `itemLevel`, `status`, `sprint`, `sprintRelation`, `missingFieldMask`, `projectInherited`, `issueTypeIndexes`다. `itemLevel`은 `parent | child`다. `missingFieldMask & missingFieldBits.<field>`가 0이 아니면 해당 필드가 원본에서 누락된 것이다. `projectInherited = 1`은 하위 작업이 상위 프로젝트를 분석 범위 판정용으로 상속했음을 뜻한다. 행에는 작업 ID가 없으므로 개별 근거 대조는 `analysisTargets`를 사용한다.
 - `payload.projects[].ruleIssueCounts`: 프로젝트 규칙 위반 유형별 원본 건수
-- `payload.projects[].analysisTargets`: 작업 ID·제목·링크를 가진 출처 대조 우선 대상. `ruleAuditItems`는 집계 전용 압축 행이므로 개별 작업을 서로 결합하지 않는다.
+- `payload.projects[].analysisTargets`: 작업 ID·제목·링크·상태·스프린트 관계를 가진 출처 대조 우선 대상. `ruleAuditItems`는 집계 전용 압축 행이므로 개별 작업을 서로 결합하지 않는다.
 - `payload.projects[].analysisScope.targetLimit`: 프로젝트별 출처 대조 최대 대상 수
+
+`outputSchema.ruleMetrics.original`과 `outputSchema.ruleMetrics.corrected`에는 가이드 위반·기한 초과뿐 아니라 `progressSetupRequiredItems`, `pastSprintNotStartedItems`, `futureSprintExcludedItems`, `ruleNotEvaluatedItems`, `excludedStatusWorkItems`가 포함된다.
 
 `dashboard-snapshot:` 페이지의 gzip+base64 payload는 웹 대시보드용이므로 분석 입력으로 압축 해제하거나 대체 사용하지 않는다. `outputSchema`, `ruleAuditItems`, `analysisTargets` 중 하나라도 누락되면 임의로 보완하지 말고 `ruleEngine: failed`와 누락 필드를 구체적으로 보고한다.
 
@@ -86,7 +141,7 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - 프로젝트 리스트의 `회의록 URL`에 연결된 회의록
 - 업무현황 요약 DB: `351b4a46-5003-80ff-8b85-f772cb93da32`
 
-프로젝트 리스트 DB는 활성 프로젝트, `요약` 체크, `채널명` 또는 `Slack 채널명`, 조회 기간, Git URL, 회의록 URL을 찾는 인덱스로 사용한다.
+프로젝트 리스트 DB는 활성 프로젝트, `요약` 체크, `현재 스프린트`, `PD`, `팀장`, `채널명` 또는 `Slack 채널명`, 조회 기간, Git URL, 회의록 URL을 찾는 인덱스로 사용한다.
 
 ### Slack
 
@@ -108,13 +163,15 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 
 1. 전일 대비 상태·기한·담당자가 변경된 작업
 2. 기한 초과 작업
-3. Git·Notion 활동 불일치
-4. 날짜·담당자·상하위 상태 등 핵심 가이드 위반
-5. 최근 회의록에서 직접 언급된 스펙
+3. 지난 스프린트인데 `시작 전`인 작업
+4. 현재 스프린트의 `진행 준비 필요 항목`
+5. Git·Notion 활동 불일치
+6. 상태별 필수 속성·계층 등 핵심 가이드 위반
+7. 최근 회의록에서 직접 언급된 스펙
 
 `analysisTargets`가 비어 있으면 프로젝트 전체 Slack이나 GitHub를 확장 탐색하지 않는다. 규칙 결과와 기존 요약만으로 `중요 변화 없음`을 기록하되, 실제 대조 범위를 신뢰 제한에 쓴다.
 
-일시정지 항목은 입력 패킷에서 제외된 것으로 간주하며 다시 찾아 포함하지 않는다.
+`완료`, `일시 정지`, `정지`, `중단` 항목과 그 하위항목은 입력 패킷에서 제외된 것으로 간주하며 다시 찾아 포함하지 않는다.
 
 ## 6. 일일 실행 절차
 
@@ -171,6 +228,8 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 - `analysisStatus`: `success`, `partial`, `failed` 중 하나
 - `sourceStatus` 각 값: `success`, `partial`, `failed`, `not_available` 중 하나
 - `sourceComparison.status`: `complete`, `partial`, `unavailable`, `not_run` 중 하나
+- `ruleMetrics`: 보정된 `guideViolationWorkItems`, `missingDateWorkItems`, `totalWorkItems`, `overdueWorkItems`, `progressSetupRequiredItems`, `pastSprintNotStartedItems`, `futureSprintExcludedItems`, `ruleNotEvaluatedItems`, `excludedStatusWorkItems`
+- `adjustments`: 프로젝트 상속·프로젝트 누락·수집 제외 상태·미래 스프린트 제외·지난 스프린트 미착수·규칙 미평가의 보정 근거
 
 수집하지 못한 출처는 `충돌 없음`으로 기록하지 않는다. `sourceStatus`와 `confidenceLimits`에 분석 제한을 남긴다.
 
@@ -203,6 +262,7 @@ DB 속성에는 짧은 요약과 집계를 저장한다.
 - 출처별 상태
 - 출처 충돌 수
 - 원본 집계와 최종 보정 집계의 차이. 특히 `guideViolationWorkItems`는 `원본값 → 보정값`으로 적는다.
+- `진행 준비 필요 항목`, `지난 스프린트 미착수`, 미래 스프린트 제외, 수집 제외 상태 집계
 - 프로젝트 상속, 프로젝트 누락, 상태별 예외, `RULE_NOT_EVALUATED` 집계
 - 대시보드 요약 동기화 대기 여부
 - 사람이 설정해야 할 DB 속성·연결 권한·원격 규칙 입력 문제

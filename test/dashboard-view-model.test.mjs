@@ -227,6 +227,18 @@ test('Given guide and schedule issues, When briefing guide details are selected,
   assert.equal(issueMatchesCategory(dashboard.workItems[1].issues[0], 'schedule'), true);
 });
 
+test('Given current-sprint setup items, When briefing setup details are selected, Then only the prepared list is returned', () => {
+  const dashboard = {
+    workItems: [],
+    progressSetupItems: [
+      { id: 'current', status: '시작 전', issues: [{ type: 'CURRENT_SPRINT_SETUP_REQUIRED' }] },
+    ],
+  };
+
+  assert.deepEqual(briefingDetailItems(dashboard, 'setup').map(item => item.id), ['current']);
+  assert.equal(issueMatchesCategory(dashboard.progressSetupItems[0].issues[0], 'readiness'), true);
+});
+
 test('Given selected work items, When a Slack handoff is generated, Then it includes management context and Notion links without duplicates', () => {
   const message = slackWorkItemsMessage([
     {
@@ -292,6 +304,13 @@ test('Given a dashboard selection, When a share URL is built, Then briefing deta
       checkFilters: { project: '피자레디', category: 'schedule', issueType: 'OVERDUE' },
     }),
     'https://dashboard.example/?tab=checks&checkProject=%ED%94%BC%EC%9E%90%EB%A0%88%EB%94%94&checkCategory=schedule&checkIssue=OVERDUE',
+  );
+  assert.equal(
+    dashboardShareUrl('https://dashboard.example/', {
+      tab: 'briefing',
+      briefingDetail: 'setup',
+    }),
+    'https://dashboard.example/?tab=briefing&detail=setup',
   );
 });
 

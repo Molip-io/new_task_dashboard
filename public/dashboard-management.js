@@ -1,5 +1,6 @@
 const CATEGORY_ALIASES = {
   guide: 'guide', '가이드 위반': 'guide',
+  readiness: 'readiness', '진행 준비': 'readiness',
   schedule: 'schedule', '일정 위험': 'schedule',
   consistency: 'consistency', '데이터 불일치': 'consistency',
   integration: 'integration', '연동 문제': 'integration',
@@ -7,14 +8,23 @@ const CATEGORY_ALIASES = {
 
 export const ISSUE_CATEGORIES = {
   guide: '가이드 위반',
+  readiness: '진행 준비',
   schedule: '일정 위험',
   consistency: '데이터 불일치',
   integration: '연동 문제',
 };
 
 const CATALOG = {
+  MISSING_TITLE: ['guide', '작업명 입력 필요', '작업 담당자'],
+  MISSING_SPRINT: ['guide', '스프린트 입력 필요', '작업 담당자'],
+  MISSING_STATUS: ['guide', '상태 입력 필요', '작업 담당자'],
+  MISSING_DESCRIPTION: ['guide', '작업 설명 입력 필요', 'PD 또는 메인 기획자'],
+  MISSING_REQUIRED_OWNERS: ['guide', 'PD·팀장 담당자 지정 필요', 'PD 또는 메인 기획자'],
   MISSING_START_DATE: ['guide', '기간 입력 필요', '작업 담당자'],
   MISSING_DUE_DATE: ['guide', '기간 입력 필요', '작업 담당자'],
+  MISSING_PRIORITY: ['guide', '우선순위 입력 필요', '작업 담당자'],
+  MISSING_BRANCH: ['guide', '브랜치 입력 필요', '프로젝트 개발 담당자'],
+  MISSING_CONFIRMATION_COMMENT_TAG: ['guide', '확인 요청 태그 필요', 'PD 또는 메인 기획자'],
   MISSING_COMPLETED_DATE: ['guide', '완료일 입력 필요', '작업 담당자'],
   INVALID_HIERARCHY: ['guide', '계층 수정 필요', 'PD 또는 메인 기획자'],
   MISSING_PROJECT: ['guide', '프로젝트 연결 필요', '프로젝트 운영 담당자'],
@@ -28,6 +38,8 @@ const CATALOG = {
   MISSING_DELAY_DATE_HISTORY: ['guide', '변경 일정 입력 필요', 'PD 또는 메인 기획자'],
   MISSING_DELAY_OWNER_TAG: ['guide', '지연 담당자 태그 필요', 'PD 또는 메인 기획자'],
   OVERDUE: ['schedule', '지연 기록 필요', 'PD 또는 메인 기획자'],
+  PAST_SPRINT_NOT_STARTED: ['schedule', '지난 스프린트 미착수', 'PD 또는 메인 기획자'],
+  CURRENT_SPRINT_SETUP_REQUIRED: ['readiness', '진행 준비 필요', 'PD 또는 메인 기획자'],
   GIT_NOTION_ACTIVITY_MISMATCH: ['consistency', 'Notion·Git 상태 확인', '프로젝트 개발 담당자'],
   UNMAPPED_GIT_ACTIVITY: ['integration', 'Git 작업 연결 필요', '프로젝트 개발 담당자'],
   MISSING_GIT_URL: ['integration', 'Git URL 입력 필요', '프로젝트 개발 담당자'],
@@ -37,6 +49,7 @@ const CATALOG = {
   GIT_PARTIAL_FETCH: ['integration', 'Git 부분 수집 확인 필요', '프로젝트 개발 담당자'],
   GIT_URL_INVALID: ['integration', 'Git URL 수정 필요', '프로젝트 개발 담당자'],
   GIT_URL_MISSING: ['integration', 'Git URL 입력 필요', '프로젝트 개발 담당자'],
+  RULE_NOT_EVALUATED: ['integration', '규칙 대조 미실행', '프로젝트 운영 담당자'],
 };
 
 const SEVERITY_RANK = { error: 0, warning: 1, check: 2, info: 3 };
@@ -78,11 +91,13 @@ export function issueMatchesCategory(issue, category) {
 }
 
 export function briefingDetailItems(dashboard, detail) {
-  const active = (dashboard.workItems || []).filter(item => !['완료', '중단'].includes(item.status));
+  const active = (dashboard.workItems || []).filter(item => !['완료', '일시 정지', '정지', '중단'].includes(item.status));
   if (detail === 'projects') return (dashboard.projects || []).filter(project => project.stats?.inProgress + project.stats?.planned + project.stats?.review > 0);
   if (detail === 'work-items') return active.filter(item => item.status === '진행 중');
   if (detail === 'overdue') return active.filter(item => item.overdueDays > 0);
-  if (detail === 'guide') return active.filter(item => (item.issues || []).some(issue => issueMatchesCategory(issue, 'guide')));
+  if (detail === 'guide') return dashboard.guideViolationItems
+    || active.filter(item => (item.issues || []).some(issue => issueMatchesCategory(issue, 'guide')));
+  if (detail === 'setup') return dashboard.progressSetupItems || [];
   return [];
 }
 
@@ -147,7 +162,7 @@ export function dashboardShareUrl(baseUrl, state = {}) {
   url.search = '';
   const tab = ['briefing', 'projects', 'people', 'checks'].includes(state.tab) ? state.tab : 'briefing';
   url.searchParams.set('tab', tab);
-  if (tab === 'briefing' && ['projects', 'work-items', 'overdue', 'guide', 'git'].includes(state.briefingDetail)) {
+  if (tab === 'briefing' && ['projects', 'work-items', 'overdue', 'guide', 'setup', 'git'].includes(state.briefingDetail)) {
     url.searchParams.set('detail', state.briefingDetail);
   }
   if (tab === 'checks') {
@@ -160,7 +175,7 @@ export function dashboardShareUrl(baseUrl, state = {}) {
 }
 
 export function briefingTrustOverview(dashboard = {}) {
-  const active = (dashboard.workItems || []).filter(item => !['완료', '중단'].includes(item.status));
+  const active = (dashboard.workItems || []).filter(item => !['완료', '일시 정지', '정지', '중단'].includes(item.status));
   const sourceConflicts = Array.isArray(dashboard.ai?.overall?.sourceConflicts) ? dashboard.ai.overall.sourceConflicts.slice(0, 5) : [];
   const sources = dashboard.sourceHealth?.sources || [];
   const comparisonStatus = dashboard.ai?.sourceComparison?.status

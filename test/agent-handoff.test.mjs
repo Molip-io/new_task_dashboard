@@ -27,11 +27,13 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   assert.ok(packet.outputSchema.required.includes('ruleMetrics'));
   assert.ok(packet.outputSchema.properties.ruleMetrics);
   assert.deepEqual(packet.projects[0].ruleAuditFormat.columns, [
-    'status', 'missingFieldMask', 'projectInherited', 'issueTypeIndexes',
+    'itemLevel', 'status', 'sprint', 'sprintRelation', 'missingFieldMask', 'projectInherited', 'issueTypeIndexes',
   ]);
-  assert.equal(packet.projects[0].ruleAuditItems[0][0], '진행 중');
+  assert.equal(packet.projects[0].ruleAuditItems[0][0], 'child');
+  assert.equal(packet.projects[0].ruleAuditItems[0][1], '진행 중');
+  assert.equal(packet.projects[0].ruleAuditItems[0][2], 'Sprint60');
   assert.deepEqual(
-    packet.projects[0].ruleAuditItems[0][3].map(index => packet.projects[0].ruleAuditFormat.issueTypes[index]),
+    packet.projects[0].ruleAuditItems[0][6].map(index => packet.projects[0].ruleAuditFormat.issueTypes[index]),
     ['OVERDUE'],
   );
   assert.equal('ruleIssues' in packet.projects[0], false);
@@ -98,8 +100,56 @@ test('Given hundreds of repeated guide issues, When an agent packet is built, Th
   const projectBit = projectPacket.ruleAuditFormat.missingFieldBits.project;
 
   assert.equal(projectPacket.ruleAuditItems.length, 180);
-  assert.equal(projectPacket.ruleAuditItems[0][2], 1);
-  assert.ok((projectPacket.ruleAuditItems[0][1] & projectBit) !== 0);
+  assert.equal(projectPacket.ruleAuditItems[0][5], 1);
+  assert.ok((projectPacket.ruleAuditItems[0][4] & projectBit) !== 0);
   assert.ok(projectPacket.analysisTargets[0].reasons.includes('missing_project'));
   assert.ok(JSON.stringify(packet).length < 25_000, `원격 입력이 여전히 너무 큽니다: ${JSON.stringify(packet).length}자`);
+});
+
+test('Given parent and child rule items, When an agent packet is built, Then item level preserves their different validation contracts', () => {
+  const ruleItems = [
+    {
+      id: 'spec',
+      itemLevel: 'parent',
+      specId: 'spec',
+      project: '피자레디',
+      title: '상위 작업',
+      status: '진행 중',
+      sprint: 'Sprint60',
+      assignees: ['PD'],
+      issues: [{ type: 'MISSING_DESCRIPTION', category: 'guide', severity: 'error' }],
+    },
+    {
+      id: 'work',
+      itemLevel: 'child',
+      specId: 'spec',
+      spec: '상위 작업',
+      project: '피자레디',
+      title: '하위 작업',
+      status: '시작 전',
+      sprint: 'Sprint60',
+      issues: [],
+    },
+  ];
+  const packet = buildAgentInputPacket({
+    generatedAt: '2026-07-30T03:00:00.000Z',
+    metrics: { totalWorkItems: 2 },
+    projects: [{ name: '피자레디', stats: { total: 1 } }],
+    workItems: [ruleItems[1]],
+    ruleItems,
+    validationIssues: [{
+      type: 'MISSING_DESCRIPTION',
+      category: 'guide',
+      severity: 'error',
+      project: '피자레디',
+      specId: 'spec',
+      workItemId: null,
+    }],
+    deltas: [],
+  });
+
+  assert.deepEqual(packet.projects[0].ruleAuditItems.map(row => row[0]), ['parent', 'child']);
+  assert.equal(packet.projects[0].analysisTargets[0].itemLevel, 'parent');
+  assert.equal(packet.projects[0].analysisTargets[0].workItemId, null);
+  assert.equal(packet.projects[0].analysisTargets[0].specId, 'spec');
 });

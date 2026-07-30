@@ -88,10 +88,14 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       previousSnapshot: comparisonSnapshot,
       now,
       staleBusinessDays: config.staleBusinessDays || 3,
+      excludedStatusWorkItems: notion.collectionStats?.excludedStatusWorkItems || 0,
     });
     const base = buildBaseDashboard({ notion, slack, errors, dashboardUrl: config.dashboardUrl });
     let dashboard = buildManagementDashboard({
       base, tasks, workItems: validation.workItems, issues: validation.issues,
+      ruleItems: validation.ruleItems,
+      progressSetupItems: validation.progressSetupItems,
+      ruleStats: validation.ruleStats,
       git, notionSetup: notion.notionSetup,
     });
 

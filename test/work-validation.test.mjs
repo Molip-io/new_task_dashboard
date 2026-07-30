@@ -16,7 +16,14 @@ test('Given an active work item without dates or assignees, When guide validatio
 
   const result = validateWorkManagement({ tasks, projects: [{ name: '피자레디' }], gitActivity: [], now: NOW });
 
-  assert.deepEqual(issueTypes(result, 'work').sort(), ['MISSING_ASSIGNEE', 'MISSING_DUE_DATE', 'MISSING_START_DATE'].sort());
+  assert.deepEqual(issueTypes(result, 'work').sort(), [
+    'MISSING_ASSIGNEE',
+    'MISSING_BRANCH',
+    'MISSING_DUE_DATE',
+    'MISSING_PRIORITY',
+    'MISSING_SPRINT',
+    'MISSING_START_DATE',
+  ].sort());
 });
 
 test('Given a work item scoped through its parent but missing its own project relation, When validation runs, Then the project remains a guide violation', () => {
@@ -31,7 +38,7 @@ test('Given a work item scoped through its parent but missing its own project re
   assert.equal(result.issues.find(issue => issue.workItemId === 'work' && issue.type === 'MISSING_PROJECT').project, '피자레디');
 });
 
-test('Given overdue and completed work items, When validation runs, Then overdue days and missing completion date are explicit', () => {
+test('Given overdue and completed work items, When validation runs, Then overdue is explicit and completed work is not collected', () => {
   const tasks = [
     { id: 'spec', title: '스펙', project: '포지', parentIds: [], status: '진행 중', start: '2026-07-01', due: '2026-07-31', assignees: ['PD'], edited: NOW },
     { id: 'late', title: '지연 작업', project: '포지', parentIds: ['spec'], status: '진행 중', start: '2026-07-01', due: '2026-07-10', assignees: ['A'], edited: NOW },
@@ -43,7 +50,8 @@ test('Given overdue and completed work items, When validation runs, Then overdue
 
   assert.equal(overdue.metadata.overdueDays, 5);
   assert.match(overdue.message, /5일/);
-  assert.ok(issueTypes(result, 'done').includes('MISSING_COMPLETED_DATE'));
+  assert.equal(issueTypes(result, 'done').length, 0);
+  assert.equal(result.workItems.some(item => item.id === 'done'), false);
 });
 
 test('Given a third-level item and an orphan item, When hierarchy is validated, Then both structural violations are reported', () => {
@@ -115,10 +123,10 @@ test('Given validation issues from multiple domains, When validation runs, Then 
   const tasks = [
     { id: 'spec', title: '스펙', project: '피자레디', parentIds: [], status: '진행 중', start: '2026-07-01', due: '2026-07-31', assignees: ['PD'], edited: NOW },
     { id: 'late', title: '지연 작업', project: '피자레디', parentIds: ['spec'], status: '진행 중', start: null, due: '2026-07-10', assignees: ['A'], edited: NOW },
-    { id: 'done', title: '완료 작업', project: '피자레디', parentIds: ['spec'], status: '완료', start: '2026-07-01', due: '2026-07-10', completedAt: '2026-07-10', assignees: ['B'], edited: NOW },
+    { id: 'git-work', title: 'Git 작업', project: '피자레디', parentIds: ['spec'], status: '진행 중', start: '2026-07-01', due: '2026-07-20', assignees: ['B'], edited: '2026-07-01T09:00:00+09:00' },
   ];
   const gitActivity = [
-    { project: '피자레디', workItemId: 'done', committedAt: '2026-07-14T12:00:00+09:00', hash: 'mapped-after-done', message: 'late fix' },
+    { project: '피자레디', workItemId: 'git-work', committedAt: '2026-07-14T12:00:00+09:00', hash: 'mapped-active', message: 'active work' },
     { project: '피자레디', workItemId: null, committedAt: '2026-07-14T13:00:00+09:00', hash: 'unmapped', message: 'unknown task' },
   ];
 
@@ -215,4 +223,107 @@ test('Given no repository collection argument, When validation runs, Then existi
   const result = validateWorkManagement({ tasks, projects: [{ name: '피자레디' }], now: NOW });
 
   assert.equal(result.issues.some(issue => issue.type.startsWith('GIT_')), false);
+});
+
+test('Given a current-sprint start-before item, When validation runs, Then setup is requested without requiring execution fields', () => {
+  const tasks = [
+    { id: 'spec', title: '스펙', project: '피자레디', parentIds: [], status: '진행 중', sprint: 'Sprint60' },
+    { id: 'work', title: '준비 작업', project: '피자레디', parentIds: ['spec'], status: '시작 전', sprint: 'Sprint 60', assignees: [], priority: null, start: null, due: null, branches: [] },
+  ];
+
+  const result = validateWorkManagement({
+    tasks,
+    projects: [{ name: '피자레디', currentSprints: ['스프린트60'] }],
+    now: NOW,
+  });
+  const types = issueTypes(result, 'work');
+
+  assert.ok(types.includes('CURRENT_SPRINT_SETUP_REQUIRED'));
+  assert.ok(!types.includes('MISSING_ASSIGNEE'));
+  assert.ok(!types.includes('MISSING_PRIORITY'));
+  assert.ok(!types.includes('MISSING_START_DATE'));
+  assert.ok(!types.includes('MISSING_DUE_DATE'));
+  assert.ok(!types.includes('MISSING_BRANCH'));
+  assert.equal(result.progressSetupItems.length, 1);
+});
+
+test('Given future and past start-before items, When validation runs, Then future setup is excluded and past work remains visible', () => {
+  const tasks = [
+    { id: 'spec', title: '스펙', project: '피자레디', parentIds: [], status: '진행 중', sprint: 'Sprint60' },
+    { id: 'future', title: '미래 작업', project: '피자레디', parentIds: ['spec'], status: '시작 전', sprint: 'Sprint61' },
+    { id: 'past', title: '지난 작업', project: '피자레디', parentIds: ['spec'], status: '시작 전', sprint: 'Sprint59' },
+  ];
+
+  const result = validateWorkManagement({
+    tasks,
+    projects: [{ name: '피자레디', currentSprints: ['스프린트60'] }],
+    now: NOW,
+  });
+
+  assert.ok(!issueTypes(result, 'future').includes('CURRENT_SPRINT_SETUP_REQUIRED'));
+  assert.ok(!issueTypes(result, 'future').some(type => ['MISSING_ASSIGNEE', 'MISSING_PRIORITY', 'MISSING_START_DATE', 'MISSING_DUE_DATE', 'MISSING_BRANCH'].includes(type)));
+  assert.ok(issueTypes(result, 'past').includes('PAST_SPRINT_NOT_STARTED'));
+  assert.equal(result.ruleStats.futureSprintExcludedItems, 1);
+  assert.equal(result.ruleStats.pastSprintNotStartedItems, 1);
+});
+
+test('Given configured project owners and a described parent item, When validation runs, Then required owners are compared by user ID', () => {
+  const tasks = [{
+    id: 'spec',
+    title: '상위 작업',
+    project: '피자레디',
+    parentIds: [],
+    status: '진행 중',
+    sprint: 'Sprint60',
+    description: '목적\n범위\n완료 기준',
+    descriptionChecked: true,
+    assigneeUsers: [{ id: 'pd' }, { id: 'lead' }],
+  }];
+  const projects = [{
+    name: '피자레디',
+    currentSprints: ['Sprint60'],
+    pdUsers: [{ id: 'pd' }],
+    teamLeadUsers: [{ id: 'lead' }],
+  }];
+
+  const result = validateWorkManagement({ tasks, projects, now: NOW });
+
+  assert.equal(result.issues.some(issue => ['MISSING_DESCRIPTION', 'MISSING_REQUIRED_OWNERS'].includes(issue.type)), false);
+});
+
+test('Given a confirmation request comment mentioning the project PD, When validation runs, Then the tag rule passes', () => {
+  const tasks = [
+    { id: 'spec', title: '스펙', project: '피자레디', parentIds: [], status: '진행 중', sprint: 'Sprint60' },
+    {
+      id: 'work',
+      title: '확인 작업',
+      project: '피자레디',
+      parentIds: ['spec'],
+      status: '확인 요청',
+      sprint: 'Sprint60',
+      assigneeUsers: [{ id: 'owner' }],
+      commentCheckAvailable: true,
+      commentMentionUserIds: ['pd'],
+    },
+  ];
+  const projects = [{ name: '피자레디', currentSprints: ['Sprint60'], pdUsers: [{ id: 'pd' }] }];
+
+  const result = validateWorkManagement({ tasks, projects, now: NOW });
+
+  assert.equal(issueTypes(result, 'work').includes('MISSING_CONFIRMATION_COMMENT_TAG'), false);
+  assert.equal(issueTypes(result, 'work').includes('RULE_NOT_EVALUATED'), false);
+});
+
+test('Given completed, paused, and stopped work, When validation runs, Then none enters active validation', () => {
+  const tasks = [
+    { id: 'spec', title: '스펙', project: '피자레디', parentIds: [], status: '진행 중', sprint: 'Sprint60' },
+    { id: 'done', title: '완료', project: '피자레디', parentIds: ['spec'], status: '완료', sprint: 'Sprint60' },
+    { id: 'paused', title: '정지', project: '피자레디', parentIds: ['spec'], status: '일시 정지', sprint: 'Sprint60' },
+    { id: 'stopped', title: '중단', project: '피자레디', parentIds: ['spec'], status: '중단', sprint: 'Sprint60' },
+  ];
+
+  const result = validateWorkManagement({ tasks, projects: [{ name: '피자레디', currentSprints: ['Sprint60'] }], now: NOW });
+
+  assert.deepEqual(result.workItems, []);
+  assert.equal(result.issues.some(issue => ['done', 'paused', 'stopped'].includes(issue.workItemId)), false);
 });
