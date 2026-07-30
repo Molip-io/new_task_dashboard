@@ -101,7 +101,8 @@ test('Given the Notion project list, When collection scope is selected, Then onl
   assert.match(notionCollector, /allProjects\.filter\(project => project\.summarize\)/);
   assert.match(collector, /selectProjectTasks\(notion\.tasks, notion\.projects\)/);
   assert.doesNotMatch(collector, /unresolvedTasks/);
-  assert.match(notionCollector, /excludeUncollectedHierarchy\(resolvedTasks\)/);
+  assert.match(notionCollector, /selectProjectTasks\(resolvedTasks, allProjects\.filter\(project => project\.summarize\)\)/);
+  assert.match(notionCollector, /excludeUncollectedHierarchy\(selectedTasks\)/);
 });
 
 test('Given tasks from checked and unchecked projects, When project scope is applied, Then unchecked tasks cannot re-enter cards or workload', () => {
