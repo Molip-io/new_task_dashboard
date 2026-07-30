@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { publishAgentInputToNotion, remotePacketSize } from '../lib/notion-agent-handoff.mjs';
+import {
+  AGENT_INPUT_REMOTE_READABLE_LIMIT,
+  publishAgentInputToNotion,
+  remotePacketSize,
+} from '../lib/notion-agent-handoff.mjs';
 
 const packet = {
   schemaVersion: '1.0', runId: '2026-07-21-morning', generatedAt: '2026-07-21T07:30:00+09:00',
@@ -34,4 +38,19 @@ test('Given an existing remote rule snapshot, When republished, Then the same pa
   assert.equal(result.status, 'updated');
   assert.equal(updatedPage, 'existing-page');
   assert.ok(remotePacketSize(packet) > 0);
+});
+
+test('Given a packet larger than the connector-readable budget, When published, Then it fails before creating an unreadable page', async () => {
+  const oversized = { ...packet, repeated: 'x'.repeat(AGENT_INPUT_REMOTE_READABLE_LIMIT + 1) };
+
+  await assert.rejects(
+    publishAgentInputToNotion({
+      databaseId: 'summary-db',
+      packet: oversized,
+      query: async () => assert.fail('must fail before querying'),
+      create: async () => assert.fail('must not create'),
+      update: async () => assert.fail('must not update'),
+    }),
+    /원격 조회 안전 한도/,
+  );
 });

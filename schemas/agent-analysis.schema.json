@@ -3,7 +3,7 @@
   "title": "Notion Agent Dashboard Analysis",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "runId", "generatedAt", "analysisStatus", "sourceStatus", "sourceComparison", "overall", "projects"],
+  "required": ["schemaVersion", "runId", "generatedAt", "analysisStatus", "sourceStatus", "sourceComparison", "ruleMetrics", "overall", "projects"],
   "properties": {
     "schemaVersion": { "const": "1.0" },
     "runId": { "type": "string", "minLength": 1 },
@@ -15,6 +15,41 @@
       "additionalProperties": false,
       "required": ["status"],
       "properties": { "status": { "enum": ["complete", "partial", "unavailable", "not_run"] } }
+    },
+    "ruleMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["original", "corrected", "adjustments"],
+      "properties": {
+        "original": { "$ref": "#/$defs/ruleMetricSet" },
+        "corrected": { "$ref": "#/$defs/ruleMetricSet" },
+        "adjustments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "excludedProjectCount",
+            "excludedBySummaryWorkItems",
+            "projectInheritedWorkItems",
+            "originalMissingProjectViolations",
+            "unresolvedProjectWorkItems",
+            "startBeforeExcludedWorkItems",
+            "startBeforeExcludedReasons",
+            "ruleNotEvaluatedWorkItems",
+            "notes"
+          ],
+          "properties": {
+            "excludedProjectCount": { "type": "integer", "minimum": 0 },
+            "excludedBySummaryWorkItems": { "type": "integer", "minimum": 0 },
+            "projectInheritedWorkItems": { "type": "integer", "minimum": 0 },
+            "originalMissingProjectViolations": { "type": "integer", "minimum": 0 },
+            "unresolvedProjectWorkItems": { "type": "integer", "minimum": 0 },
+            "startBeforeExcludedWorkItems": { "type": "integer", "minimum": 0 },
+            "startBeforeExcludedReasons": { "type": "integer", "minimum": 0 },
+            "ruleNotEvaluatedWorkItems": { "type": "integer", "minimum": 0 },
+            "notes": { "type": "array", "items": { "type": "string", "maxLength": 400 } }
+          }
+        }
+      }
     },
     "overall": {
       "type": "object",
@@ -66,6 +101,17 @@
     }
   },
   "$defs": {
+    "ruleMetricSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["guideViolationWorkItems", "missingDateWorkItems", "totalWorkItems", "overdueWorkItems"],
+      "properties": {
+        "guideViolationWorkItems": { "type": "integer", "minimum": 0 },
+        "missingDateWorkItems": { "type": "integer", "minimum": 0 },
+        "totalWorkItems": { "type": "integer", "minimum": 0 },
+        "overdueWorkItems": { "type": "integer", "minimum": 0 }
+      }
+    },
     "sourceConflicts": {
       "type": "array",
       "items": {

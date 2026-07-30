@@ -23,6 +23,12 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   assert.equal(packet.schemaVersion, '1.0');
   assert.match(packet.runId, /^2026-07-21-/);
   assert.equal(packet.rules.metrics.overdueWorkItems, 1);
+  assert.equal(packet.outputSchema.title, 'Notion Agent Dashboard Analysis');
+  assert.ok(packet.outputSchema.required.includes('ruleMetrics'));
+  assert.ok(packet.outputSchema.properties.ruleMetrics);
+  assert.equal(packet.projects[0].ruleAuditItems[0].workItemId, 'task-1');
+  assert.deepEqual(packet.projects[0].ruleAuditItems[0].issueTypes, ['OVERDUE']);
+  assert.equal('ruleIssues' in packet.projects[0], false);
   assert.equal(packet.projects[0].analysisTargets[0].workItemId, 'task-1');
   assert.equal(packet.projects[0].analysisTargets[0].overdueDays, 1);
   assert.deepEqual(packet.projects[0].analysisTargets[0].reasons, ['overdue']);
@@ -38,4 +44,53 @@ test('Given an output path, When the packet is written, Then a valid JSON handof
 
   const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(saved.projects[0].name, '피자레디');
+});
+
+test('Given hundreds of repeated guide issues, When an agent packet is built, Then it remains remotely readable without losing audit coverage', () => {
+  const workItems = Array.from({ length: 180 }, (_, index) => ({
+    id: `task-${index}`,
+    project: '포지 앤 포춘',
+    title: `작업 ${index}`,
+    status: index % 3 === 0 ? '시작 전' : '진행 예정',
+    team: '개발',
+    assignees: [],
+    priority: null,
+    start: null,
+    due: null,
+    sprint: null,
+    projectMissing: index % 10 === 0,
+    projectInherited: index % 10 === 0,
+    projectSource: index % 10 === 0 ? 'parent' : 'property',
+    issues: [
+      { type: 'MISSING_START_DATE', category: 'guide', severity: 'error', message: '시작일 없음' },
+      { type: 'MISSING_DUE_DATE', category: 'guide', severity: 'error', message: '마감일 없음' },
+      { type: 'MISSING_ASSIGNEE', category: 'guide', severity: 'error', message: '담당자 없음' },
+      ...(index % 10 === 0
+        ? [{ type: 'MISSING_PROJECT', category: 'guide', severity: 'check', message: '프로젝트 연결 필요' }]
+        : []),
+    ],
+  }));
+  const validationIssues = workItems.flatMap(item => item.issues.map(issue => ({
+    ...issue,
+    id: `${issue.type}:${item.id}`,
+    project: item.project,
+    workItemId: item.id,
+    recommendedAction: 'Notion에서 입력하세요.',
+  })));
+  const largeDashboard = {
+    generatedAt: '2026-07-30T03:00:00.000Z',
+    metrics: { totalWorkItems: 180, guideViolationWorkItems: 180, missingDateWorkItems: 180 },
+    projects: [{ name: '포지 앤 포춘', stats: { total: 180 } }],
+    workItems,
+    validationIssues,
+    deltas: [],
+  };
+
+  const packet = buildAgentInputPacket(largeDashboard);
+
+  assert.equal(packet.projects[0].ruleAuditItems.length, 180);
+  assert.equal(packet.projects[0].ruleAuditItems[0].projectInherited, true);
+  assert.ok(packet.projects[0].ruleAuditItems[0].missingFields.includes('project'));
+  assert.ok(packet.projects[0].analysisTargets[0].reasons.includes('missing_project'));
+  assert.ok(JSON.stringify(packet).length < 80_000, `원격 입력이 여전히 너무 큽니다: ${JSON.stringify(packet).length}자`);
 });

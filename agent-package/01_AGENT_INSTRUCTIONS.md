@@ -12,7 +12,7 @@
 
 ### 규칙 엔진이 확정하는 내용
 
-다음 값은 Notion 당일 규칙 입력 페이지의 `payload`를 그대로 사용하고 재계산하거나 AI 판단으로 바꾸지 않는다.
+다음 값은 Notion 당일 규칙 입력 페이지의 `payload`가 제공하는 원본 사실이다. `rules.metrics`와 `project.ruleStats`는 원본 참고값으로 보존하고, 최종 보정 집계는 `project.ruleAuditItems` 전체에 실행문의 상태별 규칙을 적용한 `ruleMetrics`로 별도 기록한다.
 
 - 프로젝트·스프린트·스펙·작업항목 계층
 - 스프린트별 완료율
@@ -48,7 +48,7 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 
 웹 에이전트는 로컬 파일·터미널·프로젝트 폴더에 접근하지 않는다. 다음 원격 연결만 사용한다.
 
-- 출력 스키마: 에이전트에 첨부된 `agent-analysis.schema.json`
+- 출력 스키마: 당일 규칙 입력 `payload.outputSchema`
 - 상세 설계: 에이전트에 첨부된 `에이전트_규칙엔진_하이브리드_설계.md`
 - 규칙 입력: Notion `업무현황 요약 DB`의 `규칙 입력 / YYYY-MM-DD` 페이지
 - 규칙 입력 식별자: `run_id = rule-input:YYYY-MM-DD-morning`
@@ -61,6 +61,18 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - 완료 보고: `당일 원격 규칙 입력 없음 또는 payload 해석 불가`
 
 규칙 입력은 읽었지만 일부 보조 출처가 실패한 경우에는 가능한 범위로 분석하고 `partial`로 저장한다.
+
+### 원격 규칙 입력 계약
+
+- `payload.outputSchema`: 최종 출력 JSON이 따라야 할 전체 스키마
+- `payload.rules.metrics`: 대시보드 원본 집계
+- `payload.rules.deltas`: 전일 대비 변경
+- `payload.projects[].ruleAuditItems`: 요약 대상 프로젝트의 활성 작업 전체. 보정 집계는 이 배열을 기준으로 계산한다. `missingFields`에는 `title | project | team | assignee | priority | start | due | sprint` 중 원본에서 누락된 필드만 들어가며, `projectInherited`는 하위 작업이 상위 프로젝트를 분석 범위 판정용으로 상속했는지를 뜻한다.
+- `payload.projects[].ruleIssueCounts`: 프로젝트 규칙 위반 유형별 원본 건수
+- `payload.projects[].analysisTargets`: 출처 대조 우선 대상. 상세 작업 필드는 같은 `workItemId`의 `ruleAuditItems`와 결합해 읽는다.
+- `payload.projects[].analysisScope.targetLimit`: 프로젝트별 출처 대조 최대 대상 수
+
+`dashboard-snapshot:` 페이지의 gzip+base64 payload는 웹 대시보드용이므로 분석 입력으로 압축 해제하거나 대체 사용하지 않는다. `outputSchema`, `ruleAuditItems`, `analysisTargets` 중 하나라도 누락되면 임의로 보완하지 말고 `ruleEngine: failed`와 누락 필드를 구체적으로 보고한다.
 
 ## 4. 허용된 소스
 
@@ -87,7 +99,7 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 
 ## 5. 분석 범위
 
-원격 규칙 입력 `payload`의 프로젝트별 `analysisTargets`를 우선 분석한다. 각 프로젝트의 최대 대상은 입력 패킷의 `analysisScope.targetLimit`을 따른다.
+원격 규칙 입력 `payload`의 프로젝트별 `ruleAuditItems` 전체로 보정 집계를 계산하고, `analysisTargets`를 우선 대조한다. 각 프로젝트의 최대 대조 대상은 입력 패킷의 `analysisScope.targetLimit`을 따른다.
 
 우선순위는 다음과 같다.
 
@@ -106,7 +118,7 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 1. `Asia/Seoul` 기준일과 실행 ID `YYYY-MM-DD-morning`을 정한다.
 2. Notion `업무현황 요약 DB`에서 `run_id = rule-input:YYYY-MM-DD-morning`인 규칙 입력 페이지를 찾는다.
 3. 페이지의 `payload`를 JSON으로 파싱하고 `runId`와 당일 실행 ID가 일치하는지 확인한다.
-4. 원격 payload의 규칙 수치, `analysisTargets`, `sourceHealth`, `deltas`를 읽는다.
+4. 원격 payload의 `outputSchema`, 원본 규칙 수치, `ruleAuditItems`, `ruleIssueCounts`, `analysisTargets`, `sourceHealth`, `deltas`를 읽는다.
 5. 대상별로 Notion 최신 상태, 관련 Slack 스레드, 관련 회의록, GitHub 활동을 대조한다.
 6. 회의록은 `Structured Meeting Evidence` 스킬로 근거를 추출한 뒤 다른 출처와 비교한다.
 7. 전체 1건과 요약 대상 프로젝트별 1건을 만든다.
@@ -148,7 +160,7 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 
 ## 9. 출력 계약
 
-`schemas/agent-analysis.schema.json`을 정확히 따른다.
+당일 payload의 `outputSchema`를 정확히 따른다. 로컬 파일이나 별도 첨부 스키마를 요구하지 않는다.
 
 - `schemaVersion`: `1.0`
 - `runId`: `YYYY-MM-DD-morning`
@@ -187,6 +199,8 @@ DB 속성에는 짧은 요약과 집계를 저장한다.
 - 생성·갱신한 전체 및 프로젝트 페이지 수
 - 출처별 상태
 - 출처 충돌 수
+- 원본 집계와 최종 보정 집계의 차이. 특히 `guideViolationWorkItems`는 `원본값 → 보정값`으로 적는다.
+- 프로젝트 상속, 프로젝트 누락, 상태별 예외, `RULE_NOT_EVALUATED` 집계
 - 대시보드 요약 동기화 대기 여부
 - 사람이 설정해야 할 DB 속성·연결 권한·원격 규칙 입력 문제
 
