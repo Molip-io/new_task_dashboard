@@ -48,13 +48,13 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 
 웹 에이전트는 로컬 파일·터미널·프로젝트 폴더에 접근하지 않는다. 다음 원격 연결만 사용한다.
 
-- 출력 스키마: 당일 규칙 입력 `payload.outputSchema`
+- 출력 스키마: 당일 규칙 입력 페이지 본문의 `MOLIP_AGENT_INPUT_V1` JSON 코드 블록에 있는 `outputSchema`
 - 상세 설계: 에이전트에 첨부된 `에이전트_규칙엔진_하이브리드_설계.md`
 - 규칙 입력: Notion `업무현황 요약 DB`의 `규칙 입력 / YYYY-MM-DD` 페이지
 - 규칙 입력 식별자: `run_id = rule-input:YYYY-MM-DD-morning`
 - 시간대: `Asia/Seoul`
 
-당일 규칙 입력 페이지가 없거나 `payload`를 읽고 JSON으로 파싱할 수 없으면 연결된 Notion·Slack·GitHub만으로 분석을 대신하지 않는다. 프로젝트별 요약도 저장하지 않고 다음으로 종료한다.
+당일 규칙 입력 페이지가 없거나 본문의 관리형 JSON 코드 블록을 읽고 파싱할 수 없으면 연결된 Notion·Slack·GitHub만으로 분석을 대신하지 않는다. 프로젝트별 요약도 저장하지 않고 다음으로 종료한다.
 
 - `analysisStatus`: `failed`
 - `sourceStatus.ruleEngine`: `not_available`
@@ -64,13 +64,15 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 
 ### 원격 규칙 입력 계약
 
+- 페이지 속성 `payload`는 실제 분석 JSON이 아니라 `{ storage, format, marker, runId, bytes }` 위치 안내다.
+- 실제 분석 입력은 페이지 본문에서 caption이 `MOLIP_AGENT_INPUT_V1`인 마지막 JSON 코드 블록이다. 이를 파싱한 객체를 아래에서 `payload`라고 부른다.
 - `payload.outputSchema`: 최종 출력 JSON이 따라야 할 전체 스키마
 - `payload.rules.metrics`: 대시보드 원본 집계
 - `payload.rules.deltas`: 전일 대비 변경
 - `payload.projects[].ruleAuditFormat`: 압축 감사 행의 열 순서, `missingFieldBits`, `issueTypes` 사전
 - `payload.projects[].ruleAuditItems`: 요약 대상 프로젝트의 활성 작업 전체. 각 행은 `ruleAuditFormat.columns` 순서다. `missingFieldMask & missingFieldBits.<field>`가 0이 아니면 해당 필드가 원본에서 누락된 것이다. `projectInherited = 1`은 하위 작업이 상위 프로젝트를 분석 범위 판정용으로 상속했음을 뜻한다. 행에는 작업 ID가 없으므로 개별 근거 대조는 `analysisTargets`를 사용한다.
 - `payload.projects[].ruleIssueCounts`: 프로젝트 규칙 위반 유형별 원본 건수
-- `payload.projects[].analysisTargets`: 출처 대조 우선 대상. 상세 작업 필드는 같은 `workItemId`의 `ruleAuditItems`와 결합해 읽는다.
+- `payload.projects[].analysisTargets`: 작업 ID·제목·링크를 가진 출처 대조 우선 대상. `ruleAuditItems`는 집계 전용 압축 행이므로 개별 작업을 서로 결합하지 않는다.
 - `payload.projects[].analysisScope.targetLimit`: 프로젝트별 출처 대조 최대 대상 수
 
 `dashboard-snapshot:` 페이지의 gzip+base64 payload는 웹 대시보드용이므로 분석 입력으로 압축 해제하거나 대체 사용하지 않는다. `outputSchema`, `ruleAuditItems`, `analysisTargets` 중 하나라도 누락되면 임의로 보완하지 말고 `ruleEngine: failed`와 누락 필드를 구체적으로 보고한다.
@@ -118,7 +120,7 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 
 1. `Asia/Seoul` 기준일과 실행 ID `YYYY-MM-DD-morning`을 정한다.
 2. Notion `업무현황 요약 DB`에서 `run_id = rule-input:YYYY-MM-DD-morning`인 규칙 입력 페이지를 찾는다.
-3. 페이지의 `payload`를 JSON으로 파싱하고 `runId`와 당일 실행 ID가 일치하는지 확인한다.
+3. 페이지 속성 `payload`에서 `storage = page_code_block`, `marker = MOLIP_AGENT_INPUT_V1`, `runId`를 확인한다. 본문에서 같은 marker의 마지막 JSON 코드 블록을 파싱하고 본문 JSON의 `runId`와 당일 실행 ID가 일치하는지 확인한다.
 4. 원격 payload의 `outputSchema`, 원본 규칙 수치, `ruleAuditItems`, `ruleIssueCounts`, `analysisTargets`, `sourceHealth`, `deltas`를 읽는다.
 5. 대상별로 Notion 최신 상태, 관련 Slack 스레드, 관련 회의록, GitHub 활동을 대조한다.
 6. 회의록은 `Structured Meeting Evidence` 스킬로 근거를 추출한 뒤 다른 출처와 비교한다.

@@ -4,11 +4,11 @@
 
 1. 로컬 파일, 로컬 터미널, `/Volumes/PortableSSD/newtaskdashboard`에는 접근하지 마.
 2. Notion `업무현황 요약 DB`에서 `run_id = rule-input:YYYY-MM-DD-morning`인 오늘의 `규칙 입력 / YYYY-MM-DD` 페이지를 찾아.
-3. 해당 페이지의 `payload`를 JSON으로 파싱하고 `runId`가 오늘의 `YYYY-MM-DD-morning`인지 검증해.
-4. `payload.outputSchema`, `payload.projects[].ruleAuditItems`, `payload.projects[].analysisTargets`가 있는지 검증해. 출력 스키마는 별도 첨부나 로컬 파일이 아니라 `payload.outputSchema`를 사용해.
-5. 당일 규칙 입력이 없거나 payload를 끝까지 읽고 파싱할 수 없거나 필수 입력이 누락됐으면 다른 연결 소스만으로 대신 분석하거나 프로젝트 요약을 저장하지 마. 실패 원인과 누락 필드를 구분해 보고하고 종료해.
+3. 페이지 속성 `payload`는 위치 안내야. 여기서 `storage = page_code_block`, `marker = MOLIP_AGENT_INPUT_V1`, `runId`를 확인한 뒤, 페이지 본문에서 caption이 `MOLIP_AGENT_INPUT_V1`인 마지막 JSON 코드 블록을 끝까지 읽어 파싱해. 본문 JSON의 `runId`가 오늘의 `YYYY-MM-DD-morning`인지 검증해.
+4. 본문 JSON의 `outputSchema`, `projects[].ruleAuditFormat`, `projects[].ruleAuditItems`, `projects[].analysisTargets`가 있는지 검증해. 출력 스키마는 별도 첨부나 로컬 파일이 아니라 본문 JSON의 `outputSchema`를 사용해.
+5. 당일 규칙 입력이 없거나 본문 JSON을 끝까지 읽고 파싱할 수 없거나 필수 입력이 누락됐으면 다른 연결 소스만으로 대신 분석하거나 프로젝트 요약을 저장하지 마. 실패 원인과 누락 필드를 구분해 보고하고 종료해.
 6. `rules.metrics`와 `project.ruleStats`는 원본 참고값으로 보존해. 최종 가이드 위반·미기입·총 작업 집계는 요약 체크 true 프로젝트의 `ruleAuditItems` 전체에 상태별 규칙과 프로젝트 상속 규칙을 적용해 `ruleMetrics`로 별도 계산해.
-7. `analysisTargets`의 작업 상세는 같은 `workItemId`의 `ruleAuditItems`와 결합해 읽어. `analysisTargets`를 우선순위대로 확인하고, `analysisScope.targetLimit`을 넘거나 범위 밖인 Slack 채널·Notion 페이지·GitHub 저장소를 확장 탐색하지 마.
+7. `ruleAuditItems`는 보정 집계 전용 압축 행이고 `analysisTargets`는 개별 근거 대조용이야. 둘을 작업 ID로 결합하려고 하지 마. `analysisTargets`를 우선순위대로 확인하고, `analysisScope.targetLimit`을 넘거나 범위 밖인 Slack 채널·Notion 페이지·GitHub 저장소를 확장 탐색하지 마.
 8. 관련 회의록은 `Structured Meeting Evidence` 스킬로 근거를 추출한 뒤 Notion·Slack·GitHub와 대조해. 스킬의 회의록 판단을 프로젝트 최종 상태로 사용하지 마.
 9. 같은 필드의 출처가 직접 충돌하면 최신을 단정하지 말고 양쪽 주장과 링크·시각·짧은 발췌를 보존해 `confirmation_required`로 기록해. 한 출처에 언급이 없는 것은 충돌로 만들지 마.
 10. 데이터 확인만 필요한 충돌은 대표 결정으로 올리지 마. 대표 선택에 따라 우선순위·진행·출시·범위가 달라질 때만 질문형 `decisionsForCEO`로 작성해.
