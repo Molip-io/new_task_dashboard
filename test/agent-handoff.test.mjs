@@ -26,8 +26,14 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   assert.equal(packet.outputSchema.title, 'Notion Agent Dashboard Analysis');
   assert.ok(packet.outputSchema.required.includes('ruleMetrics'));
   assert.ok(packet.outputSchema.properties.ruleMetrics);
-  assert.equal(packet.projects[0].ruleAuditItems[0].workItemId, 'task-1');
-  assert.deepEqual(packet.projects[0].ruleAuditItems[0].issueTypes, ['OVERDUE']);
+  assert.deepEqual(packet.projects[0].ruleAuditFormat.columns, [
+    'status', 'missingFieldMask', 'projectInherited', 'issueTypeIndexes',
+  ]);
+  assert.equal(packet.projects[0].ruleAuditItems[0][0], '진행 중');
+  assert.deepEqual(
+    packet.projects[0].ruleAuditItems[0][3].map(index => packet.projects[0].ruleAuditFormat.issueTypes[index]),
+    ['OVERDUE'],
+  );
   assert.equal('ruleIssues' in packet.projects[0], false);
   assert.equal(packet.projects[0].analysisTargets[0].workItemId, 'task-1');
   assert.equal(packet.projects[0].analysisTargets[0].overdueDays, 1);
@@ -87,10 +93,12 @@ test('Given hundreds of repeated guide issues, When an agent packet is built, Th
   };
 
   const packet = buildAgentInputPacket(largeDashboard);
+  const projectPacket = packet.projects[0];
+  const projectBit = projectPacket.ruleAuditFormat.missingFieldBits.project;
 
-  assert.equal(packet.projects[0].ruleAuditItems.length, 180);
-  assert.equal(packet.projects[0].ruleAuditItems[0].projectInherited, true);
-  assert.ok(packet.projects[0].ruleAuditItems[0].missingFields.includes('project'));
-  assert.ok(packet.projects[0].analysisTargets[0].reasons.includes('missing_project'));
-  assert.ok(JSON.stringify(packet).length < 80_000, `원격 입력이 여전히 너무 큽니다: ${JSON.stringify(packet).length}자`);
+  assert.equal(projectPacket.ruleAuditItems.length, 180);
+  assert.equal(projectPacket.ruleAuditItems[0][2], 1);
+  assert.ok((projectPacket.ruleAuditItems[0][1] & projectBit) !== 0);
+  assert.ok(projectPacket.analysisTargets[0].reasons.includes('missing_project'));
+  assert.ok(JSON.stringify(packet).length < 25_000, `원격 입력이 여전히 너무 큽니다: ${JSON.stringify(packet).length}자`);
 });

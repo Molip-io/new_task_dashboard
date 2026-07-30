@@ -67,7 +67,8 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - `payload.outputSchema`: 최종 출력 JSON이 따라야 할 전체 스키마
 - `payload.rules.metrics`: 대시보드 원본 집계
 - `payload.rules.deltas`: 전일 대비 변경
-- `payload.projects[].ruleAuditItems`: 요약 대상 프로젝트의 활성 작업 전체. 보정 집계는 이 배열을 기준으로 계산한다. `missingFields`에는 `title | project | team | assignee | priority | start | due | sprint` 중 원본에서 누락된 필드만 들어가며, `projectInherited`는 하위 작업이 상위 프로젝트를 분석 범위 판정용으로 상속했는지를 뜻한다.
+- `payload.projects[].ruleAuditFormat`: 압축 감사 행의 열 순서, `missingFieldBits`, `issueTypes` 사전
+- `payload.projects[].ruleAuditItems`: 요약 대상 프로젝트의 활성 작업 전체. 각 행은 `ruleAuditFormat.columns` 순서다. `missingFieldMask & missingFieldBits.<field>`가 0이 아니면 해당 필드가 원본에서 누락된 것이다. `projectInherited = 1`은 하위 작업이 상위 프로젝트를 분석 범위 판정용으로 상속했음을 뜻한다. 행에는 작업 ID가 없으므로 개별 근거 대조는 `analysisTargets`를 사용한다.
 - `payload.projects[].ruleIssueCounts`: 프로젝트 규칙 위반 유형별 원본 건수
 - `payload.projects[].analysisTargets`: 출처 대조 우선 대상. 상세 작업 필드는 같은 `workItemId`의 `ruleAuditItems`와 결합해 읽는다.
 - `payload.projects[].analysisScope.targetLimit`: 프로젝트별 출처 대조 최대 대상 수
