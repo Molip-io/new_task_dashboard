@@ -29,9 +29,11 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   assert.deepEqual(packet.projects[0].ruleAuditFormat.columns, [
     'itemLevel', 'status', 'sprint', 'sprintRelation', 'missingFieldMask', 'projectInherited', 'issueTypeIndexes',
   ]);
-  assert.equal(packet.projects[0].ruleAuditItems[0][0], 'child');
-  assert.equal(packet.projects[0].ruleAuditItems[0][1], '진행 중');
-  assert.equal(packet.projects[0].ruleAuditItems[0][2], 'Sprint60');
+  const auditFormat = packet.projects[0].ruleAuditFormat;
+  const auditRow = packet.projects[0].ruleAuditItems[0];
+  assert.equal(auditFormat.indexedValues.itemLevel[auditRow[0]], 'child');
+  assert.equal(auditFormat.indexedValues.status[auditRow[1]], '진행 중');
+  assert.equal(auditFormat.indexedValues.sprint[auditRow[2]], 'Sprint60');
   assert.deepEqual(
     packet.projects[0].ruleAuditItems[0][6].map(index => packet.projects[0].ruleAuditFormat.issueTypes[index]),
     ['OVERDUE'],
@@ -101,6 +103,7 @@ test('Given hundreds of repeated guide issues, When an agent packet is built, Th
   const projectBit = projectPacket.ruleAuditFormat.missingFieldBits.project;
 
   assert.equal(projectPacket.ruleAuditItems.length, 180);
+  assert.ok(projectPacket.ruleAuditItems.every(row => row.slice(0, 4).every(Number.isInteger)));
   assert.equal(projectPacket.ruleAuditItems[0][5], 1);
   assert.ok((projectPacket.ruleAuditItems[0][4] & projectBit) !== 0);
   assert.ok(projectPacket.analysisTargets[0].reasons.includes('missing_project'));
@@ -149,7 +152,8 @@ test('Given parent and child rule items, When an agent packet is built, Then ite
     deltas: [],
   });
 
-  assert.deepEqual(packet.projects[0].ruleAuditItems.map(row => row[0]), ['parent', 'child']);
+  const { indexedValues } = packet.projects[0].ruleAuditFormat;
+  assert.deepEqual(packet.projects[0].ruleAuditItems.map(row => indexedValues.itemLevel[row[0]]), ['parent', 'child']);
   assert.equal(packet.projects[0].analysisTargets[0].itemLevel, 'parent');
   assert.equal(packet.projects[0].analysisTargets[0].workItemId, null);
 });
