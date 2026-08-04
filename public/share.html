@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>작업 현황 갱신 요청</title>
+<style>
+  :root { --err: #d64545; --warn: #d68f00; --ink: #1f2430; --sub: #6b7280; --line: #e5e7eb; --bg: #f6f7f9; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: var(--ink); background: var(--bg); line-height: 1.5; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 60px; }
+  header { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--sub); font-size: 14px; }
+  .head-text { flex: 1 1 auto; min-width: 220px; }
+  #refresh { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--ink); }
+  #refresh:disabled { color: var(--sub); cursor: wait; }
+  .kpis { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+  .kpis a { flex: 1 1 30%; min-width: 140px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; text-decoration: none; color: inherit; }
+  .kpis a strong { display: block; font-size: 22px; }
+  .kpis a.err strong { color: var(--err); }
+  .kpis a.warn strong { color: var(--warn); }
+  .kpis a small { color: var(--sub); }
+  .filter { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .filter label { font-size: 13px; color: var(--sub); display: block; margin-bottom: 6px; }
+  .filter select { width: 100%; padding: 8px; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  details.sec { margin-top: 20px; }
+  details.sec > summary { list-style: none; cursor: pointer; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 8px; user-select: none; }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary h2 { font-size: 17px; margin: 0; }
+  details.sec > summary .count { color: var(--err); font-size: 15px; font-weight: 700; }
+  details.sec > summary .chevron { margin-left: auto; color: var(--sub); transition: transform .15s; }
+  details.sec[open] > summary .chevron { transform: rotate(90deg); }
+  details.sec .desc { margin: 10px 2px 12px; color: var(--sub); font-size: 13px; }
+  .item { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .item-head { display: flex; gap: 8px; align-items: center; font-size: 12px; flex-wrap: wrap; }
+  .proj { background: #eef2ff; color: #3b4ba0; border-radius: 6px; padding: 2px 8px; font-weight: 600; }
+  .status { color: var(--sub); margin-left: auto; }
+  .badge { border-radius: 6px; padding: 2px 8px; font-weight: 700; color: #fff; }
+  .badge.err { background: var(--err); }
+  .badge.warn { background: var(--warn); }
+  .item h3 { margin: 6px 0 4px; font-size: 15px; }
+  .meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--sub); }
+  .todo { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+  .todo li { margin-bottom: 2px; }
+  .role { color: var(--sub); }
+  .notion { display: inline-block; margin-top: 8px; font-size: 13px; color: #2563eb; text-decoration: none; }
+  .empty { color: var(--sub); padding: 4px 2px; }
+  .hidden { display: none; }
+  #state { color: var(--sub); font-size: 14px; padding: 24px 0; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="head-text">
+    <h1>📋 작업 현황 갱신 요청</h1>
+    <p id="generated">데이터 불러오는 중…</p>
+  </div>
+  <button id="refresh" type="button">🔄 데이터 갱신</button>
+</header>
+<div id="state">불러오는 중…</div>
+<div id="content" class="hidden">
+  <div class="kpis">
+    <a href="#overdue" class="err"><strong id="kpi-overdue">0</strong><small>기한 초과</small></a>
+    <a href="#guide" class="err"><strong id="kpi-guide">0</strong><small>가이드 위반</small></a>
+    <a href="#setup" class="warn"><strong id="kpi-setup">0</strong><small>진행 준비 필요</small></a>
+  </div>
+  <div class="filter">
+    <label for="who">내 이름을 선택하면 내 항목만 보입니다</label>
+    <select id="who"><option value="">전체 보기</option></select>
+  </div>
+  <details class="sec" id="overdue" open>
+    <summary><h2>⏰ 기한 초과</h2><span class="count"></span><span class="chevron">▶</span></summary>
+    <p class="desc">마감일이 지났습니다. 지연 사유와 변경 일정을 입력해 주세요.</p>
+    <div class="items"></div>
+  </details>
+  <details class="sec" id="guide">
+    <summary><h2>📐 작업 가이드 위반</h2><span class="count"></span><span class="chevron">▶</span></summary>
+    <p class="desc">필수 입력값이 비어 있거나 규칙에 맞지 않습니다. 항목별 안내를 따라 수정해 주세요.</p>
+    <div class="items"></div>
+  </details>
+  <details class="sec" id="setup">
+    <summary><h2>🚦 진행 준비 필요</h2><span class="count"></span><span class="chevron">▶</span></summary>
+    <p class="desc">현재 스프린트인데 아직 시작 전 상태입니다. 담당자·우선순위·기간·브랜치 입력 후 진행 예정으로 변경해 주세요.</p>
+    <div class="items"></div>
+  </details>
+</div>
+<script type="module">
+import { issuePresentation, issueMatchesCategory } from './dashboard-management.js';
+
+const closed = new Set(['완료', '일시 정지', '정지', '중단']);
+const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const fmtDate = value => value ? String(value).slice(0, 10) : '-';
+const $ = id => document.getElementById(id);
+
+function withIssues(item, allIssues) {
+  return {
+    ...item,
+    issues: item.issues?.length
+      ? item.issues
+      : allIssues.filter(issue => issue.workItemId === item.id || (!issue.workItemId && issue.specId === item.id)),
+  };
+}
+
+function issueLines(item, category) {
+  const seen = new Set();
+  const lines = [];
+  for (const issue of (item.issues || []).filter(issue => !category || issueMatchesCategory(issue, category))) {
+    const p = issuePresentation(issue);
+    if (seen.has(p.label)) continue;
+    seen.add(p.label);
+    lines.push(p);
+  }
+  return lines;
+}
+
+function card(item, kind) {
+  const assignees = (item.assignees || []).length ? item.assignees : ['담당자 미지정'];
+  const badge = kind === 'overdue'
+    ? `<span class="badge err">${item.overdueDays}일 초과</span>`
+    : kind === 'setup' ? '<span class="badge warn">진행 준비 필요</span>' : '';
+  const category = kind === 'guide' ? 'guide' : kind === 'setup' ? 'readiness' : null;
+  const lines = issueLines(item, category);
+  const todo = lines.length
+    ? `<ul class="todo">${lines.map(p => `<li><strong>${esc(p.label)}</strong> — ${esc(p.recommendedAction)} <span class="role">(${esc(p.responsibleRole)})</span></li>`).join('')}</ul>`
+    : kind === 'overdue' ? '<ul class="todo"><li><strong>지연 기록 필요</strong> — 지연 사유와 변경 일정을 입력하세요.</li></ul>' : '';
+  const link = item.url ? `<a class="notion" href="${esc(item.url)}" target="_blank" rel="noopener">Notion에서 열기 ↗</a>` : '';
+  return `<article class="item" data-assignees="${esc(assignees.join('|'))}">
+    <div class="item-head"><span class="proj">${esc(item.project || '프로젝트 미분류')}</span>${badge}<span class="status">${esc(item.status || '미정')}</span></div>
+    <h3>${esc(item.title || '제목 없음')}</h3>
+    <div class="meta"><span>담당 ${assignees.map(esc).join(', ')}</span><span>기간 ${fmtDate(item.start)} → ${fmtDate(item.due)}</span>${item.sprint ? `<span>${esc(item.sprint)}</span>` : ''}</div>
+    ${todo}${link}
+  </article>`;
+}
+
+function applyFilter() {
+  const name = $('who').value;
+  document.querySelectorAll('.item').forEach(el => {
+    el.classList.toggle('hidden', !!name && !el.dataset.assignees.split('|').includes(name));
+  });
+  document.querySelectorAll('details.sec').forEach(sec => {
+    sec.querySelector('.count').textContent = sec.querySelectorAll('.item:not(.hidden)').length + '건';
+  });
+}
+
+function render(dashboard) {
+  const allIssues = dashboard.validationIssues || [];
+  const active = (dashboard.workItems || []).filter(item => !closed.has(item.status));
+  const overdue = active.filter(item => item.overdueDays > 0)
+    .map(item => withIssues(item, allIssues))
+    .sort((a, b) => b.overdueDays - a.overdueDays || a.title.localeCompare(b.title, 'ko'));
+  const guide = (dashboard.guideViolationItems || active.filter(item => (item.issues || []).some(issue => issueMatchesCategory(issue, 'guide'))))
+    .filter(item => !closed.has(item.status))
+    .map(item => withIssues(item, allIssues));
+  const setup = (dashboard.progressSetupItems || []).map(item => withIssues(item, allIssues));
+
+  const generated = String(dashboard.generatedAt || '').replace('T', ' ').slice(0, 16);
+  $('generated').textContent = `기준: ${generated} · 아래 항목의 Notion 작업 현황을 오늘 중 갱신해 주세요.`;
+  $('kpi-overdue').textContent = overdue.length;
+  $('kpi-guide').textContent = guide.length;
+  $('kpi-setup').textContent = setup.length;
+  document.querySelector('#overdue .items').innerHTML = overdue.map(item => card(item, 'overdue')).join('') || '<p class="empty">해당 항목이 없습니다. 👍</p>';
+  document.querySelector('#guide .items').innerHTML = guide.map(item => card(item, 'guide')).join('') || '<p class="empty">해당 항목이 없습니다. 👍</p>';
+  document.querySelector('#setup .items').innerHTML = setup.map(item => card(item, 'setup')).join('') || '<p class="empty">해당 항목이 없습니다. 👍</p>';
+
+  const previous = $('who').value;
+  const names = [...new Set([...overdue, ...guide, ...setup]
+    .flatMap(item => (item.assignees || []).length ? item.assignees : ['담당자 미지정']))]
+    .sort((a, b) => a.localeCompare(b, 'ko'));
+  $('who').innerHTML = '<option value="">전체 보기</option>' + names.map(name => `<option${name === previous ? ' selected' : ''}>${esc(name)}</option>`).join('');
+  applyFilter();
+
+  $('state').classList.add('hidden');
+  $('content').classList.remove('hidden');
+}
+
+async function load() {
+  const res = await fetch('/api/dashboard');
+  if (!res.ok) throw new Error(`대시보드 데이터를 불러오지 못했습니다 (${res.status})`);
+  render(await res.json());
+}
+
+async function refresh() {
+  const btn = $('refresh');
+  btn.disabled = true;
+  btn.textContent = '⏳ 갱신 중… (1~2분 소요)';
+  try {
+    const res = await fetch('/api/refresh', { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    if (body.dashboard) {
+      render(body.dashboard);
+    } else {
+      // 로컬 서버: 백그라운드 수집 → 완료까지 폴링
+      for (let waited = 0; waited < 10 * 60_000; waited += 5000) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        const status = await (await fetch('/api/status')).json();
+        if (!status.collecting) break;
+      }
+      await load();
+    }
+    btn.textContent = '✅ 갱신 완료';
+  } catch (error) {
+    btn.textContent = '⚠️ 갱신 실패 — 다시 시도';
+    console.error(error);
+  }
+  btn.disabled = false;
+  setTimeout(() => { btn.textContent = '🔄 데이터 갱신'; }, 4000);
+}
+
+$('who').addEventListener('change', applyFilter);
+$('refresh').addEventListener('click', refresh);
+load().catch(error => { $('state').textContent = `⚠️ ${error.message}`; });
+</script>
+</main>
+</body>
+</html>
