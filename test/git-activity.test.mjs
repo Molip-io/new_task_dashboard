@@ -248,6 +248,22 @@ test('Given GitHub rejects repository metadata credentials, When activity is col
   assert.match(result.errors[0], /Bad credentials/);
 });
 
+test('Given GitHub hides a missing or private repository with 404, When activity is collected, Then URL validity is not falsely asserted', async () => {
+  const github = fakeGitHub({
+    '/repos/supercent-io/ForgeFortune': { status: 404, body: { message: 'Not Found' } },
+  });
+
+  const result = await gitActivity.collectGitHubActivity({
+    repositories: [{ project: '포지 앤 포춘', gitUrl: 'https://github.com/supercent-io/ForgeFortune' }],
+    fetchImpl: github.fetchImpl,
+    env: { GITHUB_TOKEN: 'token-with-unknown-access' },
+    now: () => new Date('2026-07-16T00:00:00Z'),
+  });
+
+  assert.equal(result.repositories[0].status, 'not-accessible');
+  assert.match(result.errors[0], /Not Found/);
+});
+
 test('Given one GitHub activity endpoint fails, When other sources remain available, Then collection is marked partial', async () => {
   const github = fakeGitHub({
     '/repos/Molip-io/game': { body: { name: 'game', full_name: 'Molip-io/game', html_url: 'https://github.com/Molip-io/game', default_branch: 'main' } },

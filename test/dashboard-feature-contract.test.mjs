@@ -7,12 +7,14 @@ const appPath = new URL('../public/app.js', import.meta.url);
 const managementPath = new URL('../public/dashboard-management.js', import.meta.url);
 const presentersPath = new URL('../public/dashboard-presenters.js', import.meta.url);
 const designPath = new URL('../DESIGN.md', import.meta.url);
+const meetingSkillPath = new URL('../agent-package/skills/structured-meeting-evidence/SKILL.md', import.meta.url);
 const prototype = fs.readFileSync(prototypePath, 'utf8');
 const app = fs.readFileSync(appPath, 'utf8');
 const management = fs.readFileSync(managementPath, 'utf8');
 const presenters = fs.readFileSync(presentersPath, 'utf8');
 const ui = `${app}\n${presenters}`;
 const design = fs.readFileSync(designPath, 'utf8');
+const meetingSkill = fs.readFileSync(meetingSkillPath, 'utf8');
 
 test('Given the executive briefing, When reading its sections, Then decision, blockage, and delta appear in order', () => {
   const decision = presenters.indexOf('1. 대표가 확인할 판단');
@@ -58,7 +60,10 @@ test('Given the accepted review, When reading the design, Then all P0 requiremen
 });
 
 test('Given the refined dashboard workflow, When reading the UI contract, Then projects group specs by sprint and people or checks do not expose completed work', () => {
-  assert.match(app, /프로젝트 → 스프린트 → 스펙 → 작업항목/);
+  assert.match(app, /프로젝트 → 스프린트 → 상위 작업 → 작업항목/);
+  assert.doesNotMatch(app, /스펙/);
+  assert.match(app, /\$\('#loading'\)\.classList\.add\('hidden'\)/);
+  assert.match(app, /new Map\(\(spec\.tasks \|\| \[\]\)\.map/);
   assert.match(app, /<details class="sprint-group"/);
   assert.match(app, /group\.overdueCount/);
   assert.doesNotMatch(app, /완료율 <b>\$\{project\.stats\.completionRate/);
@@ -70,6 +75,22 @@ test('Given the refined dashboard workflow, When reading the UI contract, Then p
   assert.match(app, /groupIssuesByProjectItem/);
   assert.match(app, /관리 확인/);
   assert.doesNotMatch(app, /Notion 갱신|최신화 필요/);
+});
+
+test('Given a project spec, When its card opens, Then an integrated state briefing appears before the Notion work-item list', () => {
+  for (const label of ['현재 진행', '막힌 점', '다음 행동', '최근 근거', 'Notion 작업항목']) assert.match(app, new RegExp(label));
+  const briefing = app.indexOf('현재 진행');
+  const evidence = app.indexOf('최근 근거', briefing);
+  const workItems = app.indexOf('Notion 작업항목', evidence);
+  assert.ok(briefing >= 0 && evidence > briefing && workItems > evidence);
+  assert.match(app, /spec-work-items-toggle/);
+  assert.match(app, /열기 <span aria-hidden="true">→<\/span>/);
+  for (const source of ['Notion', 'Slack', '회의록', 'Git']) assert.match(app, new RegExp(source));
+  assert.doesNotMatch(app, /현재 확인된 직접 병목 없음/);
+  assert.match(meetingSkill, /Spec Linking Rules/);
+  assert.match(meetingSkill, /specId/);
+  assert.doesNotMatch(app, /class="spec-type"/);
+  assert.doesNotMatch(app, /지금 이 스펙|이 스펙의 Notion/);
 });
 
 test('Given trust-sensitive briefing data, When reading the briefing contract, Then confirmed schedule risk, data quality, source conflict, and coverage gaps remain distinct', () => {

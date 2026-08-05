@@ -70,6 +70,7 @@ test('Given a top-level task and its children, When specs are built, Then hierar
 
   assert.equal(specs.length, 1);
   assert.equal(specs[0].title, '마법 가마솥');
+  assert.equal(specs[0].status, '진행 예정');
   assert.equal(specs[0].childStats.total, 2);
   assert.equal(specs[0].childStats.done, 0);
   assert.equal(specs[0].childStats.unassigned, 1);
@@ -144,14 +145,15 @@ test('Given paused tasks and a paused parent spec, When collection scope is filt
   assert.deepEqual(filtered.map(task => task.id), ['active-spec', 'active-child']);
 });
 
-test('Given completed, paused, or stopped items, When collection scope is filtered, Then those rows and descendants are excluded', () => {
+test('Given completed child work and inactive hierarchies, When collection scope is filtered, Then completed children remain for progress while inactive hierarchies are excluded', () => {
   const filtered = excludeUncollectedHierarchy([
     { id: 'active', status: '진행 중', parentIds: [] },
-    { id: 'done', status: '완료', parentIds: [] },
+    { id: 'done-child', status: '완료', parentIds: ['active'] },
+    { id: 'done-parent', status: '완료', parentIds: [] },
     { id: 'paused', status: '일시 정지', parentIds: [] },
     { id: 'stopped', status: '중단', parentIds: [] },
-    { id: 'child-of-done', status: '진행 중', parentIds: ['done'] },
+    { id: 'child-of-done', status: '진행 중', parentIds: ['done-parent'] },
   ]);
 
-  assert.deepEqual(filtered.map(item => item.id), ['active']);
+  assert.deepEqual(filtered.map(item => item.id), ['active', 'done-child']);
 });

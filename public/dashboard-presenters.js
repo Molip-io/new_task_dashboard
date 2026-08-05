@@ -9,7 +9,7 @@ const fmt = value => value ? String(value).replace('T', ' ').slice(0, 16) : '-';
 
 export function managementActionHtml(issue, fallbackUrl) {
   const presentation = issuePresentation(issue);
-  const targetLabels = { 'work-item': '작업항목', spec: '상위 스펙', project: '프로젝트', 'git-repository': 'Git 저장소' };
+  const targetLabels = { 'work-item': '작업항목', spec: '상위 작업', project: '프로젝트', 'git-repository': 'Git 저장소' };
   const targetUrl = issue.metadata?.remote || issue.metadata?.url || issue.metadata?.representativeCommit?.url || fallbackUrl;
   return `<div class="management-action"><strong>${esc(presentation.categoryLabel)} · ${esc(presentation.label)}</strong><small>현재 확인 사항: ${esc(issue.message || '세부 내용을 확인하세요.')}</small><small>수정 방법: ${esc(presentation.recommendedAction)}</small><small>권장 처리: ${esc(presentation.responsibleRole)} · ${esc(targetLabels[presentation.actionTarget] || 'Notion')}</small>${targetUrl ? `<div class="inline-actions"><a href="${esc(safeUrl(targetUrl))}" target="_blank" rel="noreferrer">수정할 항목 열기</a><button type="button" class="link-copy" data-copy-link="${esc(safeUrl(targetUrl))}">링크 복사</button></div>` : ''}</div>`;
 }
@@ -21,7 +21,7 @@ export function issueGroupRowHtml(group, dashboard) {
   const spec = dashboard.projects.flatMap(project => project.specs || []).find(row => row.id === primary.specId);
   const commit = dashboard.git?.commits?.find(row => row.hash === primary.metadata?.commitHash);
   const title = item?.title || spec?.title || (primary.metadata?.commitHash ? `커밋 ${primary.metadata.commitHash.slice(0, 8)}` : '프로젝트 관리 항목');
-  const context = item ? `${item.spec || '스펙 미지정'} · ${item.team || '팀 미지정'}` : spec ? '상위 스펙' : group.project;
+  const context = item ? `${item.spec || '상위 작업 미지정'} · ${item.team || '팀 미지정'}` : spec ? '상위 작업' : group.project;
   const summary = primaryActionSummary(issues);
   const categories = [...new Set(issues.map(issue => issuePresentation(issue).categoryLabel))];
   const detectedAt = issues.map(issue => issue.detectedAt).filter(Boolean).sort().at(-1);

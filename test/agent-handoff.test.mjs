@@ -4,13 +4,28 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { buildAgentInputPacket, writeAgentInputPacket } from '../lib/agent-handoff.mjs';
+import { AGENT_INPUT_REMOTE_READABLE_LIMIT } from '../lib/notion-agent-handoff.mjs';
 
 const dashboard = {
   generatedAt: '2026-07-21T01:00:00.000Z',
   metrics: { overdueWorkItems: 1, guideViolationWorkItems: 2 },
   sourceHealth: { status: 'limited', sources: [{ id: 'slack', status: 'partial' }] },
   validationIssues: [{ type: 'OVERDUE', project: '피자레디', workItemId: 'task-1', severity: 'warning', message: '기한 초과' }],
-  projects: [{ name: '피자레디', goal: '출시', stats: { inProgress: 1, overdue: 1 }, notionSummary: null, meetings: [{ title: '일정 회의', date: '2026-07-20', url: 'https://notion.so/meeting' }] }],
+  projects: [{
+    name: '피자레디', goal: '출시', stats: { inProgress: 1, overdue: 1 }, notionSummary: null,
+    meetings: [{ title: '일정 회의', date: '2026-07-20', url: 'https://notion.so/meeting', content: '익스프레스 기획 범위를 확정한다.', contentChecked: true }],
+    specInsights: [{
+      specId: 'spec-1', title: '익스프레스', evidence: [
+        { source: 'notion', timestamp: '2026-07-20', title: '개발', excerpt: '진행 중', url: 'https://notion.so/task' },
+        { source: 'slack', timestamp: '2026-07-20', title: '#s2_pizzaready', excerpt: '기획 범위 확정', url: 'https://slack.com/message' },
+      ],
+    }],
+    specs: [{
+      id: 'spec-1', title: '익스프레스', sprint: 'Sprint60', status: '진행 중',
+      childStats: { completionRate: 50 },
+      tasks: [{ id: 'task-1', title: '개발', status: '진행 중', overdueDays: 1 }],
+    }],
+  }],
   workItems: [{ id: 'task-1', project: '피자레디', spec: '익스프레스', sprint: 'Sprint60', title: '개발', status: '진행 중', assignees: ['b'], branch: 'feature/express', due: '2026-07-20', overdueDays: 1, issues: [] }],
   slack: { 피자레디: [{ channel: 's2_pizzaready', messages: [{ time: '2026-07-20T08:00:00Z', user: 'a', text: '기획 확정 필요' }] }] },
   git: { commits: [{ project: '피자레디', hash: 'abc', shortHash: 'abc', committedAt: '2026-07-20T07:00:00Z', author: 'b', message: '익스프레스 개발' }] },
@@ -44,8 +59,17 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   assert.equal(packet.projects[0].analysisTargets[0].branch, 'feature/express');
   assert.equal(packet.projects[0].analysisTargets[0].due, '2026-07-20');
   assert.deepEqual(packet.projects[0].analysisTargets[0].reasons, ['overdue']);
+  assert.deepEqual(packet.projects[0].specCatalogFormat.columns, [
+    'specId', 'title', 'sprint', 'status', 'activeTaskCount', 'completionRate', 'overdueCount',
+  ]);
+  assert.deepEqual(packet.projects[0].specCatalog[0], ['spec-1', '익스프레스', 'Sprint60', '진행 중', 1, 50, 1]);
   assert.equal(packet.projects[0].slackScope.channels[0], 's2_pizzaready');
   assert.equal(packet.projects[0].gitEvidence[0].hash, 'abc');
+  assert.equal(packet.projects[0].meetingReferences[0].contentChecked, true);
+  assert.equal('content' in packet.projects[0].meetingReferences[0], false);
+  assert.deepEqual(packet.projects[0].sourceEvidenceFormat.columns, ['specId', 'source', 'timestamp', 'title', 'excerpt', 'url']);
+  assert.equal(packet.projects[0].sourceEvidence[0][0], 'spec-1');
+  assert.equal(packet.projects[0].sourceEvidence[0][1], 'slack');
 });
 
 test('Given an output path, When the packet is written, Then a valid JSON handoff file is created', () => {
@@ -107,7 +131,28 @@ test('Given hundreds of repeated guide issues, When an agent packet is built, Th
   assert.equal(projectPacket.ruleAuditItems[0][5], 1);
   assert.ok((projectPacket.ruleAuditItems[0][4] & projectBit) !== 0);
   assert.ok(projectPacket.analysisTargets[0].reasons.includes('missing_project'));
-  assert.ok(JSON.stringify(packet).length < 25_000, `원격 입력이 여전히 너무 큽니다: ${JSON.stringify(packet).length}자`);
+  assert.ok(JSON.stringify(packet).length < AGENT_INPUT_REMOTE_READABLE_LIMIT, `원격 입력이 여전히 너무 큽니다: ${JSON.stringify(packet).length}자`);
+});
+
+test('Given more linked source excerpts than the remote budget allows, When an agent packet is built, Then evidence is compacted without dropping every linked spec', () => {
+  const evidenceDashboard = structuredClone(dashboard);
+  evidenceDashboard.projects[0].specInsights = Array.from({ length: 80 }, (_, index) => ({
+    specId: `spec-${index}`,
+    title: `상위 작업 ${index}`,
+    evidence: ['slack', 'meeting', 'git'].map(source => ({
+      source,
+      timestamp: '2026-07-20T08:00:00Z',
+      title: `${source} 근거 ${'제목'.repeat(40)}`,
+      excerpt: `직접 연결된 근거 ${'내용'.repeat(120)}`,
+      url: `https://example.com/${source}/${index}/${'path'.repeat(20)}`,
+    })),
+  }));
+
+  const packet = buildAgentInputPacket(evidenceDashboard);
+
+  assert.ok(JSON.stringify(packet).length < AGENT_INPUT_REMOTE_READABLE_LIMIT);
+  assert.ok(packet.projects[0].sourceEvidence.length >= 80);
+  assert.equal(new Set(packet.projects[0].sourceEvidence.map(row => row[0])).size, 80);
 });
 
 test('Given parent and child rule items, When an agent packet is built, Then item level preserves their different validation contracts', () => {

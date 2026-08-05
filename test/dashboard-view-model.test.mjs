@@ -10,6 +10,7 @@ import {
   groupSpecsBySprint,
   projectShouldBeOpen,
   resolveProjectControls,
+  resolveSpecInsight,
   sortPeople,
   sortProjects,
   sortWorkItems,
@@ -140,6 +141,95 @@ test('Given a saved sprint filter whose specs are now complete, When project con
   const result = resolveProjectControls({ sprint: 'Sprint58', order: 'desc' }, ['Sprint59', 'Sprint60']);
 
   assert.deepEqual(result, { sprint: '', order: 'desc' });
+});
+
+test('Given rule fallback and agent spec analysis, When a spec briefing is resolved, Then agent wording and all direct evidence are combined', () => {
+  const project = {
+    specInsights: [{
+      specId: 'spec-1', title: '익스프레스', summary: '규칙 요약', blockers: ['기한 초과'], nextAction: '일정 확인',
+      evidence: [{ source: 'notion', timestamp: '2026-08-04', excerpt: '진행 중', url: 'https://notion.so/spec' }],
+    }],
+  };
+  const spec = { id: 'spec-1', title: '익스프레스', tasks: [] };
+  const agentProject = { specSummaries: [{
+    specId: 'spec-1', title: '익스프레스', summary: '기획 확정 후 개발이 진행 중입니다.',
+    blockers: ['아트 확인 대기'], nextAction: '아트 범위를 확정합니다.', confidenceLimits: ['회의록 미수집'],
+    evidence: [{ source: 'slack', timestamp: '2026-08-05', excerpt: '기획 확정', url: 'https://slack.com/message' }],
+  }] };
+
+  const result = resolveSpecInsight(project, spec, agentProject);
+
+  assert.equal(result.summary, '기획 확정 후 개발이 진행 중입니다.');
+  assert.deepEqual(result.blockers, ['아트 확인 대기']);
+  assert.deepEqual(result.evidence.map(item => item.source), ['slack', 'notion']);
+  assert.equal(result.hasAgentAnalysis, true);
+});
+
+test('Given an older snapshot without spec insights, When a spec briefing is resolved, Then a Notion-based current-state fallback remains visible', () => {
+  const result = resolveSpecInsight({}, {
+    id: 'spec-1', title: '익스프레스', tasks: [{
+      id: 'task-1', title: '개발', status: '진행 중', assignees: ['b'], notionUpdatedAt: '2026-08-04', url: 'https://notion.so/task', overdueDays: 0,
+    }],
+  });
+
+  assert.match(result.summary, /활성 작업 1건/);
+  assert.equal(result.evidence[0].source, 'notion');
+  assert.match(result.nextAction, /다음 완료 지점/);
+});
+
+test('Given agent wording that mistakes missing management fields for a blocker, When a briefing is resolved, Then it falls back to the actual work state', () => {
+  const project = { specInsights: [{
+    specId: 'spec-1', title: '익스프레스', summary: '활성 작업 1건은 진행 중입니다.', blockers: [],
+    nextAction: '진행 중 작업의 다음 완료 지점과 필요한 지원을 확인합니다.', evidence: [],
+  }] };
+  const spec = { id: 'spec-1', title: '익스프레스', tasks: [{ id: 'task-1', title: '개발', status: '진행 중' }] };
+  const agentProject = { specSummaries: [{
+    specId: 'spec-1', title: '익스프레스', summary: '개발 중입니다.',
+    blockers: ['우선 대조 작업의 필수 진행 정보가 누락됨'],
+    nextAction: '누락된 우선순위·기간·브랜치를 보완하고 다음 상태를 확인',
+    evidence: [], confidenceLimits: [],
+  }] };
+
+  const result = resolveSpecInsight(project, spec, agentProject);
+
+  assert.deepEqual(result.blockers, []);
+  assert.match(result.nextAction, /다음 완료 지점/);
+});
+
+test('Given an agent action that asks to enter readiness metadata, When a briefing is resolved, Then that management action is not shown as the work action', () => {
+  const project = { specInsights: [{
+    specId: 'spec-1', title: '익스프레스', summary: '진행 예정입니다.', blockers: [],
+    nextAction: '시작 전·진행 예정 작업의 착수 조건과 담당 일정을 확인합니다.', evidence: [],
+  }] };
+  const spec = { id: 'spec-1', title: '익스프레스', tasks: [{ id: 'task-1', title: '기획', status: '진행 예정' }] };
+  const agentProject = { specSummaries: [{
+    specId: 'spec-1', title: '익스프레스', summary: '진행 예정입니다.', blockers: [],
+    nextAction: '담당자·우선순위·기간·브랜치를 입력하고 빠른 시일 내 진행 예정으로 변경',
+    evidence: [], confidenceLimits: [],
+  }] };
+
+  const result = resolveSpecInsight(project, spec, agentProject);
+
+  assert.match(result.nextAction, /착수 조건/);
+  assert.doesNotMatch(result.nextAction, /브랜치/);
+});
+
+test('Given an agent summary older than the dashboard snapshot, When a briefing is resolved, Then current rule evidence wins until the agent reruns', () => {
+  const project = { specInsights: [{
+    specId: 'spec-1', title: '익스프레스', summary: '최신 규칙 현황', blockers: [], nextAction: '현재 작업 확인', evidence: [],
+  }] };
+  const spec = { id: 'spec-1', title: '익스프레스', tasks: [] };
+  const agentProject = { specSummaries: [{
+    specId: 'spec-1', title: '익스프레스', summary: '오래된 AI 현황', blockers: [], nextAction: null, evidence: [], confidenceLimits: [],
+  }] };
+
+  const result = resolveSpecInsight(project, spec, agentProject, {
+    analysisGeneratedAt: '2026-08-05T08:00:00Z',
+    dashboardGeneratedAt: '2026-08-05T09:00:00Z',
+  });
+
+  assert.equal(result.summary, '최신 규칙 현황');
+  assert.equal(result.hasAgentAnalysis, false);
 });
 
 test('Given a person with only completed history, When people workload has no task filter, Then the person remains with zero active work', () => {
@@ -318,6 +408,7 @@ test('Given Git repository states, When trust summaries are selected, Then missi
   assert.equal(gitTrustSummary({ repositories: [], errors: [] }, [{ name: 'A' }]).label, 'Git URL 미입력');
   assert.equal(gitTrustSummary({ repositories: [{ project: 'A', status: 'missing-url' }], errors: [] }, [{ name: 'A', config: { gitUrl: null } }]).label, 'Git URL 미입력');
   assert.equal(gitTrustSummary({ repositories: [{ status: 'auth-required' }], errors: [] }, [{ name: 'A', gitUrl: 'https://github.com/a/a' }]).label, 'Git 인증 필요');
+  assert.equal(gitRepositoryStatus({ status: 'not-accessible' }), 'Git 권한 또는 URL 확인');
   assert.equal(gitTrustSummary({ repositories: [{ status: 'partial' }], errors: ['partial activity data'] }, [{ name: 'A', gitUrl: 'https://github.com/a/a' }]).label, 'Git 부분 수집');
   assert.equal(gitRepositoryStatus({ status: 'no-activity', commitCount: 0 }), '연결됨 · 최근 활동 없음');
 });

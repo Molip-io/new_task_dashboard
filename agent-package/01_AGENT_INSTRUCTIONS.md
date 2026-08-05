@@ -52,7 +52,7 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - `정지`
 - `중단`
 
-제외 상태인 상위항목의 모든 하위항목도 하위 상태와 관계없이 함께 제외한다. 원격 규칙 입력에 포함되어 있더라도 분석 대상으로 되살리지 않는다. 제외 건수는 `excludedStatusWorkItems`에만 기록한다.
+단, 진행 중인 상위항목 아래의 완료된 하위 작업항목은 상위 진행률과 상태 계산 근거로 입력에 남을 수 있다. 이 완료 항목은 규칙 평가·출처 대조·요약 대상에는 포함하지 않는다. 완료·일시 정지·정지·중단 상태인 상위항목의 모든 하위항목은 하위 상태와 관계없이 함께 제외한다. 원격 규칙 입력에 포함되어 있더라도 활성 분석 대상으로 되살리지 않는다. 제외 건수는 `excludedStatusWorkItems`에만 기록한다.
 
 ### 상위항목 가이드
 
@@ -126,11 +126,14 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - `payload.projects[].ruleAuditItems`: 요약 대상 프로젝트의 수집 대상 상위·하위 작업 전체. 각 행은 `ruleAuditFormat.columns` 순서다. 현재 열은 `itemLevel`, `status`, `sprint`, `sprintRelation`, `missingFieldMask`, `projectInherited`, `issueTypeIndexes`다. `itemLevel`은 `parent | child`다. `missingFieldMask & missingFieldBits.<field>`가 0이 아니면 해당 필드가 원본에서 누락된 것이다. `projectInherited = 1`은 하위 작업이 상위 프로젝트를 분석 범위 판정용으로 상속했음을 뜻한다. 행에는 작업 ID가 없으므로 개별 근거 대조는 `analysisTargets`를 사용한다.
 - `payload.projects[].ruleIssueCounts`: 프로젝트 규칙 위반 유형별 원본 건수
 - `payload.projects[].analysisTargets`: 작업 ID·제목·링크·상태·스프린트 관계를 가진 출처 대조 우선 대상. `ruleAuditItems`는 집계 전용 압축 행이므로 개별 작업을 서로 결합하지 않는다.
+- `payload.projects[].specCatalogFormat`, `payload.projects[].specCatalog`: 프로젝트 화면에 표시할 활성 스펙 전체와 각 스펙의 상태·진행률·기한 초과·활성 작업 수. 최종 `projects[].specSummaries`는 이 목록의 각 행을 빠짐없이 1건씩 다룬다.
+- `payload.projects[].sourceEvidenceFormat`, `payload.projects[].sourceEvidence`: 수집기가 프로젝트 전체 허용 채널의 Slack 스레드, 회의록 본문, Git 활동을 보수적으로 직접 연결한 스펙별 근거. 각 행은 `sourceEvidenceFormat.columns` 순서이며 `analysisTargets` 제한과 무관하게 `specCatalog` 전체 요약에 사용한다.
+- `payload.projects[].meetingReferences`: 회의록 제목·링크와 수집기의 본문 확인 여부. 본문 전체는 원격 입력 크기 제한 때문에 포함하지 않으며, 연결된 발췌는 `sourceEvidence`를 사용한다. 추가 심층 대조 대상만 링크를 읽는다.
 - `payload.projects[].analysisScope.targetLimit`: 프로젝트별 출처 대조 최대 대상 수
 
 `outputSchema.ruleMetrics.original`과 `outputSchema.ruleMetrics.corrected`에는 가이드 위반·기한 초과뿐 아니라 `progressSetupRequiredItems`, `pastSprintNotStartedItems`, `futureSprintExcludedItems`, `ruleNotEvaluatedItems`, `excludedStatusWorkItems`가 포함된다.
 
-`dashboard-snapshot:` 페이지의 gzip+base64 payload는 웹 대시보드용이므로 분석 입력으로 압축 해제하거나 대체 사용하지 않는다. `outputSchema`, `ruleAuditItems`, `analysisTargets` 중 하나라도 누락되면 임의로 보완하지 말고 `ruleEngine: failed`와 누락 필드를 구체적으로 보고한다.
+`dashboard-snapshot:` 페이지의 gzip+base64 payload는 웹 대시보드용이므로 분석 입력으로 압축 해제하거나 대체 사용하지 않는다. `outputSchema`, `ruleAuditItems`, `analysisTargets`, `specCatalog` 중 하나라도 누락되면 임의로 보완하지 말고 `ruleEngine: failed`와 누락 필드를 구체적으로 보고한다.
 
 ## 4. 허용된 소스
 
@@ -157,7 +160,7 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 
 ## 5. 분석 범위
 
-원격 규칙 입력 `payload`의 프로젝트별 `ruleAuditItems` 전체로 보정 집계를 계산하고, `analysisTargets`를 우선 대조한다. 각 프로젝트의 최대 대조 대상은 입력 패킷의 `analysisScope.targetLimit`을 따른다.
+원격 규칙 입력 `payload`의 프로젝트별 `ruleAuditItems` 전체로 보정 집계를 계산하고, 수집 완료된 `sourceEvidence`는 `specCatalog` 전체에 적용한다. 커넥터를 이용한 추가 심층 대조는 `analysisTargets`를 우선하며 각 프로젝트의 최대 대조 대상은 입력 패킷의 `analysisScope.targetLimit`을 따른다.
 
 우선순위는 다음과 같다.
 
@@ -169,18 +172,18 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 6. 상태별 필수 속성·계층 등 핵심 가이드 위반
 7. 최근 회의록에서 직접 언급된 스펙
 
-`analysisTargets`가 비어 있으면 프로젝트 전체 Slack이나 GitHub를 확장 탐색하지 않는다. 규칙 결과와 기존 요약만으로 `중요 변화 없음`을 기록하되, 실제 대조 범위를 신뢰 제한에 쓴다.
+`analysisTargets`가 비어 있어도 `specCatalog`의 각 스펙은 Notion 규칙 입력과 해당 `sourceEvidence`로 짧게 요약한다. `sourceEvidence`는 이미 허용 범위에서 수집된 입력이므로 모두 읽는다. 커넥터로 프로젝트 전체 Slack이나 GitHub를 다시 확장 탐색하지 않고, 추가 대조는 스펙명·작업항목명·ID가 직접 일치하는 근거만 붙인다. 직접 근거를 찾지 못하면 다른 대화나 커밋을 추정 연결하지 말고 실제 대조 범위를 `confidenceLimits`에 쓴다.
 
-`완료`, `일시 정지`, `정지`, `중단` 항목과 그 하위항목은 입력 패킷에서 제외된 것으로 간주하며 다시 찾아 포함하지 않는다.
+진행 중인 상위항목 아래의 완료된 하위 작업항목은 진행률·상태 계산에만 사용하고 출처 대조·요약 대상으로 되살리지 않는다. 완료·일시 정지·정지·중단 상태인 상위항목과 그 하위항목은 입력 패킷에서 제외된 것으로 간주하며 다시 찾아 포함하지 않는다.
 
 ## 6. 일일 실행 절차
 
 1. `Asia/Seoul` 기준일과 실행 ID `YYYY-MM-DD-morning`을 정한다.
 2. Notion `업무현황 요약 DB`에서 `run_id = rule-input:YYYY-MM-DD-morning`인 규칙 입력 페이지를 찾는다.
 3. 페이지 속성 `payload`에서 `storage = page_code_block`, `marker = MOLIP_AGENT_INPUT_V1`, `runId`를 확인한다. 본문에서 같은 marker의 마지막 JSON 코드 블록을 파싱하고 본문 JSON의 `runId`와 당일 실행 ID가 일치하는지 확인한다.
-4. 원격 payload의 `outputSchema`, 원본 규칙 수치, `ruleAuditItems`, `ruleIssueCounts`, `analysisTargets`, `sourceHealth`, `deltas`를 읽는다.
-5. 대상별로 Notion 최신 상태, 관련 Slack 스레드, 관련 회의록, GitHub 활동을 대조한다.
-6. 회의록은 `Structured Meeting Evidence` 스킬로 근거를 추출한 뒤 다른 출처와 비교한다.
+4. 원격 payload의 `outputSchema`, 원본 규칙 수치, `ruleAuditItems`, `ruleIssueCounts`, `analysisTargets`, `specCatalog`, `sourceEvidence`, `meetingReferences`, `sourceHealth`, `deltas`를 읽는다.
+5. 수집된 `sourceEvidence`를 `specCatalog` 전체에 먼저 적용하고, `analysisTargets`는 추가 심층 대조의 우선순위로 사용한다. Slack·회의록·GitHub는 해당 스펙명·작업항목명·ID가 직접 연결되는 근거만 포함한다.
+6. 회의록에서 이미 연결된 발췌는 `sourceEvidence`를 사용한다. 추가 심층 대조 대상으로 선정된 `meetingReferences` 링크만 읽고 `Structured Meeting Evidence` 스킬로 근거를 추출한 뒤 다른 출처와 비교한다.
 7. 전체 1건과 요약 대상 프로젝트별 1건을 만든다.
 8. 기존 당일 페이지를 `분석 실행 ID` 또는 `기준일 + 프로젝트명`으로 먼저 찾는다.
 9. 있으면 갱신하고 없으면 생성한다.
@@ -230,6 +233,10 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 - `sourceComparison.status`: `complete`, `partial`, `unavailable`, `not_run` 중 하나
 - `ruleMetrics`: 보정된 `guideViolationWorkItems`, `missingDateWorkItems`, `totalWorkItems`, `overdueWorkItems`, `progressSetupRequiredItems`, `pastSprintNotStartedItems`, `futureSprintExcludedItems`, `ruleNotEvaluatedItems`, `excludedStatusWorkItems`
 - `adjustments`: 프로젝트 상속·프로젝트 누락·수집 제외 상태·미래 스프린트 제외·지난 스프린트 미착수·규칙 미평가의 보정 근거
+- `projects[].specSummaries`: `specCatalog`의 활성 스펙과 1:1로 대응한다. 각 항목은 `specId`, `title`, `summary`, `blockers`, `nextAction`, `evidence`, `confidenceLimits`를 가진다. 자연어 요약은 규칙 수치를 바꾸지 않으며 직접 근거가 없는 출처를 추정해서 붙이지 않는다.
+  - `blockers`에는 선행 작업 대기, 승인·결정 대기, 후속 일정에 영향을 주는 지연, 명시된 미해결 이슈처럼 실제 진행을 막는 사실만 쓴다.
+  - 우선순위·기간·브랜치·담당자·설명 누락은 관리·가이드 문제이며 `blockers`에 쓰지 않는다.
+  - `nextAction`은 다음 업무 행동이다. 관리 속성 입력·보완 문구를 넣지 말고, 근거로 다음 업무 행동을 정할 수 없으면 상태 기반 행동 또는 `null`을 사용한다.
 
 수집하지 못한 출처는 `충돌 없음`으로 기록하지 않는다. `sourceStatus`와 `confidenceLimits`에 분석 제한을 남긴다.
 

@@ -32,6 +32,18 @@ test('Given a configured local override, When repositories are resolved, Then it
   }]);
 });
 
+test('Given a configured remote override, When repositories are resolved, Then it replaces the Notion URL without cloning', () => {
+  const projects = [{ name: '포지 앤 포춘', gitUrl: 'https://github.com/Molip-io/Forge.git' }];
+  const configured = [{ project: '포지 앤 포춘', name: 'ForgeFortune', url: 'https://github.com/supercent-io/ForgeFortune', source: 'config' }];
+
+  const result = resolveGitRepositories({ projects, configured, root: '/workspace' });
+
+  assert.deepEqual(result.local, []);
+  assert.deepEqual(result.remote, [{
+    name: 'ForgeFortune', project: '포지 앤 포춘', url: 'https://github.com/supercent-io/ForgeFortune', source: 'config',
+  }]);
+});
+
 test('Given a selected project without a Git URL, When repositories are resolved, Then it remains a remote entry with a missing URL', () => {
   const projects = [{ name: '새 프로젝트', gitUrl: null }];
 

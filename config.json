@@ -11,7 +11,14 @@
   ],
   "git": {
     "sinceDays": 30,
-    "repositories": []
+    "repositories": [
+      {
+        "project": "포지 앤 포춘",
+        "name": "ForgeFortune",
+        "url": "https://github.com/supercent-io/ForgeFortune",
+        "source": "config"
+      }
+    ]
   },
   "features": {
     "slackNotifications": false,

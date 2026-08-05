@@ -83,7 +83,7 @@
       "type": "array",
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["name", "summary", "sprintSummaries", "blockers", "sourceConflicts", "nextActions", "confidenceLimits"],
+        "required": ["name", "summary", "sprintSummaries", "specSummaries", "blockers", "sourceConflicts", "nextActions", "confidenceLimits"],
         "properties": {
           "name": { "type": "string" },
           "summary": { "type": "string", "maxLength": 1200 },
@@ -98,6 +98,23 @@
               }
             }
           },
+          "specSummaries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["specId", "title", "summary", "blockers", "nextAction", "evidence", "confidenceLimits"],
+              "properties": {
+                "specId": { "type": ["string", "null"] },
+                "title": { "type": "string", "minLength": 1 },
+                "summary": { "type": "string", "maxLength": 700 },
+                "blockers": { "description": "확인된 실행 병목만 기록한다. 우선순위·기간·브랜치 등 관리 필드 누락은 제외한다.", "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 300 } },
+                "nextAction": { "description": "업무 진행의 다음 행동을 기록한다. 관리 속성 입력·보완은 제외한다.", "type": ["string", "null"], "maxLength": 400 },
+                "evidence": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/evidenceItem" } },
+                "confidenceLimits": { "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 300 } }
+              }
+            }
+          },
           "blockers": { "type": "array", "items": { "type": "string", "maxLength": 400 } },
           "sourceConflicts": { "$ref": "#/$defs/sourceConflicts" },
           "nextActions": { "type": "array", "items": { "type": "string", "maxLength": 400 } },
@@ -107,6 +124,17 @@
     }
   },
   "$defs": {
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "timestamp", "url", "excerpt"],
+      "properties": {
+        "source": { "enum": ["notion", "slack", "meeting", "git"] },
+        "timestamp": { "type": ["string", "null"] },
+        "url": { "type": ["string", "null"] },
+        "excerpt": { "type": "string", "maxLength": 500 }
+      }
+    },
     "ruleMetricSet": {
       "type": "object",
       "additionalProperties": false,
@@ -144,14 +172,7 @@
           "otherSource": { "enum": ["slack", "meeting", "git"] }, "status": { "const": "confirmation_required" },
           "evidence": {
             "type": "array", "minItems": 2,
-            "items": {
-              "type": "object", "additionalProperties": false,
-              "required": ["source", "timestamp", "url", "excerpt"],
-              "properties": {
-                "source": { "type": "string" }, "timestamp": { "type": "string" }, "url": { "type": ["string", "null"] },
-                "excerpt": { "type": "string", "maxLength": 500 }
-              }
-            }
+            "items": { "$ref": "#/$defs/evidenceItem" }
           }
         }
       }

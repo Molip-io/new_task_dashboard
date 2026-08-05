@@ -8,6 +8,7 @@ import {
   isClosedWorkItem,
   projectShouldBeOpen,
   resolveProjectControls,
+  resolveSpecInsight,
   sortPeople,
   sortProjects,
   sortWorkItems,
@@ -25,6 +26,7 @@ import {
   slackWorkItemsMessage,
 } from './dashboard-management.js';
 import { briefingHtml, issueGroupRowHtml, managementActionHtml } from './dashboard-presenters.js';
+import { deriveSpecStatus } from './spec-state.js';
 
 let D = null;
 const $ = selector => document.querySelector(selector);
@@ -71,7 +73,7 @@ function normalize(raw) {
     const overdue = task.due && task.due < new Date().toISOString().slice(0, 10) && !DONE.has(task.status);
     const issues = overdue ? [{ id: `OVERDUE:${id}`, type: 'OVERDUE', severity: 'warning', message: '기한 초과', project: task.project, workItemId: id, detectedAt: raw.generatedAt, recommendedAction: '지연 사유와 변경 일정을 확인하세요.', metadata: {} }] : [];
     return {
-    id, title: task.title, project: task.project, spec: task.spec || '스펙 미지정',
+    id, title: task.title, project: task.project, spec: task.spec || '상위 작업 미지정',
     status: task.status, team: person.teams?.[0] || '기타', assignees: [person.name], start: task.start || null,
     due: task.due || null, completedAt: task.completedAt || null, sprint: task.sprint || null, notionUpdatedAt: task.notionUpdatedAt || null,
     latestGitAt: task.latestGitAt || null, overdueDays: overdue ? 1 : 0,
@@ -244,11 +246,13 @@ function options(values, current, allLabel = '전체') {
 }
 
 function projectSpecs(project, items) {
-  const source = project.specs.length ? project.specs : [...new Set(items.map(item => item.spec || '스펙 미지정'))].map((title, index) => ({ id: `${project.name}-${index}`, title, status: '', tasks: [] }));
+  const source = project.specs.length ? project.specs : [...new Set(items.map(item => item.spec || '상위 작업 미지정'))].map((title, index) => ({ id: `${project.name}-${index}`, title, status: '', tasks: [] }));
   return filterSpecsWithWorkItems(source.map(spec => {
-    const tasks = items.filter(item => item.spec === spec.title || item.specId === spec.id);
+    const tasksById = new Map((spec.tasks || []).map(item => [item.id, item]));
+    for (const item of items.filter(item => item.spec === spec.title || item.specId === spec.id)) tasksById.set(item.id, item);
+    const tasks = [...tasksById.values()];
     const taskSprints = [...new Set(tasks.map(item => item.sprint).filter(Boolean))];
-    return { ...spec, tasks, risk: tasks.reduce((sum, item) => sum + item.riskScore, 0), overdue: tasks.filter(item => item.overdueDays).length, progress: tasks.length ? Math.round(tasks.filter(item => DONE.has(item.status)).length / tasks.length * 100) : 0, sprint: spec.sprint || (taskSprints.length === 1 ? taskSprints[0] : null) };
+    return { ...spec, status: deriveSpecStatus(tasks), tasks, risk: tasks.reduce((sum, item) => sum + item.riskScore, 0), overdue: tasks.filter(item => item.overdueDays).length, progress: tasks.length ? Math.round(tasks.filter(item => DONE.has(item.status)).length / tasks.length * 100) : 0, sprint: spec.sprint || (taskSprints.length === 1 ? taskSprints[0] : null) };
   }));
 }
 
@@ -262,21 +266,75 @@ function taskRows(items, sort = 'risk') {
     const management = closed ? badge('완료','normal') : issues.length ? `<details class="management-check" data-management-check><summary>${badge(action.label, action.tone)}</summary><div class="management-actions">${issues.map(issue => managementActionHtml(issue, item.url)).join('')}</div></details>` : badge('정상','normal');
     const itemUrl = safeUrl(item.url);
     const copyLink = itemUrl !== '#' ? `<button type="button" class="link-copy" data-copy-link="${esc(itemUrl)}">링크 복사</button>` : '';
-    return `<div class="task-row"><span class="task-title"><span class="task-title-line"><a href="${esc(itemUrl)}" target="_blank">${esc(item.title)}</a>${copyLink}</span><small>${esc(item.project)} · ${esc(item.spec || '스펙 미지정')} · ${esc(item.team || '-')} ${item.sprint ? `· ${esc(item.sprint)}` : ''}</small></span><span>${badge(item.status || '미정', workStatusTone(item))}</span><span>${esc((item.assignees || []).join(', ') || '미지정')}</span><span class="${item.overdueDays ? 'overdue':''}">${esc(item.start || '-')} → ${esc(item.due || '-')} ${item.completedAt ? `· 완료 ${esc(item.completedAt)}` : ''} ${item.overdueDays ? `(+${item.overdueDays}일)` : ''}</span><span>${management}</span></div>`;
+    return `<div class="task-row"><span class="task-title"><span class="task-title-line"><a href="${esc(itemUrl)}" target="_blank">${esc(item.title)}</a>${copyLink}</span><small>${esc(item.project)} · ${esc(item.spec || '상위 작업 미지정')} · ${esc(item.team || '-')} ${item.sprint ? `· ${esc(item.sprint)}` : ''}</small></span><span>${badge(item.status || '미정', workStatusTone(item))}</span><span>${esc((item.assignees || []).join(', ') || '미지정')}</span><span class="${item.overdueDays ? 'overdue':''}">${esc(item.start || '-')} → ${esc(item.due || '-')} ${item.completedAt ? `· 완료 ${esc(item.completedAt)}` : ''} ${item.overdueDays ? `(+${item.overdueDays}일)` : ''}</span><span>${management}</span></div>`;
   }).join('')}`;
 }
 
-function specCard(spec) {
-  return `<details class="spec"><summary><strong>${esc(spec.title)}</strong><span>완료 ${spec.progress}% · 작업항목 ${spec.tasks.length} · 기한 초과 ${spec.overdue}</span></summary><div class="spec-tasks">${taskRows(spec.tasks, 'status')}</div></details>`;
+const SPEC_SOURCE = {
+  notion: { label: 'Notion', className: 'notion' },
+  slack: { label: 'Slack', className: 'slack' },
+  meeting: { label: '회의록', className: 'meeting' },
+  git: { label: 'Git', className: 'git' },
+};
+
+function specSourceStatus(source) {
+  const aiKey = { notion: 'notion', slack: 'slack', meeting: 'meetingNotes', git: 'github' }[source];
+  const agentStatus = D.ai?.sourceStatus?.[aiKey];
+  if (['failed', 'not_available'].includes(agentStatus)) return 'unavailable';
+  const healthId = { notion: 'notion', slack: 'slack', meeting: 'meetings' }[source];
+  const collected = D.sourceHealth?.sources?.find(item => item.id === healthId);
+  if (collected?.status === 'unavailable') return 'unavailable';
+  if (agentStatus === 'partial' || collected?.status === 'partial') return 'partial';
+  return 'available';
 }
 
-function sprintGroups(groups, expandedSprint) {
-  return groups.map(group => `<details class="sprint-group" ${group.sprint === expandedSprint ? 'open' : ''}><summary><div><strong>${esc(group.sprint)}</strong><small>스펙 ${group.specs.length}개 · 작업항목 ${group.totalTasks}개</small></div><div><b>완료율 ${group.completionRate}%</b><small>${group.doneTasks}/${group.totalTasks} 완료 · 기한 초과 ${group.overdueCount}건</small></div></summary><div class="spec-list">${group.specs.map(specCard).join('')}</div></details>`).join('');
+function specCoverageHtml(evidence) {
+  return Object.entries(SPEC_SOURCE).map(([source, meta]) => {
+    const count = evidence.filter(item => item.source === source).length;
+    if (count) return `<span class="spec-source ${meta.className} has-evidence">${meta.label} ${count}</span>`;
+    const status = specSourceStatus(source);
+    const suffix = status === 'unavailable' ? '미수집' : status === 'partial' ? '직접 근거 없음 · 수집 일부' : '직접 근거 없음';
+    return `<span class="spec-source ${meta.className} ${status}">${meta.label} ${suffix}</span>`;
+  }).join('');
+}
+
+function specEvidenceHtml(evidence) {
+  if (!evidence.length) return '<p class="evidence-empty">연결된 출처 근거가 없습니다. 통합 분석 범위를 확인하세요.</p>';
+  return evidence.map(item => {
+    const meta = SPEC_SOURCE[item.source] || { label: item.source || '근거', className: 'other' };
+    const title = item.title ? `<strong>${esc(item.title)}</strong>` : `<strong>${esc(meta.label)} 근거</strong>`;
+    const content = `<span class="evidence-source ${meta.className}">${esc(meta.label)}</span><div>${title}<p>${esc(item.excerpt || '')}</p><time>${fmt(item.timestamp)}</time></div>`;
+    const url = safeUrl(item.url);
+    return url === '#' ? `<div class="evidence-item">${content}</div>` : `<a class="evidence-item" href="${esc(url)}" target="_blank">${content}</a>`;
+  }).join('');
+}
+
+function specCard(spec, project) {
+  const agentProject = aiProject(project.name);
+  const insight = resolveSpecInsight(project, spec, agentProject, {
+    analysisGeneratedAt: D.ai?.generatedAt,
+    dashboardGeneratedAt: D.generatedAt,
+  });
+  const origin = insight.hasAgentAnalysis ? `통합 분석 · ${fmt(D.ai?.generatedAt)}` : '규칙 기반 현황 · 통합 분석 대기';
+  const blockers = insight.blockers.length
+    ? `<div class="spec-callout blocker"><span>막힌 점</span><p>${insight.blockers.map(esc).join(' · ')}</p></div>`
+    : '<div class="spec-callout clear"><span>막힌 점</span><p>규칙상 기한 초과·확인 대기 없음</p></div>';
+  const nextAction = insight.nextAction
+    ? `<div class="spec-callout action"><span>다음 행동</span><p>${esc(insight.nextAction)}</p></div>`
+    : '';
+  const limits = insight.confidenceLimits.length
+    ? `<p class="spec-confidence">확인 범위: ${insight.confidenceLimits.map(esc).join(' · ')}</p>`
+    : '';
+  return `<details class="spec spec-brief"><summary><div class="spec-heading"><div class="spec-title-line"><strong>${esc(spec.title)}</strong></div><small>${badge(spec.status || '상태 미정', workStatusTone(spec))} 담당 ${esc((spec.owners || []).join(', ') || '미지정')}</small></div><div class="spec-metrics"><b>${spec.progress}%</b><span>작업 ${spec.tasks.length} · 기한 초과 ${spec.overdue}</span><div class="progress"><span style="width:${spec.progress}%"></span></div></div></summary><div class="spec-briefing"><section class="spec-now"><div class="spec-kicker"><span>현재 진행</span><small>${esc(origin)}</small></div><p class="spec-summary">${esc(insight.summary || '아직 요약할 진행 정보가 없습니다.')}</p><div class="spec-callouts">${blockers}${nextAction}</div>${limits}<div class="spec-coverage">${specCoverageHtml(insight.evidence)}</div></section><aside class="evidence-rail"><h5>최근 근거</h5>${specEvidenceHtml(insight.evidence)}</aside></div><details class="spec-work-items"><summary><span class="spec-work-items-label">Notion 작업항목 ${spec.tasks.length}개</span><span class="spec-work-items-toggle">열기 <span aria-hidden="true">→</span></span></summary><div class="spec-tasks">${taskRows(spec.tasks, 'status')}</div></details></details>`;
+}
+
+function sprintGroups(groups, expandedSprint, project) {
+  return groups.map(group => `<details class="sprint-group" ${group.sprint === expandedSprint ? 'open' : ''}><summary><div><strong>${esc(group.sprint)}</strong><small>상위 작업 ${group.specs.length}개 · 작업항목 ${group.totalTasks}개</small></div><div><b>완료율 ${group.completionRate}%</b><small>${group.doneTasks}/${group.totalTasks} 완료 · 기한 초과 ${group.overdueCount}건</small></div></summary><div class="spec-list">${group.specs.map(spec => specCard(spec, project)).join('')}</div></details>`).join('');
 }
 
 function renderProjects() {
   const projects = sortProjects(D.projects);
-  $('#tab-projects').innerHTML = `<div class="section-head"><div><h2>프로젝트</h2><p>프로젝트 → 스프린트 → 스펙 → 작업항목 구조로 진행도를 봅니다. 관리 확인은 Notion 작성 규칙 점검이며 작업 상태와는 별개입니다.</p></div></div><div class="project-list">${projects.map(project => {
+  $('#tab-projects').innerHTML = `<div class="section-head"><div><h2>프로젝트</h2><p>프로젝트 → 스프린트 → 상위 작업 → 작업항목 구조입니다. 상위 작업을 열면 현재 진행, 막힌 점, 다음 행동과 Notion·Slack·회의록·Git 근거를 먼저 봅니다.</p></div></div><div class="project-list">${projects.map(project => {
     const projectItems = D.workItems.filter(item => item.project === project.name);
     const specs = projectSpecs(project, projectItems);
     const allSprints = specs.map(spec => spec.sprint || '스프린트 미지정');
@@ -285,7 +343,7 @@ function renderProjects() {
     const analysis = projectAnalysis(project);
     const open = projectShouldBeOpen(project, state.openProject) ? 'open' : '';
     const managementLabel = { error: '관리 오류', warning: '관리 주의', check: '관리 확인', normal: '관리 정상' }[project.managementStatus] || '관리 확인';
-    return `<details class="card" data-project-card="${esc(project.name)}" ${open}><summary><div class="project-title"><strong>${esc(project.name)} ${badge(managementLabel,project.managementStatus)}</strong><span class="stat">진행 <b>${project.stats.inProgress}</b></span><span class="stat">기한 초과 <b class="${project.stats.overdue?'overdue':''}">${project.stats.overdue}</b></span><span class="stat">확인 <b>${project.stats.issueCount}</b></span></div></summary><div class="details-body"><div class="project-meta"><span>목표 ${esc(project.goal || '미입력')}</span><span>목표일 ${esc(project.milestones?.targetAt || '-')}</span><span>최근 Git ${fmt(project.recentGitAt)}</span></div>${analysis ? `<p class="summary"><strong>${esc(analysis.label)}</strong>: ${esc(analysis.text)}</p>`:''}<div class="toolbar details-toolbar"><label>스프린트<select data-project-control="sprint" data-project-name="${esc(project.name)}">${options(allSprints, controls.sprint, '전체 스프린트')}</select></label><label>순서<select data-project-control="order" data-project-name="${esc(project.name)}">${sortOptions([['desc','최신 스프린트순'],['asc','오래된 스프린트순']],controls.order || 'desc')}</select></label></div>${groups.length ? sprintGroups(groups, controls.sprint) : '<div class="summary">선택한 스프린트에 스펙이 없습니다.</div>'}</div></details>`;
+    return `<details class="card" data-project-card="${esc(project.name)}" ${open}><summary><div class="project-title"><strong>${esc(project.name)} ${badge(managementLabel,project.managementStatus)}</strong><span class="stat">진행 <b>${project.stats.inProgress}</b></span><span class="stat">기한 초과 <b class="${project.stats.overdue?'overdue':''}">${project.stats.overdue}</b></span><span class="stat">확인 <b>${project.stats.issueCount}</b></span></div></summary><div class="details-body"><div class="project-meta"><span>목표 ${esc(project.goal || '미입력')}</span><span>목표일 ${esc(project.milestones?.targetAt || '-')}</span><span>최근 Git ${fmt(project.recentGitAt)}</span></div>${analysis ? `<p class="summary"><strong>${esc(analysis.label)}</strong>: ${esc(analysis.text)}</p>`:''}<div class="toolbar details-toolbar"><label>스프린트<select data-project-control="sprint" data-project-name="${esc(project.name)}">${options(allSprints, controls.sprint, '전체 스프린트')}</select></label><label>순서<select data-project-control="order" data-project-name="${esc(project.name)}">${sortOptions([['desc','최신 스프린트순'],['asc','오래된 스프린트순']],controls.order || 'desc')}</select></label></div>${groups.length ? sprintGroups(groups, controls.sprint, project) : '<div class="summary">선택한 스프린트에 표시할 상위 작업이 없습니다.</div>'}</div></details>`;
   }).join('') || '<div class="card summary">표시할 프로젝트가 없습니다.</div>'}</div>`;
   document.querySelectorAll('[data-project-card]').forEach(card => card.ontoggle = event => {
     const name = event.currentTarget.dataset.projectCard;
@@ -357,6 +415,7 @@ function renderChecks() {
 }
 
 function render() {
+  $('#loading').classList.add('hidden');
   $('#meta').textContent = `마지막 데이터 동기화 ${fmt(D.generatedAt)} · Asia/Seoul 기준`;
   $('#sampleBadge').classList.toggle('hidden', !D.sample);
   $('#errors').classList.toggle('hidden', !D.errors?.length); if (D.errors?.length) $('#errors').textContent = D.errors.map(error => `⚠ ${error}`).join('\n');
@@ -415,7 +474,7 @@ async function pollStatus() {
 }
 async function load() {
   const response = await fetch('/api/dashboard');
-  if (!response.ok) { $('#empty').classList.remove('hidden'); return; }
+  if (!response.ok) { $('#loading').classList.add('hidden'); $('#empty').classList.remove('hidden'); return; }
   D = normalize(await response.json()); $('#empty').classList.add('hidden'); render();
 }
 load(); pollStatus();

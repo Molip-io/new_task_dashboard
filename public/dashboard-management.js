@@ -28,7 +28,7 @@ const CATALOG = {
   MISSING_COMPLETED_DATE: ['guide', '완료일 입력 필요', '작업 담당자'],
   INVALID_HIERARCHY: ['guide', '계층 수정 필요', 'PD 또는 메인 기획자'],
   MISSING_PROJECT: ['guide', '프로젝트 연결 필요', '프로젝트 운영 담당자'],
-  MISSING_SPEC: ['guide', '스펙 연결 필요', 'PD 또는 메인 기획자'],
+  MISSING_SPEC: ['guide', '상위 작업 연결 필요', 'PD 또는 메인 기획자'],
   MISSING_ASSIGNEE: ['guide', '담당자 지정 필요', '프로젝트 운영 담당자'],
   DATE_RANGE_MISMATCH: ['guide', '기간 확인 필요', '작업 담당자'],
   PARENT_CHILD_STATUS_MISMATCH: ['guide', '상하위 상태 확인', 'PD 또는 메인 기획자'],
@@ -194,7 +194,7 @@ export function briefingTrustOverview(dashboard = {}) {
 }
 
 const CONNECTED = new Set(['ok', 'connected', 'inactive', 'no-activity', 'no_activity']);
-const AUTH = new Set(['auth-required', 'auth_required', 'authentication_required', 'unauthorized']);
+const AUTH = new Set(['auth-required', 'auth_required', 'authentication_required', 'unauthorized', 'not-accessible']);
 const FAILED = new Set(['failed', 'error', 'collection-failed', 'collection_failed', 'invalid-url']);
 
 function normalizedRepositoryStatus(repository) {
@@ -221,6 +221,7 @@ export function gitTrustSummary(git = {}, projects = []) {
 
 export function gitRepositoryStatus(repository = {}) {
   const status = normalizedRepositoryStatus(repository);
+  if (status === 'not-accessible') return 'Git 권한 또는 URL 확인';
   if (AUTH.has(status)) return 'Git 인증 필요';
   if (FAILED.has(status)) return 'Git 수집 실패';
   if (status === 'missing-url' || status === 'missing_url') return 'Git URL 미입력';

@@ -16,7 +16,11 @@ const dashboard = {
   projects: [{
     name: '피자레디',
     config: { gitUrl: 'https://github.com/Molip-io/pizzaready', channels: ['private-channel'] },
-    specs: [{ id: 'spec-1', title: '익스프레스', sprint: 'Sprint 58', tasks: [{ id: 'task-1', raw: 'duplicate' }] }],
+    specs: [{ id: 'spec-1', title: '익스프레스', status: '진행 중', sprint: 'Sprint 58', childStats: { total: 2, done: 1, completionRate: 50 }, tasks: [{ id: 'task-1', title: '기획', status: '진행 중', raw: 'duplicate' }, { id: 'task-2', title: '개발', status: '완료', raw: 'duplicate' }] }],
+    specInsights: [{
+      specId: 'spec-1', title: '익스프레스', summary: '개발 진행 중', blockers: ['검토 대기'], nextAction: '검토 완료',
+      evidence: [{ source: 'slack', timestamp: '2026-07-21', title: '#피자레디', excerpt: '기획 확정', url: 'https://slack.com/message' }],
+    }],
     stats: { total: 1, done: 0 },
   }],
   workItems: [{
@@ -37,7 +41,12 @@ const dashboard = {
 test('Given a full dashboard, When compacted for remote delivery, Then duplicate and raw source fields are removed', () => {
   const compact = compactDashboard(dashboard);
 
-  assert.equal(compact.projects[0].specs[0].tasks.length, 0);
+  assert.equal(compact.projects[0].specs[0].tasks.length, 2);
+  assert.equal(compact.projects[0].specs[0].tasks[1].status, '완료');
+  assert.equal(compact.projects[0].specs[0].tasks[1].raw, undefined);
+  assert.equal(compact.projects[0].specs[0].childStats.completionRate, 50);
+  assert.equal(compact.projects[0].specInsights[0].summary, '개발 진행 중');
+  assert.equal(compact.projects[0].specInsights[0].evidence[0].source, 'slack');
   assert.deepEqual(compact.workload[0].tasks, [{ id: 'task-1' }]);
   assert.equal(compact.workItems[0].rawNotion, undefined);
   assert.equal(compact.workItems[0].issues, undefined);

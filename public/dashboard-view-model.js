@@ -28,6 +28,85 @@ export function resolveProjectControls(controls = {}, availableSprints = []) {
   };
 }
 
+function normalizedSpecKey(value) {
+  return String(value || '').replace(/\s+/g, '').toLowerCase();
+}
+
+function evidenceKey(item) {
+  return [item?.source, item?.url, item?.timestamp, item?.excerpt].map(value => String(value || '')).join('|');
+}
+
+function isManagementMetadataText(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return false;
+  if (/(필수 진행 정보|관리 정보|필수 속성).*(누락|미입력)/.test(text)) return true;
+  const metadataFields = ['우선순위', '기간', '브랜치', '담당자', '날짜', '시작일', '마감일'];
+  const mentionedFields = metadataFields.filter(field => text.includes(field)).length;
+  return mentionedFields > 0 && /(누락|미입력|보완|입력)/.test(text);
+}
+
+function localSpecFallback(spec) {
+  const active = (spec?.tasks || []).filter(item => !isClosedWorkItem(item));
+  const statusCounts = new Map();
+  for (const item of active) statusCounts.set(item.status || '상태 미정', (statusCounts.get(item.status || '상태 미정') || 0) + 1);
+  const statusText = [...statusCounts.entries()].map(([status, count]) => `${status} ${count}건`).join(' · ');
+  const overdue = active.filter(item => item.overdueDays > 0);
+  const review = active.filter(item => ['확인 요청', '검토중'].includes(item.status));
+  const blockers = [];
+  if (overdue.length) blockers.push(`기한 초과 ${overdue.length}건: ${overdue.slice(0, 2).map(item => item.title).join(', ')}`);
+  if (review.length) blockers.push(`확인 대기 ${review.length}건: ${review.slice(0, 2).map(item => item.title).join(', ')}`);
+  const latest = [...(spec?.tasks || [])]
+    .filter(item => item.notionUpdatedAt)
+    .sort((left, right) => String(right.notionUpdatedAt).localeCompare(String(left.notionUpdatedAt)))[0];
+  const nextAction = overdue.length
+      ? '기한 초과 작업의 지연 사유와 변경 일정을 먼저 확인합니다.'
+      : review.length
+        ? '확인 요청과 검토중 작업의 승인·수정 여부를 정리합니다.'
+        : active.some(item => item.status === '진행 중')
+          ? '진행 중 작업의 다음 완료 지점과 필요한 지원을 확인합니다.'
+          : active.some(item => ['시작 전', '진행 예정'].includes(item.status))
+            ? '착수 전 작업의 시작 조건과 담당 일정을 확인합니다.'
+            : null;
+  return {
+    summary: active.length ? `현재 활성 작업 ${active.length}건이 ${statusText || '상태 미정'}입니다.` : '현재 표시할 활성 작업항목이 없습니다.',
+    blockers,
+    nextAction,
+    evidence: latest ? [{
+      source: 'notion', timestamp: latest.notionUpdatedAt, title: latest.title,
+      excerpt: `${latest.status || '상태 미정'} · 담당 ${(latest.assignees || []).join(', ') || '미지정'}`,
+      url: latest.url || spec?.url || null,
+    }] : [],
+  };
+}
+
+export function resolveSpecInsight(project, spec, agentProject = null, analysisMeta = {}) {
+  const fallback = (project?.specInsights || []).find(item => item.specId === spec.id)
+    || (project?.specInsights || []).find(item => normalizedSpecKey(item.title) === normalizedSpecKey(spec.title))
+    || localSpecFallback(spec);
+  const analysisTime = Date.parse(analysisMeta.analysisGeneratedAt || '');
+  const dashboardTime = Date.parse(analysisMeta.dashboardGeneratedAt || '');
+  const agentIsCurrent = !Number.isFinite(analysisTime) || !Number.isFinite(dashboardTime) || analysisTime >= dashboardTime;
+  const agent = agentIsCurrent
+    ? (agentProject?.specSummaries || []).find(item => item.specId && item.specId === spec.id)
+      || (agentProject?.specSummaries || []).find(item => normalizedSpecKey(item.title) === normalizedSpecKey(spec.title))
+      || null
+    : null;
+  const evidence = [...(agent?.evidence || []), ...(fallback.evidence || [])]
+    .filter((item, index, rows) => rows.findIndex(candidate => evidenceKey(candidate) === evidenceKey(item)) === index)
+    .sort((left, right) => String(right.timestamp || '').localeCompare(String(left.timestamp || '')))
+    .slice(0, 6);
+  const agentBlockers = (agent?.blockers || []).filter(item => !isManagementMetadataText(item));
+  const agentNextAction = isManagementMetadataText(agent?.nextAction) ? null : agent?.nextAction;
+  return {
+    summary: agent?.summary || fallback.summary || '',
+    blockers: agentBlockers.length ? agentBlockers : fallback.blockers || [],
+    nextAction: agentNextAction || fallback.nextAction || null,
+    evidence,
+    confidenceLimits: agent?.confidenceLimits || [],
+    hasAgentAnalysis: Boolean(agent),
+  };
+}
+
 export function visibleWorkItemIssues(item) {
   if (isClosedWorkItem(item)) return [];
   return (item.issues || []).filter(issue => issue.type !== 'STALE_UPDATE');
