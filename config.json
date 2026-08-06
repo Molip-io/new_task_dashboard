@@ -6,6 +6,15 @@
   "dashboardUrl": "https://task-dashboard-eight-khaki.vercel.app",
   "staleBusinessDays": 3,
   "slackDaysDefault": 3,
+  "validation": {
+    "sprintOptionalProjects": [
+      "AI Native",
+      "애니메이션 자동화",
+      "3D 모델링 & 텍스처 자동화",
+      "UI 자동화",
+      "블렌더-포토샵 브릿지"
+    ]
+  },
   "ignoredNotionUserIds": [
     "341d872b-594c-81d0-81be-0002dd479324"
   ],

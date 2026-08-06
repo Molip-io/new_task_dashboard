@@ -59,7 +59,7 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 상위항목은 부모가 없는 핵심 작업 페이지다. 상태와 관계없이 다음 항목이 모두 필요하다.
 
 - 프로젝트
-- 스프린트
+- 스프린트 (`project.sprintRequired = false`인 프로젝트는 제외)
 - 작업명
 - 작업 내용 설명 3줄 내외 또는 목적·범위·완료 기준에 준하는 내용
 - 담당자: 프로젝트 리스트 DB의 `PD` 전원과 `팀장` 전원
@@ -74,7 +74,7 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 모든 수집 대상 상태의 공통 필수 항목은 다음과 같다.
 
 - 프로젝트
-- 스프린트
+- 스프린트 (`project.sprintRequired = false`인 프로젝트는 제외)
 - 작업명
 - 상태
 
@@ -87,6 +87,8 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 ### 스프린트 판정과 진행 준비
 
 프로젝트 리스트 DB의 `현재 스프린트`를 프로젝트별 기준으로 사용한다. 여러 값이 있으면 모두 현재 스프린트로 인정한다. `Sprint60`, `Sprint 60`, `스프린트60`처럼 표기만 다른 값은 숫자를 기준으로 정규화하되, 다른 숫자를 유사값으로 추정하지 않는다.
+
+`project.sprintRequired = false`인 프로젝트는 스프린트를 운영하지 않는다. 해당 프로젝트의 `sprint = null`, `sprintRelation = not-applicable`, sprint missing bit 0은 정상이며 `MISSING_SPRINT`, `RULE_NOT_EVALUATED`, 진행 준비·지난 스프린트 미착수의 원인으로 사용하지 않는다.
 
 - 현재 스프린트 + `시작 전`: `진행 준비 필요 항목`으로 분류한다. 가이드에 맞는 진행 정보 입력 후 빠른 시일 내 `진행 예정`으로 변경하도록 안내한다.
 - 미래 스프린트 + `시작 전`: `진행 준비 필요 항목`에서 제외한다. 하위항목 공통 필수 항목만 검사하며 담당자·우선순위·기간·브랜치 누락을 위반으로 만들지 않는다.
@@ -121,6 +123,7 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - `payload.rules.metrics`: 대시보드 원본 집계
 - `payload.rules.deltas`: 전일 대비 변경
 - `payload.projects[].currentSprints`: 프로젝트 리스트 DB의 현재 스프린트 값
+- `payload.projects[].sprintRequired`: 프로젝트의 스프린트 운영 여부. `false`면 스프린트 미지정을 정상으로 처리한다.
 - `payload.projects[].pdUserIds`, `payload.projects[].teamLeadUserIds`: 상위항목 담당자와 확인 요청 댓글 태그 검사 기준
 - `payload.projects[].ruleAuditFormat`: 압축 감사 행의 열 순서, `missingFieldBits`, `issueTypes` 사전
 - `payload.projects[].ruleAuditItems`: 요약 대상 프로젝트의 수집 대상 상위·하위 작업 전체. 각 행은 `ruleAuditFormat.columns` 순서다. 현재 열은 `itemLevel`, `status`, `sprint`, `sprintRelation`, `missingFieldMask`, `projectInherited`, `issueTypeIndexes`다. `itemLevel`은 `parent | child`다. `missingFieldMask & missingFieldBits.<field>`가 0이 아니면 해당 필드가 원본에서 누락된 것이다. `projectInherited = 1`은 하위 작업이 상위 프로젝트를 분석 범위 판정용으로 상속했음을 뜻한다. 행에는 작업 ID가 없으므로 개별 근거 대조는 `analysisTargets`를 사용한다.
@@ -173,6 +176,8 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 7. 최근 회의록에서 직접 언급된 스펙
 
 `analysisTargets`가 비어 있어도 `specCatalog`의 각 스펙은 Notion 규칙 입력과 해당 `sourceEvidence`로 짧게 요약한다. `sourceEvidence`는 이미 허용 범위에서 수집된 입력이므로 모두 읽는다. 커넥터로 프로젝트 전체 Slack이나 GitHub를 다시 확장 탐색하지 않고, 추가 대조는 스펙명·작업항목명·ID가 직접 일치하는 근거만 붙인다. 직접 근거를 찾지 못하면 다른 대화나 커밋을 추정 연결하지 말고 실제 대조 범위를 `confidenceLimits`에 쓴다.
+
+요약은 상태·건수만 반복하지 않는다. Notion의 현재 단계·기간·담당 작업과 Slack·회의록·Git의 직접 근거를 합쳐 “무엇을 만들고 있는지 → 지금 어느 단계인지 → 현재 필요한 입력·검토가 무엇인지”가 1~2문장에 드러나야 한다. Slack에서 샘플, 규칙, 승인, 피드백을 요청했다면 이것을 실행 순서와 담당 산출물로 풀어 쓴다. 요청 이후 완료·전달 근거가 없으면 미완료라고 단정하지 않고 `제공 여부 확인 필요`로 표현한다.
 
 진행 중인 상위항목 아래의 완료된 하위 작업항목은 진행률·상태 계산에만 사용하고 출처 대조·요약 대상으로 되살리지 않는다. 완료·일시 정지·정지·중단 상태인 상위항목과 그 하위항목은 입력 패킷에서 제외된 것으로 간주하며 다시 찾아 포함하지 않는다.
 
@@ -234,9 +239,11 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 - `ruleMetrics`: 보정된 `guideViolationWorkItems`, `missingDateWorkItems`, `totalWorkItems`, `overdueWorkItems`, `progressSetupRequiredItems`, `pastSprintNotStartedItems`, `futureSprintExcludedItems`, `ruleNotEvaluatedItems`, `excludedStatusWorkItems`
 - `adjustments`: 프로젝트 상속·프로젝트 누락·수집 제외 상태·미래 스프린트 제외·지난 스프린트 미착수·규칙 미평가의 보정 근거
 - `projects[].specSummaries`: `specCatalog`의 활성 스펙과 1:1로 대응한다. 각 항목은 `specId`, `title`, `summary`, `blockers`, `nextAction`, `evidence`, `confidenceLimits`를 가진다. 자연어 요약은 규칙 수치를 바꾸지 않으며 직접 근거가 없는 출처를 추정해서 붙이지 않는다.
+  - `summary`는 상태·완료율만 반복하지 않고 목표, 현재 단계, 진행 중인 산출물, 확인된 선행 입력을 연결해 쓴다.
   - `blockers`에는 선행 작업 대기, 승인·결정 대기, 후속 일정에 영향을 주는 지연, 명시된 미해결 이슈처럼 실제 진행을 막는 사실만 쓴다.
+  - Slack의 요청만 있고 전달·합의 여부가 확인되지 않으면 `요청됨`과 `제공 여부 확인 필요`를 구분한다. 이를 확정된 지연이나 미이행으로 단정하지 않는다.
   - 우선순위·기간·브랜치·담당자·설명 누락은 관리·가이드 문제이며 `blockers`에 쓰지 않는다.
-  - `nextAction`은 다음 업무 행동이다. 관리 속성 입력·보완 문구를 넣지 말고, 근거로 다음 업무 행동을 정할 수 없으면 상태 기반 행동 또는 `null`을 사용한다.
+  - `nextAction`은 가능하면 담당 역할·산출물·완료 조건이 포함된 다음 업무 행동이다. 관리 속성 입력·보완 문구를 넣지 말고, 근거로 다음 업무 행동을 정할 수 없으면 상태 기반 행동 또는 `null`을 사용한다.
 
 수집하지 못한 출처는 `충돌 없음`으로 기록하지 않는다. `sourceStatus`와 `confidenceLimits`에 분석 제한을 남긴다.
 

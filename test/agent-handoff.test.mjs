@@ -82,6 +82,28 @@ test('Given an output path, When the packet is written, Then a valid JSON handof
   assert.equal(saved.projects[0].name, '피자레디');
 });
 
+test('Given a sprint-optional project, When an agent packet is built, Then a missing sprint is not encoded as a missing field', () => {
+  const sprintOptionalDashboard = {
+    ...dashboard,
+    projects: [{
+      name: 'AI Native',
+      config: { sprintRequired: false, currentSprints: [] },
+      specs: [{ id: 'ai-spec', title: 'AI 연구', sprint: null, status: '진행 중', childStats: { completionRate: 0 }, tasks: [{ id: 'ai-work', status: '진행 중' }] }],
+    }],
+    validationIssues: [],
+    workItems: [{ id: 'ai-work', project: 'AI Native', spec: 'AI 연구', sprint: null, title: '개념 연구', status: '진행 중', assignees: ['A'], priority: '높음', start: '2026-08-05', due: '2026-08-11', branch: 'feature/ai', sprintRelation: 'not-applicable', issues: [] }],
+    git: { commits: [] },
+    deltas: [],
+  };
+
+  const packet = buildAgentInputPacket(sprintOptionalDashboard);
+  const project = packet.projects[0];
+  const missingMask = project.ruleAuditItems[0][4];
+
+  assert.equal(project.sprintRequired, false);
+  assert.equal(missingMask & project.ruleAuditFormat.missingFieldBits.sprint, 0);
+});
+
 test('Given hundreds of repeated guide issues, When an agent packet is built, Then it remains remotely readable without losing audit coverage', () => {
   const workItems = Array.from({ length: 180 }, (_, index) => ({
     id: `task-${index}`,

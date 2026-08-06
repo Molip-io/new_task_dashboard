@@ -41,6 +41,21 @@ test('Given current sprint and project owner properties, When project rows are p
   assert.deepEqual(project.teamLeadUsers.map(user => user.id), ['lead']);
 });
 
+test('Given a sprint-optional AI project, When project rows are parsed, Then sprint validation is disabled without changing other projects', () => {
+  const rows = [
+    { _id: 'ai', 이름: 'UI 자동화', 요약: true },
+    { _id: 'game', 이름: '피자레디', 요약: true },
+  ];
+
+  const projects = parseProjectRows(rows, {
+    slackDaysDefault: 3,
+    validation: { sprintOptionalProjects: ['UI 자동화'] },
+  });
+
+  assert.equal(projects.find(project => project.name === 'UI 자동화').sprintRequired, false);
+  assert.equal(projects.find(project => project.name === '피자레디').sprintRequired, true);
+});
+
 test('Given a work row with a branch property, When it is parsed, Then the requested Git branch is preserved', () => {
   const task = taskFrom({
     _id: 'work',

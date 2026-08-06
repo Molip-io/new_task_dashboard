@@ -104,6 +104,7 @@ export function resolveSpecInsight(project, spec, agentProject = null, analysisM
     evidence,
     confidenceLimits: agent?.confidenceLimits || [],
     hasAgentAnalysis: Boolean(agent),
+    analysisPending: !agent,
   };
 }
 

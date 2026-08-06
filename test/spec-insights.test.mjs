@@ -43,6 +43,27 @@ test('Given a Slack thread reply whose parent names the work, When evidence is m
   assert.match(insight.evidence.find(item => item.source === 'slack').excerpt, /수치는 오늘/);
 });
 
+test('Given Slack links to a Notion work item, When the visible message omits its title, Then the linked ID connects the latest thread progress without duplicating the root', () => {
+  const taskId = '3b4b4a46-5003-800c-85ac-d970054bfbb7';
+  const root = `<https://app.notion.com/p/UI-UI-2-${taskId.replaceAll('-', '')}|UI 연구> 하위 항목을 추가했습니다.`;
+  const [insight] = buildSpecInsights({
+    project: { specs: [{
+      id: '3b3b4a46-5003-81e1-9428-e0b6a078b12c', title: 'UI 자동화 연구', status: '진행 중',
+      tasks: [{ id: taskId, title: 'UI 시안 자동화', status: '진행 중', team: '개발' }],
+    }] },
+    slackChannels: [{ channel: 'ai', messages: [
+      { time: '2026-08-04', text: 'UI 자동화 연구를 위해 샘플과 제작 규칙을 요청합니다.' },
+      { time: '2026-08-05', text: root },
+      { time: '2026-08-06', parentText: root, text: '레이어 그룹 상세 규칙을 구성하고 있습니다.' },
+    ] }],
+  });
+
+  const slack = insight.evidence.filter(item => item.source === 'slack');
+  assert.equal(slack.length, 2);
+  assert.match(slack[0].excerpt, /레이어 그룹 상세 규칙/);
+  assert.match(slack[1].excerpt, /샘플과 제작 규칙/);
+});
+
 test('Given a generic meeting title with relevant body text, When evidence is matched, Then the body excerpt is shown', () => {
   const [insight] = buildSpecInsights({
     project: { specs: [{

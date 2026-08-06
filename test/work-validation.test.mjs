@@ -247,6 +247,23 @@ test('Given a current-sprint start-before item, When validation runs, Then setup
   assert.equal(result.progressSetupItems.length, 1);
 });
 
+test('Given a project that does not use sprints, When work has no sprint, Then no sprint guide issue or sprint readiness issue is created', () => {
+  const tasks = [
+    { id: 'spec', title: 'AI 연구', project: 'AI Native', parentIds: [], status: '진행 중', sprint: null },
+    { id: 'work', title: '개념 연구', project: 'AI Native', parentIds: ['spec'], status: '진행 중', sprint: null, assignees: ['A'], priority: '높음', start: '2026-08-05', due: '2026-08-11', branch: 'feature/ai', branches: ['feature/ai'] },
+  ];
+
+  const result = validateWorkManagement({
+    tasks,
+    projects: [{ name: 'AI Native', sprintRequired: false, currentSprints: [] }],
+    now: NOW,
+  });
+
+  assert.equal(result.issues.some(issue => issue.type === 'MISSING_SPRINT'), false);
+  assert.equal(result.issues.some(issue => ['CURRENT_SPRINT_SETUP_REQUIRED', 'PAST_SPRINT_NOT_STARTED'].includes(issue.type)), false);
+  assert.equal(result.ruleItems.find(item => item.id === 'work').sprintRelation, 'not-applicable');
+});
+
 test('Given future and past start-before items, When validation runs, Then future setup is excluded and past work remains visible', () => {
   const tasks = [
     { id: 'spec', title: '스펙', project: '피자레디', parentIds: [], status: '진행 중', sprint: 'Sprint60' },

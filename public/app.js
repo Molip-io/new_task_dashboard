@@ -318,10 +318,14 @@ function specCard(spec, project) {
   const origin = insight.hasAgentAnalysis ? `통합 분석 · ${fmt(D.ai?.generatedAt)}` : '규칙 기반 현황 · 통합 분석 대기';
   const blockers = insight.blockers.length
     ? `<div class="spec-callout blocker"><span>막힌 점</span><p>${insight.blockers.map(esc).join(' · ')}</p></div>`
-    : '<div class="spec-callout clear"><span>막힌 점</span><p>규칙상 기한 초과·확인 대기 없음</p></div>';
-  const nextAction = insight.nextAction
+    : insight.hasAgentAnalysis
+      ? '<div class="spec-callout clear"><span>막힌 점</span><p>통합 분석상 확인된 실행 병목 없음</p></div>'
+      : '<div class="spec-callout clear"><span>막힌 점</span><p>통합 분석 대기 · 규칙상 기한 초과·확인 대기 없음</p></div>';
+  const nextAction = insight.hasAgentAnalysis && insight.nextAction
     ? `<div class="spec-callout action"><span>다음 행동</span><p>${esc(insight.nextAction)}</p></div>`
-    : '';
+    : insight.analysisPending
+      ? '<div class="spec-callout action"><span>다음 행동</span><p>Notion·Slack·회의록·Git 통합 분석 완료 후 표시</p></div>'
+      : '';
   const limits = insight.confidenceLimits.length
     ? `<p class="spec-confidence">확인 범위: ${insight.confidenceLimits.map(esc).join(' · ')}</p>`
     : '';

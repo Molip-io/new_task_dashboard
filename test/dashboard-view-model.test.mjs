@@ -230,6 +230,7 @@ test('Given an agent summary older than the dashboard snapshot, When a briefing 
 
   assert.equal(result.summary, '최신 규칙 현황');
   assert.equal(result.hasAgentAnalysis, false);
+  assert.equal(result.analysisPending, true);
 });
 
 test('Given a person with only completed history, When people workload has no task filter, Then the person remains with zero active work', () => {
