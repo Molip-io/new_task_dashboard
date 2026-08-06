@@ -18,7 +18,14 @@
 14. 같은 필드의 출처가 직접 충돌하면 최신을 단정하지 말고 양쪽 주장과 링크·시각·짧은 발췌를 보존해 `confirmation_required`로 기록해. 한 출처에 언급이 없는 것은 충돌로 만들지 마.
 15. 데이터 확인만 필요한 충돌은 대표 결정으로 올리지 마. 대표 선택에 따라 우선순위·진행·출시·범위가 달라질 때만 질문형 `decisionsForCEO`로 작성해.
 16. `payload.outputSchema`에 맞춰 전체 결과를 작성해. `analysisStatus`는 `success | partial | failed`, 출처 상태는 `success | partial | failed | not_available`만 사용해. `ruleMetrics`에는 `progressSetupRequiredItems`, `pastSprintNotStartedItems`, `futureSprintExcludedItems`, `ruleNotEvaluatedItems`, `excludedStatusWorkItems`도 기록해.
-17. 각 프로젝트의 `specCatalog` 모든 행에 `specSummaries`를 1건씩 작성해. `summary`는 상태·건수만 반복하지 말고 Notion의 목표·현재 단계·진행 중 산출물과 Slack·회의록·Git의 직접 근거를 합쳐 “무엇을 만들고 있는지 → 지금 어느 단계인지 → 필요한 입력·검토가 무엇인지”를 1~2문장으로 써. `blockers`는 선행 작업 대기, 승인·결정 대기, 후속 일정에 영향을 주는 지연, 명시된 미해결 이슈처럼 확인된 실행 병목만 최대 3건 넣어. Slack에 요청만 있고 전달 여부가 확인되지 않으면 미이행으로 단정하지 말고 `제공 여부 확인 필요`로 써. 우선순위·기간·브랜치·담당자·설명 누락은 관리·가이드 문제이므로 `blockers`에 넣지 마. `nextAction`은 가능하면 담당 역할·산출물·완료 조건을 포함한 다음 업무 행동 1건으로 쓰고 관리 속성 입력·보완 문구는 제외해. 근거로 다음 업무 행동을 정할 수 없으면 상태 기반 행동 또는 `null`로 써. `evidence`에는 `sourceEvidence`를 우선 사용하고 스펙명·작업항목명·ID가 직접 연결되는 Notion·Slack·회의록·GitHub 근거만 최대 6건 넣어. 직접 근거가 없는 출처는 추정해서 채우지 말고 범위 제한은 `confidenceLimits`에 남겨.
+17. 각 프로젝트의 `specCatalog` 모든 행에 `specSummaries`를 1건씩 작성해. 각 행은 같은 `specId`의 `sourceEvidence`를 최신순으로 먼저 읽고 아래 순서로 작성해.
+    - `summary` 1문장: 무엇을 만들거나 해결하려는지 + 현재 실제로 진행 중인 산출물
+    - `summary` 2문장: 근거로 확인된 선행 입력·검토·협업 요청. 요청만 있고 제공 여부가 없으면 `요청됨 · 제공 여부 확인 필요`로 구분
+    - `blockers`: 선행 작업 대기, 승인·결정 대기, 후속 일정에 영향을 주는 지연, 명시된 미해결 이슈처럼 확인된 실행 병목만 최대 3건. 우선순위·기간·브랜치·담당자·설명 누락은 제외
+    - `nextAction`: 담당 역할·산출물·완료 조건이 포함된 다음 업무 행동 1건. 근거가 없으면 `null`
+    - `evidence`: 직접 연결되는 Notion·Slack·회의록·GitHub 근거만 최대 6건
+    - `sourceEvidence`가 있으면 `summary`에 근거의 구체 명사나 산출물을 최소 1개 포함해. 상태·건수·완료율·기한 초과 수만 나열하거나 `직접 연결된 근거가 확인됐다`, `다음 상태로 진행`, `다음 완료 지점 확인` 같은 일반 문구를 쓰면 안 돼.
+    - 저장 전에 모든 요약을 다시 검사해. `[R&D] AI 기반 UI Prefab 자동화 툴 1차 제작`은 `포지앤포춘 기준 레이어그룹·레이어 상세 규칙 구성`처럼 근거에 적힌 실제 진행을 포함해야 하며, `스프린트 미지정·활성 작업 1건·완료율 50%`만 쓴 결과는 폐기하고 다시 작성해.
 18. `업무현황 요약 DB`에 `전체 / YYYY-MM-DD` 1건과 요약 대상 프로젝트별 `프로젝트명 / YYYY-MM-DD` 1건을 저장해. 같은 `run_id` 또는 같은 `기준일 + 프로젝트명` 페이지가 있으면 새로 만들지 말고 갱신해.
 19. `프로젝트명 = 규칙 입력` 또는 `run_id`가 `rule-input:`으로 시작하는 페이지는 수정하지 마.
 20. 전체 페이지 본문에는 스키마와 일치하는 전체 JSON 결과를 하나의 JSON 코드 블록으로 저장해.
