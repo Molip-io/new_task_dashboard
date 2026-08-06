@@ -95,7 +95,9 @@ export function briefingHtml(dashboard, selectedDetail, taskRows) {
     ...(dashboard.ai?.overall?.decisionsForCEO || []),
     ...dashboard.projects.filter(project => project.notionSummary?.decision).map(project => ({ project: project.name, question: project.notionSummary.decision, context: 'Notion 업무현황 요약' })),
   ].filter(item => item?.question).map(item => [`${item.project}:${item.question}`, item])).values()];
-  const overallSummary = dashboard.ai?.overall?.summary;
+  const overallSummary = ['success', 'partial'].includes(dashboard.ai?.analysisStatus)
+    ? dashboard.ai?.overall?.summary
+    : null;
   const priorityIssues = groupIssuesByProjectItem(dashboard.validationIssues).flatMap(group => group.items).sort((left, right) => (SEVERITY_RANK[left.severity] ?? 9) - (SEVERITY_RANK[right.severity] ?? 9)).slice(0, 5);
   return `<div class="section-head"><div><h2>오늘의 업무 브리핑</h2><p>판단할 것 → 데이터 신뢰 확인 → 관리상 막힌 것 → 어제와 달라진 것 순서입니다. 이 화면은 읽기 전용입니다.</p></div></div>
     <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', metrics.progressSetupRequiredItems ? 'warning' : '', selectedDetail)}</div>
