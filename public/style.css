@@ -6,7 +6,7 @@
   --well: linear-gradient(180deg, rgba(110, 142, 247, .16), rgba(110, 142, 247, .09));
   --control-bg: #2c3658; --control-bg-hover: #344479;
   --line: #3e55a3; --line-soft: #323e6c; --line-strong: #647ece;
-  --accent: #7393fc; --accent-bg: #24346b; --accent-soft: #374b8b;
+  --accent: #7393fc; --accent-bg: #24346b; --accent-soft: #374b8b; --head-deep: #203888;
   --text: #f0f2f7; --text-soft: #d8dce6; --muted: #929aac;
   --brand-pink: #f2879c; --blue: #8ea6f4;
   --green: #56c98a; --yellow: #f4bf4f; --orange: #f28b50; --red: #ff6f72;
@@ -164,20 +164,17 @@ details.card > summary:hover { background: var(--control-bg-hover); }
 .spec-brief > summary { position: relative; align-items: center; padding: 16px 18px; background: var(--panel-grad); }
 .spec-brief > summary:hover { background: var(--control-bg-hover); }
 .spec-brief[open] { border-color: var(--line-strong); }
-/* 다크: 카드면 유지 + 하단 2px 브랜드 그라데이션 띠 + 제목 액센트 (면을 칠하지 않아 탁해지지 않음) */
-.spec-brief[open] > summary { background: var(--panel-grad); border-bottom: 0; }
-.spec-brief[open] > summary::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--brand-grad); }
-.spec-brief[open] .spec-title-line > strong { color: var(--accent); }
-/* 라이트: 딥 로즈 면 + 흰 텍스트 (흰 텍스트 대비 7.1) */
-:root[data-theme="light"] .spec-brief[open] > summary { background: var(--head-deep); }
-:root[data-theme="light"] .spec-brief[open] > summary::after { display: none; }
-:root[data-theme="light"] .spec-brief[open] .spec-title-line > strong,
-:root[data-theme="light"] .spec-brief[open] > summary .spec-metrics > b { color: #fff; }
-:root[data-theme="light"] .spec-brief[open] > summary .status,
-:root[data-theme="light"] .spec-brief[open] > summary .spec-heading > small,
-:root[data-theme="light"] .spec-brief[open] > summary .spec-metrics > span { color: rgba(255, 255, 255, .82); }
-:root[data-theme="light"] .spec-brief[open] > summary .progress { background: rgba(255, 255, 255, .22); }
-:root[data-theme="light"] .spec-brief[open] > summary .progress span { background: #fff; }
+/* 열린 헤더는 양 테마 모두 딥 필 + 흰 텍스트.
+   flex 컨테이너인 summary에 절대배치 ::after로 그라데이션 띠를 그리면 정적 위치 잔상이
+   세로선으로 페인트된다(계산값은 정상인데 화면에만 나타남) — 의사요소를 쓰지 않는다. */
+.spec-brief[open] > summary { background: var(--head-deep); border-bottom: 0; }
+.spec-brief[open] .spec-title-line > strong,
+.spec-brief[open] > summary .spec-metrics > b { color: #fff; }
+.spec-brief[open] > summary .status,
+.spec-brief[open] > summary .spec-heading > small,
+.spec-brief[open] > summary .spec-metrics > span { color: rgba(255, 255, 255, .82); }
+.spec-brief[open] > summary .progress { background: rgba(255, 255, 255, .22); }
+.spec-brief[open] > summary .progress span { background: #fff; }
 .spec-heading { min-width: 0; }
 .spec-title-line { display: flex; align-items: center; min-width: 0; }
 .spec-title-line > strong { display: block; overflow: hidden; text-overflow: ellipsis; font-size: 16px; white-space: nowrap; }
