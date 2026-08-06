@@ -106,6 +106,29 @@ test('Given a broad live-event mention and overlapping source or resource words,
   assert.deepEqual(insight.evidence, []);
 });
 
+test('Given stage 1 and generic new-work chatter, When stage 11 evidence is matched, Then unrelated bakery and secret-shop threads are excluded', () => {
+  const [insight] = buildSpecInsights({
+    project: { specs: [{
+      id: 'spec-stage-11', title: '스테이지 11 추가', status: '진행 예정',
+      tasks: [
+        { id: 'task-store', title: '[개발] 인앱상품 연결', status: '진행 예정', team: '개발' },
+        { id: 'task-ui', title: '[기획] 신규 지역 스태프 인앱 상품 UI 정리', status: '완료', team: '기획' },
+        { id: 'task-resource', title: '[기획] 스테이지 11 리소스 대응', status: '완료', team: '기획' },
+      ],
+    }] },
+    slackChannels: [{ channel: 'pizza', messages: [
+      { time: '2026-08-03', text: '스테이지 11 인앱상품 등록을 완료했습니다.' },
+      { time: '2026-08-04', parentText: '[비밀 과자점 메인 UI 연출]', text: '신규 팝업 제작은 아니며 전환 연출만 추가 정리하겠습니다.' },
+      { time: '2026-08-06', parentText: '[베이커리 연출 스레드]', text: '스테이지 1 보상 획득 이후 게이지를 노출합니다.' },
+    ] }],
+  });
+
+  const slack = insight.evidence.filter(item => item.source === 'slack');
+  assert.equal(slack.length, 1);
+  assert.match(slack[0].excerpt, /스테이지 11 인앱상품/);
+  assert.doesNotMatch(slack[0].excerpt, /베이커리|비밀 과자점/);
+});
+
 test('Given in-progress and planned work together, When the next action is derived, Then the active completion point is checked first', () => {
   const [insight] = buildSpecInsights({
     project: { specs: [{
