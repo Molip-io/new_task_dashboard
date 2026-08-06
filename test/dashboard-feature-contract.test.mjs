@@ -84,7 +84,7 @@ test('Given a project spec, When its card opens, Then an integrated state briefi
   const workItems = app.indexOf('Notion 작업항목', evidence);
   assert.ok(briefing >= 0 && evidence > briefing && workItems > evidence);
   assert.match(app, /spec-work-items-toggle/);
-  assert.match(app, /열기 <span aria-hidden="true">→<\/span>/);
+  assert.match(app, /<span class="toggle-open">열기<\/span><span class="toggle-close">접기<\/span> <span aria-hidden="true">→<\/span>/);
   for (const source of ['Notion', 'Slack', '회의록', 'Git']) assert.match(app, new RegExp(source));
   assert.doesNotMatch(app, /현재 확인된 직접 병목 없음/);
   assert.match(meetingSkill, /Spec Linking Rules/);
