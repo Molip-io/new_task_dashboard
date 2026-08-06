@@ -107,9 +107,9 @@
               "properties": {
                 "specId": { "type": ["string", "null"] },
                 "title": { "type": "string", "minLength": 1 },
-                "summary": { "type": "string", "maxLength": 700 },
+                "summary": { "description": "Notion 상태와 직접 연결된 Slack·회의록·Git 근거를 종합해 실제 목표·산출물·현재 진행 내용을 설명한다. 상태·작업 건수·완료율·기한 초과 수만 반복한 문장은 허용하지 않는다.", "type": "string", "maxLength": 700 },
                 "blockers": { "description": "확인된 실행 병목만 기록한다. 우선순위·기간·브랜치 등 관리 필드 누락은 제외한다.", "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 300 } },
-                "nextAction": { "description": "업무 진행의 다음 행동을 기록한다. 관리 속성 입력·보완은 제외한다.", "type": ["string", "null"], "maxLength": 400 },
+                "nextAction": { "description": "업무 진행의 다음 행동을 담당 역할·산출물·완료 조건 중심으로 기록한다. 관리 속성 입력·보완 및 '다음 상태 확인' 같은 일반 문구는 제외한다.", "type": ["string", "null"], "maxLength": 400 },
                 "evidence": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/evidenceItem" } },
                 "confidenceLimits": { "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 300 } }
               }

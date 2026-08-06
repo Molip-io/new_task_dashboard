@@ -70,6 +70,7 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   assert.deepEqual(packet.projects[0].sourceEvidenceFormat.columns, ['specId', 'source', 'timestamp', 'title', 'excerpt', 'url']);
   assert.equal(packet.projects[0].sourceEvidence[0][0], 'spec-1');
   assert.equal(packet.projects[0].sourceEvidence[0][1], 'slack');
+  assert.equal(packet.projects[0].sourceEvidence[0][4], '기획 범위 확정');
 });
 
 test('Given an output path, When the packet is written, Then a valid JSON handoff file is created', () => {
@@ -101,6 +102,7 @@ test('Given a sprint-optional project, When an agent packet is built, Then a mis
   const missingMask = project.ruleAuditItems[0][4];
 
   assert.equal(project.sprintRequired, false);
+  assert.equal(project.specCatalog[0][2], '해당 없음');
   assert.equal(missingMask & project.ruleAuditFormat.missingFieldBits.sprint, 0);
 });
 

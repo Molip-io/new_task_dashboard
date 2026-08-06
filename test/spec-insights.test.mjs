@@ -54,13 +54,15 @@ test('Given Slack links to a Notion work item, When the visible message omits it
     slackChannels: [{ channel: 'ai', messages: [
       { time: '2026-08-04', text: 'UI 자동화 연구를 위해 샘플과 제작 규칙을 요청합니다.' },
       { time: '2026-08-05', text: root },
-      { time: '2026-08-06', parentText: root, text: '레이어 그룹 상세 규칙을 구성하고 있습니다.' },
+      { time: '2026-08-06', parentText: root, text: `<https://app.notion.com/p/UI-UI-2-${taskId.replaceAll('-', '')}|UI 시안 자동화> 레이어 그룹 상세 규칙을 구성하고 있습니다.` },
     ] }],
   });
 
   const slack = insight.evidence.filter(item => item.source === 'slack');
   assert.equal(slack.length, 2);
   assert.match(slack[0].excerpt, /레이어 그룹 상세 규칙/);
+  assert.ok(slack[0].excerpt.startsWith('UI 시안 자동화'));
+  assert.doesNotMatch(slack[0].excerpt, /https:\/\//);
   assert.match(slack[1].excerpt, /샘플과 제작 규칙/);
 });
 
