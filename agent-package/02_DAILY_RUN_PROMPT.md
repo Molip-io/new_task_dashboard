@@ -16,8 +16,9 @@
 12. `ruleAuditItems`는 보정 집계 전용 압축 행이고 `analysisTargets`는 추가 심층 대조용이야. 둘을 작업 ID로 결합하려고 하지 마. 수집기가 프로젝트 전체에서 직접 연결해 둔 `sourceEvidence`는 `analysisScope.targetLimit`과 무관하게 `specCatalog` 전체에 적용해. 커넥터를 이용한 추가 탐색만 `analysisTargets` 우선순위와 `analysisScope.targetLimit`을 따르고 범위 밖 Slack 채널·Notion 페이지·GitHub 저장소로 확장하지 마.
 13. 회의록 본문에서 이미 연결된 발췌는 `sourceEvidence` 전체를 사용해. 추가 심층 대조 대상으로 선정된 `meetingReferences` 링크만 읽고 `Structured Meeting Evidence` 스킬로 근거를 추출한 뒤 Notion·Slack·GitHub와 대조해. 스킬의 회의록 판단을 프로젝트 최종 상태로 사용하지 마.
 14. 같은 필드의 출처가 직접 충돌하면 최신을 단정하지 말고 양쪽 주장과 링크·시각·짧은 발췌를 보존해 `confirmation_required`로 기록해. 한 출처에 언급이 없는 것은 충돌로 만들지 마.
-15. 데이터 확인만 필요한 충돌은 대표 결정으로 올리지 마. 대표 선택에 따라 우선순위·진행·출시·범위가 달라질 때만 질문형 `decisionsForCEO`로 작성해.
+15. 데이터 확인만 필요한 충돌은 대표 결정으로 올리지 마. 직접 출처에 대표의 선택·승인 요청이 있고 선택에 따라 우선순위·진행·출시·범위와 후속 작업이 달라질 때만 질문형 `decisionsForCEO`로 작성해. `지난 스프린트 미착수 19건을 현재 스프린트 진행 준비 81건보다 우선 정리할까요?`처럼 규칙 수치나 작업 건수만 비교한 질문은 만들지 말고, 조건을 충족하는 안건이 없으면 빈 배열로 저장해.
 16. `payload.outputSchema`에 맞춰 전체 결과를 작성해. `analysisStatus`는 `success | partial | failed`, 출처 상태는 `success | partial | failed | not_available`만 사용해. `ruleMetrics`에는 `progressSetupRequiredItems`, `pastSprintNotStartedItems`, `futureSprintExcludedItems`, `ruleNotEvaluatedItems`, `excludedStatusWorkItems`도 기록해.
+    - 규칙 입력에 `PLANNED_START_DATE_PASSED`가 있으면 `진행 예정` 상태인데 시작일이 이미 지난 가이드 위반이야. 실제 착수했다면 `진행 중`으로 변경하고 미착수라면 시작일을 조정하는 관리 조치로 설명해.
 17. 각 프로젝트의 `specCatalog` 모든 행에 `specSummaries`를 1건씩 작성해. 각 행은 같은 `specId`의 `sourceEvidence`를 최신순으로 먼저 읽고 아래 순서로 작성해.
     - `summary` 1문장: 무엇을 만들거나 해결하려는지 + 현재 실제로 진행 중인 산출물
     - `summary` 2문장: 근거로 확인된 선행 입력·검토·협업 요청. 요청만 있고 제공 여부가 없으면 `요청됨 · 제공 여부 확인 필요`로 구분

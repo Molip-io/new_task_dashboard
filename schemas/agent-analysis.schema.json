@@ -65,6 +65,7 @@
         "summary": { "type": "string", "maxLength": 1200 },
         "topRisks": { "type": "array", "maxItems": 5, "items": { "type": "string", "maxLength": 400 } },
         "decisionsForCEO": {
+          "description": "직접 출처에서 대표의 선택 또는 승인을 명시적으로 요청하고, 선택에 따라 달라지는 후속 영향이 확인될 때만 기록한다. 규칙 수치나 작업 건수만 비교해 만든 우선순위 질문은 허용하지 않는다.",
           "type": "array", "maxItems": 5,
           "items": {
             "type": "object", "additionalProperties": false,

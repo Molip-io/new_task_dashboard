@@ -54,6 +54,57 @@ test('Given overdue and completed work items, When validation runs, Then overdue
   assert.equal(result.workItems.some(item => item.id === 'done'), false);
 });
 
+test('Given a planned work item whose start date has passed, When validation runs, Then its status and schedule must be reconciled', () => {
+  const tasks = [
+    { id: 'spec', title: '비밀 과자점', project: '피자레디', parentIds: [], status: '진행 중', start: '2026-07-01', due: '2026-08-12', assignees: ['PD'], edited: NOW },
+    {
+      id: 'work',
+      title: '리소스 적용 및 연출',
+      project: '피자레디',
+      parentIds: ['spec'],
+      status: '진행 예정',
+      sprint: 'Sprint60',
+      start: '2026-07-01',
+      due: '2026-08-12',
+      assignees: ['A'],
+      priority: '높음',
+      branch: 'feature/secret-store',
+      branches: ['feature/secret-store'],
+      edited: NOW,
+    },
+  ];
+
+  const result = validateWorkManagement({
+    tasks,
+    projects: [{ name: '피자레디', currentSprints: ['Sprint60'] }],
+    gitActivity: [],
+    now: '2026-08-06T09:00:00+09:00',
+  });
+  const issue = result.issues.find(row => row.workItemId === 'work' && row.type === 'PLANNED_START_DATE_PASSED');
+
+  assert.ok(issue);
+  assert.equal(issue.category, 'guide');
+  assert.equal(issue.metadata.elapsedDays, 36);
+  assert.match(issue.message, /시작일이 36일 지났지만 진행 예정/);
+  assert.match(issue.recommendedAction, /진행 중으로 변경|시작일을 조정/);
+});
+
+test('Given a planned work item starting today or later, When validation runs, Then it is not flagged as a stale planned status', () => {
+  const tasks = [
+    { id: 'spec', title: '상위 작업', project: '피자레디', parentIds: [], status: '진행 예정', start: '2026-08-06', due: '2026-08-12' },
+    { id: 'today', title: '오늘 시작', project: '피자레디', parentIds: ['spec'], status: '진행 예정', sprint: 'Sprint60', start: '2026-08-06', due: '2026-08-12', assignees: ['A'], priority: '높음', branch: 'today', branches: ['today'] },
+    { id: 'future', title: '내일 시작', project: '피자레디', parentIds: ['spec'], status: '진행 예정', sprint: 'Sprint60', start: '2026-08-07', due: '2026-08-12', assignees: ['B'], priority: '높음', branch: 'future', branches: ['future'] },
+  ];
+
+  const result = validateWorkManagement({
+    tasks,
+    projects: [{ name: '피자레디', currentSprints: ['Sprint60'] }],
+    now: '2026-08-06T09:00:00+09:00',
+  });
+
+  assert.equal(result.issues.some(issue => issue.type === 'PLANNED_START_DATE_PASSED'), false);
+});
+
 test('Given a third-level item and an orphan item, When hierarchy is validated, Then both structural violations are reported', () => {
   const common = { project: '피자레디', status: '시작 전', start: '2026-07-01', due: '2026-07-31', assignees: ['A'], edited: NOW };
   const tasks = [

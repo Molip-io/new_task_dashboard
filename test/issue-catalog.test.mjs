@@ -14,6 +14,7 @@ test('Given the shared issue catalog, When definitions are inspected, Then every
 
 test('Given known issue domains, When definitions are selected, Then guide, schedule, consistency, and integration remain distinct', () => {
   assert.equal(issueDefinition('MISSING_DUE_DATE').category, 'guide');
+  assert.equal(issueDefinition('PLANNED_START_DATE_PASSED').category, 'guide');
   assert.equal(issueDefinition('OVERDUE').category, 'schedule');
   assert.equal(issueDefinition('CURRENT_SPRINT_SETUP_REQUIRED').category, 'readiness');
   assert.equal(issueDefinition('GIT_NOTION_ACTIVITY_MISMATCH').category, 'consistency');

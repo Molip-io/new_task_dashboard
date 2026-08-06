@@ -16,22 +16,21 @@ const ui = `${app}\n${presenters}`;
 const design = fs.readFileSync(designPath, 'utf8');
 const meetingSkill = fs.readFileSync(meetingSkillPath, 'utf8');
 
-test('Given the executive briefing, When reading its sections, Then decision, blockage, and delta appear in order', () => {
-  const decision = presenters.indexOf('1. 대표가 확인할 판단');
-  const trust = presenters.indexOf('${trustSectionHtml(dashboard)}', decision);
-  const blocked = presenters.indexOf('3. 현재 관리상 막힌 것');
-  const changed = presenters.indexOf('4. 어제와 달라진 것');
+test('Given the executive briefing, When reading its sections, Then one integrated analysis and the daily delta remain without duplicate issue lists', () => {
+  const analysis = presenters.indexOf('1. 에이전트 통합 분석');
+  const changed = presenters.indexOf('2. 어제와 달라진 것');
 
-  assert.ok(decision >= 0);
-  assert.ok(trust > decision);
-  assert.ok(blocked > trust);
-  assert.ok(changed > blocked);
+  assert.ok(analysis >= 0);
+  assert.ok(changed > analysis);
+  assert.doesNotMatch(presenters, /현재 관리상 막힌 것|대표가 확인할 판단/);
+  assert.doesNotMatch(presenters, /decisionsForCEO|notionSummary\?\.decision/);
 });
 
-test('Given incomplete dependency data, When showing trust, Then the dashboard refuses a no-bottleneck conclusion', () => {
-  assert.match(app, /이 화면을 믿을 수 있는 범위/);
+test('Given incomplete source data, When showing trust, Then the dashboard exposes concrete collection status without an inferred dependency conclusion', () => {
+  assert.match(app, /데이터 수집 상태/);
   assert.match(app, /Notion 설정 확인/);
   assert.match(management, /Git URL 미입력/);
+  assert.doesNotMatch(app, /의존관계/);
 });
 
 test('Given no prior snapshot, When rendering deltas, Then the dashboard shows an explicit empty state', () => {
@@ -50,7 +49,7 @@ test('Given the requested navigation and terminology, When rendering the dashboa
 });
 
 test('Given the accepted review, When reading the design, Then all P0 requirements are normative', () => {
-  for (const requirement of ['계획 대비 기준선', '의존관계 커버리지', '데이터 신선도', '전일 스냅샷']) {
+  for (const requirement of ['계획 대비 기준선', '상태·기간 일치', '데이터 신선도', '전일 스냅샷']) {
     assert.match(design, new RegExp(`\\*\\*${requirement}\\*\\*`));
   }
   assert.match(design, /결정 안건 승격 규칙/);
@@ -93,11 +92,12 @@ test('Given a project spec, When its card opens, Then an integrated state briefi
   assert.doesNotMatch(app, /지금 이 스펙|이 스펙의 Notion/);
 });
 
-test('Given trust-sensitive briefing data, When reading the briefing contract, Then confirmed schedule risk, data quality, source conflict, and coverage gaps remain distinct', () => {
-  for (const label of ['확정 일정 위험', '관리 데이터 부족', 'Notion·Slack 출처 충돌', '수집·커버리지 공백']) assert.match(presenters, new RegExp(label));
-  assert.match(presenters, /기한 초과는 데이터 불신이 아니라/);
-  assert.match(presenters, /sourceComparisonStatus/);
-  assert.match(presenters, /에이전트 분석 미실행/);
+test('Given collection health, When reading the briefing contract, Then concrete source status stays in the trust line without a dependency-coverage card', () => {
+  assert.match(app, /데이터 수집 상태/);
+  assert.match(app, /Notion/);
+  assert.match(app, /Slack/);
+  assert.match(app, /회의록/);
+  assert.doesNotMatch(presenters, /수집·커버리지 공백|의존관계 검토|확정 일정 위험|관리 데이터 부족/);
 });
 
 test('Given the simplified briefing, When reading its KPI contract, Then five accessible drill-down metrics remain', () => {

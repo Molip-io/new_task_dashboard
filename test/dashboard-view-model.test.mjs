@@ -19,7 +19,6 @@ import {
 } from '../public/dashboard-view-model.js';
 import {
   briefingDetailItems,
-  briefingTrustOverview,
   dashboardShareUrl,
   gitRepositoryStatus,
   gitTrustSummary,
@@ -102,27 +101,6 @@ test('Given project specs across sprints, When sprint groups are built, Then gro
   assert.equal(groups[1].completionRate, 50);
   assert.equal(groups[1].totalTasks, 2);
   assert.equal(groups[1].overdueCount, 1);
-});
-
-test('Given schedule, guide, source conflict, and coverage gaps, When briefing trust is summarized, Then each confidence dimension remains distinct', () => {
-  const result = briefingTrustOverview({
-    workItems: [
-      { id: 'late', status: '진행 중', overdueDays: 2, issues: [{ type: 'OVERDUE', category: 'schedule' }] },
-      { id: 'missing', status: '진행 중', overdueDays: 0, issues: [{ type: 'MISSING_DUE_DATE', category: 'guide' }] },
-    ],
-    ai: { overall: { sourceConflicts: [{ project: '피자레디', subject: 'QA 일정', notionClaim: '7월 21일', slackClaim: '7월 25일', slackChannel: 's2_pizzaready', slackTime: '2026-07-20T01:00:00Z' }] } },
-    sourceHealth: {
-      sources: [{ id: 'notion', status: 'ok' }, { id: 'slack', status: 'partial', successful: 1, expected: 2 }],
-      dependencyCoverage: { status: 'partial', rate: 40 },
-    },
-  });
-
-  assert.equal(result.scheduleRiskCount, 1);
-  assert.equal(result.guideViolationCount, 1);
-  assert.equal(result.sourceConflicts.length, 1);
-  assert.deepEqual(result.collectionGaps, [{ id: 'slack', status: 'partial', successful: 1, expected: 2 }]);
-  assert.equal(result.dependencyCoverageRate, 40);
-  assert.equal(result.sourceComparisonAvailable, true);
 });
 
 test('Given empty, completed, and active project specs, When visible specs are selected, Then only specs with unfinished work remain', () => {

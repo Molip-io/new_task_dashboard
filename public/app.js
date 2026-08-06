@@ -153,7 +153,7 @@ function renderTrust() {
   }).join('') || '<span class="source partial">출처 상태 미측정</span>';
   const setup = D.notionSetup.ready ? '<span class="source ok">Notion 필수 속성 정상</span>' : `<span class="source partial">Notion 설정 확인 ${D.notionSetup.databases?.flatMap(db => db.missingProperties || []).length || 0}건</span>`;
   const git = gitTrustSummary(D.git, D.projects);
-  $('#trustLine').innerHTML = `<strong>이 화면을 믿을 수 있는 범위</strong>${sources}${setup}<button type="button" class="source ${git.tone}" data-briefing-detail="git" aria-expanded="${state.briefingDetail === 'git'}">${esc(git.label)}</button><span>마지막 동기화 ${fmt(D.generatedAt)}</span>`;
+  $('#trustLine').innerHTML = `<strong>데이터 수집 상태</strong>${sources}${setup}<button type="button" class="source ${git.tone}" data-briefing-detail="git" aria-expanded="${state.briefingDetail === 'git'}">${esc(git.label)}</button><span>마지막 동기화 ${fmt(D.generatedAt)}</span>`;
   $('[data-briefing-detail="git"]').onclick = () => openBriefingDetail('git');
 }
 

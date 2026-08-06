@@ -31,6 +31,7 @@ const CATALOG = {
   MISSING_SPEC: ['guide', '상위 작업 연결 필요', 'PD 또는 메인 기획자'],
   MISSING_ASSIGNEE: ['guide', '담당자 지정 필요', '프로젝트 운영 담당자'],
   DATE_RANGE_MISMATCH: ['guide', '기간 확인 필요', '작업 담당자'],
+  PLANNED_START_DATE_PASSED: ['guide', '상태 변경 필요', '작업 담당자'],
   PARENT_CHILD_STATUS_MISMATCH: ['guide', '상하위 상태 확인', 'PD 또는 메인 기획자'],
   REOPENED_COMPLETED_ITEM: ['guide', '신규 작업 분리 필요', 'PD 또는 메인 기획자'],
   COMPLETION_DATE_RELATION: ['guide', '완료일 관계 확인', '작업 담당자'],
@@ -172,25 +173,6 @@ export function dashboardShareUrl(baseUrl, state = {}) {
     if (filters.issueType) url.searchParams.set('checkIssue', filters.issueType);
   }
   return url.toString();
-}
-
-export function briefingTrustOverview(dashboard = {}) {
-  const active = (dashboard.workItems || []).filter(item => !['완료', '일시 정지', '정지', '중단'].includes(item.status));
-  const sourceConflicts = Array.isArray(dashboard.ai?.overall?.sourceConflicts) ? dashboard.ai.overall.sourceConflicts.slice(0, 5) : [];
-  const sources = dashboard.sourceHealth?.sources || [];
-  const comparisonStatus = dashboard.ai?.sourceComparison?.status
-    || (Array.isArray(dashboard.ai?.overall?.sourceConflicts) ? 'complete' : 'not_run');
-  return {
-    scheduleRiskCount: active.filter(item => item.overdueDays > 0).length,
-    guideViolationCount: active.filter(item => (item.issues || []).some(issue => issueMatchesCategory(issue, 'guide'))).length,
-    sourceConflicts,
-    sourceComparisonAvailable: ['complete', 'partial'].includes(comparisonStatus),
-    sourceComparisonStatus: comparisonStatus,
-    agentAnalysisStatus: dashboard.ai?.analysisStatus || 'not_run',
-    agentAnalysisAt: dashboard.ai?.generatedAt || null,
-    collectionGaps: sources.filter(source => source.status !== 'ok'),
-    dependencyCoverageRate: dashboard.sourceHealth?.dependencyCoverage?.rate ?? null,
-  };
 }
 
 const CONNECTED = new Set(['ok', 'connected', 'inactive', 'no-activity', 'no_activity']);

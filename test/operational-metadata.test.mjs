@@ -24,14 +24,14 @@ const current = {
   meetings: [{ date: '2026-07-14T01:00:00.000Z' }],
 };
 
-test('Given one missing Slack channel, When source health is built, Then Slack is partial and its coverage is explicit', () => {
+test('Given one missing Slack channel, When source health is built, Then the concrete source status is partial without an unused dependency metric', () => {
   const health = buildSourceHealth(current);
 
   const slack = health.sources.find(source => source.id === 'slack');
   assert.equal(slack.status, 'partial');
   assert.equal(slack.successful, 1);
   assert.equal(slack.expected, 2);
-  assert.equal(health.dependencyCoverage.status, 'unmeasured');
+  assert.equal('dependencyCoverage' in health, false);
 });
 
 test('Given matching project and task IDs, When snapshots are compared, Then changed status and due date are returned', () => {

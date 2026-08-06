@@ -30,7 +30,7 @@
     "summary": "전체 상황 3문장 이내",
     "topRisks": ["입력 근거가 있는 관리 위험 최대 3개"],
     "sourceConflicts": [{ "project": "", "subject": "", "notionClaim": "", "slackClaim": "", "slackChannel": "", "slackTime": "" }],
-    "decisionsForCEO": [{ "project": "", "question": "입력에 존재하는 판단 사안", "context": "근거" }]
+    "decisionsForCEO": [{ "project": "", "question": "직접 출처에서 대표에게 선택·승인을 요청한 판단 사안", "context": "선택에 따라 달라지는 후속 영향과 근거" }]
   },
   "projects": [{
     "name": "입력과 같은 프로젝트명",
