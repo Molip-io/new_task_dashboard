@@ -34,7 +34,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&'
 const safeUrl = value => /^(https?:\/\/|#)/.test(String(value || '')) ? value : '#';
 const fmt = value => value ? String(value).replace('T', ' ').slice(0, 16) : '-';
 const DONE = new Set(['완료', '일시 정지', '정지', '중단']);
-const TONES = new Set(['error', 'warning', 'check', 'info', 'normal', 'gray']);
+const TONES = new Set(['error', 'warning', 'check', 'info', 'normal', 'gray', 'done', 'review']);
 
 const saved = JSON.parse(localStorage.getItem('dashboard-preferences') || '{}');
 const query = new URLSearchParams(location.search);

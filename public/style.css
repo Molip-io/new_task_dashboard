@@ -9,7 +9,7 @@
   --accent: #7393fc; --accent-bg: #24346b; --accent-soft: #374b8b; --head-deep: #203888;
   --text: #f0f2f7; --text-soft: #d8dce6; --muted: #929aac;
   --brand-pink: #f2879c; --blue: #8ea6f4;
-  --green: #56c98a; --yellow: #f4bf4f; --orange: #f28b50; --red: #ff6f72;
+  --green: #56c98a; --yellow: #f4bf4f; --orange: #f28b50; --red: #ff6f72; --purple: #b18cf5;
   --blue-bg: #1a2340; --green-bg: #123521; --yellow-bg: #413410; --red-bg: #42181d; --gray-bg: #293041;
   --shadow: none;
   --hairline: inset 0 1px 0 rgba(255, 255, 255, .07), inset 0 -1px 0 rgba(255, 255, 255, .035);
@@ -28,7 +28,7 @@
   --accent: #b62b54; --accent-bg: #edc9d2; --accent-soft: #db94a8; --head-deep: #9d2f50;
   --text: #232838; --text-soft: #3a4356; --muted: #5f6b81;
   --brand-pink: #d9556f; --blue: #4a63cf;
-  --green: #178a52; --yellow: #96700e; --orange: #c25a17; --red: #d13438;
+  --green: #178a52; --yellow: #96700e; --orange: #c25a17; --red: #d13438; --purple: #7f4cc0;
   --blue-bg: #e9eefc; --green-bg: #e2f4ea; --yellow-bg: #faf0d4; --red-bg: #fde7e8; --gray-bg: #edf0f5;
   --shadow: 0 1px 2px rgba(16, 24, 40, .05);
   --hairline: inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(255, 255, 255, .8);
@@ -54,6 +54,8 @@ details > summary:hover::before, details > summary:hover::after { color: var(--t
 .dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 999px; background: currentColor; flex: none; vertical-align: middle; }
 .dot.error { background: var(--red); box-shadow: 0 0 0 3px rgba(255, 111, 114, .16); } .dot.warning { background: var(--orange); box-shadow: 0 0 0 3px rgba(242, 139, 80, .14); } .dot.check { background: var(--yellow); }
 .dot.info { background: var(--blue); } .dot.normal, .dot.gray { background: var(--muted); }
+/* 작업 상태 닷은 Notion 상태 색을 그대로 따른다 (완료=초록, 확인 요청=퍼플) */
+.dot.done { background: var(--green); } .dot.review { background: var(--purple); }
 .status { display: inline-flex; align-items: center; font-size: 12px; font-weight: 500; color: var(--text-soft); }
 .topbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 auto 12px; max-width: 1500px; }
 .eyebrow { margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: .2em; background: var(--brand-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }

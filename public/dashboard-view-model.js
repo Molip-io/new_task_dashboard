@@ -6,11 +6,21 @@ export function isClosedWorkItem(item) {
   return closedStatuses.has(item?.status);
 }
 
+// Notion 상태 색과 1:1로 맞춘다. 여기 없는 상태는 중립 회색.
+const statusTones = {
+  '시작 전': 'gray',
+  '진행 예정': 'info',
+  '일시 정지': 'error',
+  '검토중': 'gray',
+  '추가 진행': 'warning',
+  '진행 중': 'check',
+  '확인 요청': 'review',
+  '완료': 'done',
+  '중단': 'gray',
+};
+
 export function workStatusTone(item) {
-  if (item?.status === '완료') return 'normal';
-  if (item?.status === '진행 중') return 'info';
-  if (['확인 요청', '검토중'].includes(item?.status)) return 'check';
-  return 'gray';
+  return statusTones[item?.status] || 'gray';
 }
 
 export function filterSpecsWithWorkItems(specs) {

@@ -270,8 +270,27 @@ test('Given completed work with raw validation issues, When project row issues a
 test('Given work with validation errors, When its status tone is selected, Then the tone depends only on the workflow status', () => {
   const item = { status: '진행 중', guideStatus: 'error', issues: [{ severity: 'error' }] };
 
-  assert.equal(workStatusTone(item), 'info');
+  assert.equal(workStatusTone(item), 'check');
   assert.notEqual(workStatusTone(item), 'error');
+});
+
+test('Given every Notion work status, When its tone is selected, Then it matches the colour Notion shows for that status', () => {
+  const expected = {
+    '시작 전': 'gray',
+    '진행 예정': 'info',
+    '일시 정지': 'error',
+    '검토중': 'gray',
+    '추가 진행': 'warning',
+    '진행 중': 'check',
+    '확인 요청': 'review',
+    '완료': 'done',
+    '중단': 'gray',
+  };
+
+  for (const [status, tone] of Object.entries(expected)) {
+    assert.equal(workStatusTone({ status }), tone, `${status} 상태 색`);
+  }
+  assert.equal(workStatusTone({ status: '알 수 없는 상태' }), 'gray');
 });
 
 test('Given confirmation issues for active and completed work, When visible issues are selected, Then completed and stale-update issues are hidden', () => {
