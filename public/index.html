@@ -8,7 +8,7 @@
     document.documentElement.dataset.theme = localStorage.getItem('dashboard-theme')
       || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   </script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260807-2">
 </head>
 <body>
   <header class="topbar">
@@ -50,6 +50,6 @@
     <h2>아직 수집된 데이터가 없습니다</h2>
     <p><code>.env</code>를 설정한 뒤 데이터 다시 수집을 누르세요.</p>
   </div>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=20260807-2"></script>
 </body>
 </html>

@@ -40,7 +40,10 @@ function readJson(file) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   const send = (code, body, type = 'application/json') => {
-    res.writeHead(code, { 'Content-Type': `${type}; charset=utf-8` });
+    res.writeHead(code, {
+      'Content-Type': `${type}; charset=utf-8`,
+      'Cache-Control': 'no-store, max-age=0',
+    });
     res.end(type === 'application/json' ? JSON.stringify(body) : body);
   };
 

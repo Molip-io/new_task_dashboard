@@ -34,6 +34,13 @@ test('Given the executive briefing, When reading its sections, Then one integrat
   assert.doesNotMatch(presenters, /decisionsForCEO|notionSummary\?\.decision/);
 });
 
+test('Given a deployed UI bundle, When the browser requests the shell, Then the bundle is cache-busted and local responses are not reusable', () => {
+  assert.match(prototype, /style\.css\?v=20260807-2/);
+  assert.match(prototype, /app\.js\?v=20260807-2/);
+  const server = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
+  assert.match(server, /Cache-Control': 'no-store, max-age=0'/);
+});
+
 test('Given incomplete source data, When showing trust, Then the dashboard exposes concrete collection status without an inferred dependency conclusion', () => {
   assert.match(app, /데이터 수집 상태/);
   assert.match(app, /Notion 설정 확인/);
