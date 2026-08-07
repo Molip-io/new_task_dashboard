@@ -49,13 +49,13 @@ async function collectSlack(projects, errors) {
   return out;
 }
 
-export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAULT_NO_AI, previousSnapshot = undefined } = {}) {
+export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAULT_NO_AI, previousSnapshot = undefined, notionOptions = {} } = {}) {
   writeStatus(dataDirectory, 'running');
   const errors = [];
   try {
     if (!process.env.NOTION_TOKEN) throw new Error('NOTION_TOKEN 없음 — .env 파일을 설정하세요.');
     console.log('▶ Notion 프로젝트·작업항목·회의록 수집...');
-    const notion = await collectNotionData(config, errors);
+    const notion = await collectNotionData(config, errors, notionOptions);
     const tasks = selectProjectTasks(notion.tasks, notion.projects);
     console.log(`  프로젝트 ${notion.projects.length}, 작업 ${tasks.length}, 회의록 ${notion.meetings.length}`);
 

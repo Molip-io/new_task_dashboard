@@ -75,7 +75,21 @@ async function collectForWeb() {
   } catch (error) {
     console.error('[dashboard] previous snapshot unavailable:', error.message);
   }
-  const result = await runCollection({ dataDirectory: TEMP_DATA, noAi: true, previousSnapshot: previous });
+  const result = await runCollection({
+    dataDirectory: TEMP_DATA,
+    noAi: true,
+    previousSnapshot: previous,
+    // The serverless refresh must finish within a request. Properties and
+    // database rows are enough for the rule engine; full page/comment hydration
+    // remains enabled for the local `node collect.mjs` path.
+    notionOptions: {
+      hydrateBodies: false,
+      checkComments: true,
+      hydrateMeetingBodies: true,
+      meetingBodyBudget: 120,
+      hydrateSummaryBodies: false,
+    },
+  });
   return compactDashboard(result.dashboard);
 }
 

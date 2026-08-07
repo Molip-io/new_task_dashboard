@@ -187,7 +187,14 @@ async function refresh() {
   btn.textContent = '⏳ 갱신 중… (1~2분 소요)';
   try {
     const res = await fetch('/api/refresh', { method: 'POST' });
-    const body = await res.json().catch(() => ({}));
+    const raw = await res.text();
+    let body = {};
+    try { body = raw ? JSON.parse(raw) : {}; }
+    catch {
+      const detail = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180);
+      throw new Error(`서버 수집 실패 (${res.status})${detail ? `: ${detail}` : ''}`);
+    }
+    if (!res.ok) throw new Error(body.message || `서버 수집 실패 (${res.status})`);
     if (body.dashboard) {
       render(body.dashboard);
     } else {

@@ -4,12 +4,18 @@ import test from 'node:test';
 
 const prototypePath = new URL('../public/index.html', import.meta.url);
 const appPath = new URL('../public/app.js', import.meta.url);
+const apiPath = new URL('../api/app.mjs', import.meta.url);
+const collectorPath = new URL('../lib/notion-collector.mjs', import.meta.url);
+const collectPath = new URL('../collect.mjs', import.meta.url);
 const managementPath = new URL('../public/dashboard-management.js', import.meta.url);
 const presentersPath = new URL('../public/dashboard-presenters.js', import.meta.url);
 const designPath = new URL('../DESIGN.md', import.meta.url);
 const meetingSkillPath = new URL('../agent-package/skills/structured-meeting-evidence/SKILL.md', import.meta.url);
 const prototype = fs.readFileSync(prototypePath, 'utf8');
 const app = fs.readFileSync(appPath, 'utf8');
+const api = fs.readFileSync(apiPath, 'utf8');
+const notionCollector = fs.readFileSync(collectorPath, 'utf8');
+const collector = fs.readFileSync(collectPath, 'utf8');
 const management = fs.readFileSync(managementPath, 'utf8');
 const presenters = fs.readFileSync(presentersPath, 'utf8');
 const ui = `${app}\n${presenters}`;
@@ -140,4 +146,16 @@ test('Given Git collection health, When reading the trust line, Then it can open
   for (const status of ['Git 인증 필요', 'Git URL 미입력', 'Git 부분 수집', 'Git 수집 실패', '최근 활동 없음']) {
     assert.match(`${app}\n${management}`, new RegExp(status));
   }
+});
+
+test('Given a serverless refresh, When Notion hydration is expensive or the platform returns plain text, Then the refresh path stays bounded and reports a readable error', () => {
+  assert.match(notionCollector, /hydrateBodies = true/);
+  assert.match(notionCollector, /checkComments = true/);
+  assert.match(collector, /notionOptions/);
+  assert.match(api, /hydrateBodies: false/);
+  assert.match(api, /checkComments: true/);
+  assert.match(api, /hydrateMeetingBodies: true/);
+  assert.match(api, /hydrateSummaryBodies: false/);
+  assert.match(app, /response\.text\(\)/);
+  assert.match(app, /서버 수집 실패/);
 });

@@ -434,6 +434,15 @@ function activateTab(tab) {
 }
 
 document.querySelectorAll('#tabs button').forEach(button => button.onclick = () => activateTab(button.dataset.tab));
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try { return JSON.parse(text); }
+  catch {
+    const detail = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180);
+    throw new Error(`서버 수집 실패 (${response.status})${detail ? `: ${detail}` : ''}`);
+  }
+}
 function syncThemeToggle() { $('#themeToggle').textContent = document.documentElement.dataset.theme === 'light' ? '다크 모드' : '라이트 모드'; }
 $('#themeToggle').onclick = () => {
   const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
@@ -449,7 +458,7 @@ $('#refreshBtn').onclick = async () => {
   stateLabel.textContent = '수집 중…';
   try {
     const response = await fetch('/api/refresh', { method: 'POST' });
-    const result = await response.json();
+    const result = await readJsonResponse(response);
     if (!response.ok) throw new Error(result.message || '수집에 실패했습니다.');
     if (result.completed && result.dashboard) {
       D = normalize(result.dashboard);
