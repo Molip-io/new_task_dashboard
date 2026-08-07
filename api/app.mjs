@@ -50,7 +50,15 @@ function send(response, status, body, type = 'application/json') {
 }
 
 async function storedDashboard() {
-  const snapshot = await readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId });
+  let snapshot;
+  try {
+    snapshot = await readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId });
+  } catch (error) {
+    // A throttled summary DB must not prevent the rule-engine refresh from
+    // collecting the source databases and returning a current dashboard.
+    console.error('[dashboard] stored snapshot unavailable:', error.message);
+    return null;
+  }
   if (!snapshot) return null;
   const errors = [];
   const rows = await collectSummaryRows(config, errors);
