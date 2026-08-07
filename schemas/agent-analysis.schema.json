@@ -63,7 +63,7 @@
       "required": ["summary", "topRisks", "decisionsForCEO", "changesSinceYesterday", "sourceConflicts", "confidenceLimits"],
       "properties": {
         "summary": { "type": "string", "maxLength": 1200 },
-        "topRisks": { "type": "array", "maxItems": 5, "items": { "type": "string", "maxLength": 400 } },
+        "topRisks": { "description": "직접 연결된 출처에서 아직 해결되지 않았고 여러 파트의 실행 순서, 현재 스프린트 주요 산출물, 출시·배포 일정에 영향을 주는 위험만 기록한다.", "type": "array", "maxItems": 5, "items": { "type": "string", "maxLength": 400 } },
         "decisionsForCEO": {
           "description": "직접 출처에서 대표의 선택 또는 승인을 명시적으로 요청하고, 선택에 따라 달라지는 후속 영향이 확인될 때만 기록한다. 규칙 수치나 작업 건수만 비교해 만든 우선순위 질문은 허용하지 않는다.",
           "type": "array", "maxItems": 5,
@@ -109,8 +109,8 @@
                 "specId": { "type": ["string", "null"] },
                 "title": { "type": "string", "minLength": 1 },
                 "summary": { "description": "Notion 상태와 직접 연결된 Slack·회의록·Git 근거를 종합해 실제 목표·산출물·현재 진행 내용을 설명한다. 상태·작업 건수·완료율·기한 초과 수만 반복한 문장은 허용하지 않는다.", "type": "string", "maxLength": 700 },
-                "blockers": { "description": "확인된 실행 병목만 기록한다. 우선순위·기간·브랜치 등 관리 필드 누락은 제외한다.", "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 300 } },
-                "nextAction": { "description": "업무 진행의 다음 행동을 담당 역할·산출물·완료 조건 중심으로 기록한다. 관리 속성 입력·보완 및 '다음 상태 확인' 같은 일반 문구는 제외한다.", "type": ["string", "null"], "maxLength": 400 },
+                "blockers": { "description": "직접 연결된 근거에 현재 실행 영향이 명시되고 아직 해결되지 않은 실행 병목만 기록한다. 선행·일정·범위·품질·전달·기술 위험을 포함하며 관리 필드 누락, 단순 아이디어, 해결된 과거 이슈는 제외한다.", "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 300 } },
+                "nextAction": { "description": "업무 진행의 다음 행동을 위험 원인에 맞는 담당 역할·산출물·완료 조건 중심으로 기록한다. 관리 속성 입력·보완 및 '다음 상태 확인' 같은 일반 문구는 제외하고, 근거에 없는 사람 이름이나 완료 사실을 만들지 않는다.", "type": ["string", "null"], "maxLength": 400 },
                 "evidence": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/evidenceItem" } },
                 "confidenceLimits": { "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 300 } }
               }

@@ -38,10 +38,6 @@ export function resolveProjectControls(controls = {}, availableSprints = []) {
   };
 }
 
-function normalizedSpecKey(value) {
-  return String(value || '').replace(/\s+/g, '').toLowerCase();
-}
-
 function evidenceKey(item) {
   return [item?.source, item?.url, item?.timestamp, item?.excerpt].map(value => String(value || '')).join('|');
 }
@@ -53,6 +49,10 @@ function isManagementMetadataText(value) {
   const metadataFields = ['우선순위', '기간', '브랜치', '담당자', '날짜', '시작일', '마감일'];
   const mentionedFields = metadataFields.filter(field => text.includes(field)).length;
   return mentionedFields > 0 && /(누락|미입력|보완|입력)/.test(text);
+}
+
+function sourceStatusIsLimited(status) {
+  return ['failed', 'not_available', 'unavailable', 'partial', 'not_run'].includes(String(status || '').toLowerCase());
 }
 
 function localSpecFallback(spec) {
@@ -91,29 +91,36 @@ function localSpecFallback(spec) {
 
 export function resolveSpecInsight(project, spec, agentProject = null, analysisMeta = {}) {
   const fallback = (project?.specInsights || []).find(item => item.specId === spec.id)
-    || (project?.specInsights || []).find(item => normalizedSpecKey(item.title) === normalizedSpecKey(spec.title))
     || localSpecFallback(spec);
-  const analysisTime = Date.parse(analysisMeta.analysisGeneratedAt || '');
-  const dashboardTime = Date.parse(analysisMeta.dashboardGeneratedAt || '');
-  const agentIsCurrent = !Number.isFinite(analysisTime) || !Number.isFinite(dashboardTime) || analysisTime >= dashboardTime;
-  const agent = agentIsCurrent
-    ? (agentProject?.specSummaries || []).find(item => item.specId && item.specId === spec.id)
-      || (agentProject?.specSummaries || []).find(item => normalizedSpecKey(item.title) === normalizedSpecKey(spec.title))
-      || null
+  const analysisStatus = String(analysisMeta.analysisStatus || '').toLowerCase();
+  const agentIsUsable = !['failed', 'legacy', 'not_run', 'stale'].includes(analysisStatus);
+  const agent = agentIsUsable
+    ? (agentProject?.specSummaries || []).find(item => item.specId && item.specId === spec.id) || null
     : null;
-  const evidence = [...(agent?.evidence || []), ...(fallback.evidence || [])]
+  const evidence = (agent ? agent.evidence || [] : fallback.evidence || [])
     .filter((item, index, rows) => rows.findIndex(candidate => evidenceKey(candidate) === evidenceKey(item)) === index)
     .sort((left, right) => String(right.timestamp || '').localeCompare(String(left.timestamp || '')))
     .slice(0, 6);
   const agentBlockers = (agent?.blockers || []).filter(item => !isManagementMetadataText(item));
   const agentNextAction = isManagementMetadataText(agent?.nextAction) ? null : agent?.nextAction;
+  const confidenceLimits = agent ? agent.confidenceLimits || [] : [];
+  const sourceStatuses = Object.values(analysisMeta.sourceStatus || {});
+  const hasAnalysisLimit = Boolean(agent && (confidenceLimits.length
+    || sourceStatusIsLimited(analysisMeta.analysisStatus)
+    || sourceStatusIsLimited(analysisMeta.sourceComparisonStatus)
+    || sourceStatuses.some(sourceStatusIsLimited)));
+  const blockers = (agent ? agentBlockers : fallback.blockers || [])
+    .filter((item, index, rows) => rows.indexOf(item) === index)
+    .slice(0, 3);
   return {
-    summary: agent?.summary || fallback.summary || '',
-    blockers: agentBlockers.length ? agentBlockers : fallback.blockers || [],
-    nextAction: agentNextAction || fallback.nextAction || null,
+    summary: agent ? agent.summary || '' : fallback.summary || '',
+    blockers,
+    nextAction: agent ? agentNextAction || null : fallback.nextAction || null,
     evidence,
-    confidenceLimits: agent?.confidenceLimits || [],
+    confidenceLimits,
+    hasAnalysisLimit,
     hasAgentAnalysis: Boolean(agent),
+    sourceAttention: !agent && (fallback.evidence || []).some(item => item.attention),
     analysisPending: !agent,
   };
 }

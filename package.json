@@ -6,6 +6,7 @@
   "engines": { "node": ">=18" },
   "scripts": {
     "start": "node server.mjs",
+    "build": "node --check collect.mjs && node --check server.mjs && node --check api/app.mjs && node --check public/app.js && node --check public/dashboard-view-model.js && node --check public/dashboard-presenters.js",
     "test": "node --test",
     "collect": "node collect.mjs",
     "collect:raw": "node collect.mjs --no-ai",

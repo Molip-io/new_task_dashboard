@@ -70,11 +70,25 @@ export function briefingHtml(dashboard, selectedDetail, taskRows) {
     ? '최신 업무 데이터 이후 통합 분석이 아직 실행되지 않았습니다.'
     : analysisStatus === 'failed' ? '통합 분석이 실패했습니다. 상단 데이터 수집 상태를 확인해 주세요.'
       : '통합 분석이 아직 실행되지 않았습니다.';
+  const sourceBackedRisks = (dashboard.projects || []).map(project => {
+    const candidates = (project.specInsights || []).flatMap(insight => (insight.evidence || [])
+      .filter(item => item.attention)
+      .map(item => ({ text: `[${project.name}] ${insight.title}: ${item.excerpt}`, timestamp: item.timestamp || '' })))
+      .sort((left, right) => String(right.timestamp).localeCompare(String(left.timestamp)));
+    return candidates[0]?.text || null;
+  }).filter(Boolean);
+  const agentRisks = ['success', 'partial'].includes(analysisStatus) ? dashboard.ai?.overall?.topRisks || [] : [];
+  const importantRisks = [...sourceBackedRisks, ...agentRisks]
+    .filter((item, index, rows) => rows.findIndex(candidate => String(candidate).replace(/\s+/g, '') === String(item).replace(/\s+/g, '')) === index)
+    .slice(0, 5);
+  const importantRiskHtml = importantRisks.length
+    ? `<div class="analysis-risks"><h4>중요 확인사항</h4>${importantRisks.map(risk => `<div class="briefing-row"><strong><span class="dot warning"></span>${esc(risk)}</strong></div>`).join('')}</div>`
+    : '';
   return `<div class="section-head"><div><h2>오늘의 업무 브리핑</h2><p>핵심 지표 → 통합 분석 → 어제와 달라진 것 순서입니다. 이 화면은 읽기 전용입니다.</p></div></div>
     <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', metrics.progressSetupRequiredItems ? 'warning' : '', selectedDetail)}</div>
     ${briefingDetailHtml(dashboard, selectedDetail, taskRows)}
     <div class="bento">
-    <div class="card span-6"><h3>1. 에이전트 통합 분석</h3>${overallSummary ? `<p class="summary analysis-summary">${esc(overallSummary)}</p>` : `<div class="summary">${esc(analysisEmpty)}</div>`}</div>
+    <div class="card span-6"><h3>1. 에이전트 통합 분석</h3>${overallSummary ? `<p class="summary analysis-summary">${esc(overallSummary)}</p>` : `<div class="summary">${esc(analysisEmpty)}</div>`}${importantRiskHtml}</div>
     <div class="card span-6"><h3>2. 어제와 달라진 것</h3>${dashboard.deltas.length ? dashboard.deltas.slice(0, 5).map(delta => `<div class="briefing-row"><strong><span class="dot info"></span>[${esc(delta.project)}] ${esc(delta.taskTitle || '프로젝트')} · ${esc(delta.field)}</strong><small>${esc(JSON.stringify(delta.from))} → ${esc(JSON.stringify(delta.to))}</small></div>`).join('') : `<div class="summary">${esc(dashboard.snapshotComparison?.reason || '변화가 감지되지 않았습니다.')}</div>`}</div>
     </div>`;
 }

@@ -18,6 +18,7 @@ const dashboard = {
       specId: 'spec-1', title: '익스프레스', evidence: [
         { source: 'notion', timestamp: '2026-07-20', title: '개발', excerpt: '진행 중', url: 'https://notion.so/task' },
         { source: 'slack', timestamp: '2026-07-20', title: '#s2_pizzaready', excerpt: '기획 범위 확정', url: 'https://slack.com/message' },
+        { source: 'meeting', timestamp: '2026-07-20', title: '일정 회의', excerpt: '일정 지연으로 구조와 배치를 먼저 확정한다.', url: 'https://notion.so/meeting', attention: true, attentionType: 'schedule' },
       ],
     }],
     specs: [{
@@ -67,10 +68,27 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   assert.equal(packet.projects[0].gitEvidence[0].hash, 'abc');
   assert.equal(packet.projects[0].meetingReferences[0].contentChecked, true);
   assert.equal('content' in packet.projects[0].meetingReferences[0], false);
-  assert.deepEqual(packet.projects[0].sourceEvidenceFormat.columns, ['specId', 'source', 'timestamp', 'title', 'excerpt', 'url']);
+  assert.deepEqual(packet.projects[0].sourceEvidenceFormat.columns, ['specId', 'source', 'timestamp', 'title', 'excerpt', 'url', 'attentionType']);
   assert.equal(packet.projects[0].sourceEvidence[0][0], 'spec-1');
-  assert.equal(packet.projects[0].sourceEvidence[0][1], 'slack');
-  assert.equal(packet.projects[0].sourceEvidence[0][4], '기획 범위 확정');
+  assert.equal(packet.projects[0].sourceEvidence[0][1], 'meeting');
+  assert.match(packet.projects[0].sourceEvidence[0][4], /일정 지연/);
+  assert.equal(packet.projects[0].sourceEvidence[0][6], 'schedule');
+  assert.ok(packet.projects[0].sourceEvidence.some(row => row[1] === 'slack' && row[4] === '기획 범위 확정'));
+});
+
+test('Given matched and unrelated meeting candidates, When an agent packet is built, Then only spec-linked meetings are offered for deeper reading', () => {
+  const packet = buildAgentInputPacket({
+    ...dashboard,
+    projects: [{
+      ...dashboard.projects[0],
+      meetings: [
+        ...dashboard.projects[0].meetings,
+        { title: 'AI 자동화 회의', date: '2026-07-20', url: 'https://notion.so/unrelated', contentChecked: true },
+      ],
+    }],
+  });
+
+  assert.deepEqual(packet.projects[0].meetingReferences.map(item => item.url), ['https://notion.so/meeting']);
 });
 
 test('Given an output path, When the packet is written, Then a valid JSON handoff file is created', () => {

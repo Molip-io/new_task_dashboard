@@ -19,8 +19,10 @@ const collector = fs.readFileSync(collectPath, 'utf8');
 const management = fs.readFileSync(managementPath, 'utf8');
 const presenters = fs.readFileSync(presentersPath, 'utf8');
 const ui = `${app}\n${presenters}`;
+const viewModel = fs.readFileSync(new URL('../public/dashboard-view-model.js', import.meta.url), 'utf8');
 const design = fs.readFileSync(designPath, 'utf8');
 const meetingSkill = fs.readFileSync(meetingSkillPath, 'utf8');
+const specInsights = fs.readFileSync(new URL('../lib/spec-insights.mjs', import.meta.url), 'utf8');
 
 test('Given the executive briefing, When reading its sections, Then one integrated analysis and the daily delta remain without duplicate issue lists', () => {
   const analysis = presenters.indexOf('1. 에이전트 통합 분석');
@@ -64,6 +66,16 @@ test('Given the accepted review, When reading the design, Then all P0 requiremen
   assert.doesNotMatch(design, /진행 중인데 7일간 편집 없음/);
 });
 
+test('Given Agent spec summaries, When reading the project-card contract, Then Agent narrative is preferred and exact IDs define the link', () => {
+  assert.match(app, /analysisStatus: D\.ai\?\.analysisStatus/);
+  assert.match(app, /sourceComparisonStatus: D\.ai\?\.sourceComparison\?\.status/);
+  assert.match(app, /현재 확인된 실행 blocker 없음/);
+  assert.match(app, /근거에서 다음 완료 지점을 특정할 수 없음/);
+  assert.doesNotMatch(app, /통합 분석상 확인된 실행 병목 없음/);
+  assert.match(viewModel, /item\.specId && item\.specId === spec\.id/);
+  assert.doesNotMatch(viewModel, /normalizedSpecKey\(item\.title\)/);
+});
+
 test('Given the refined dashboard workflow, When reading the UI contract, Then projects group specs by sprint and people or checks do not expose completed work', () => {
   assert.match(app, /프로젝트 → 스프린트 → 상위 작업 → 작업항목/);
   assert.doesNotMatch(app, /스펙/);
@@ -83,11 +95,12 @@ test('Given the refined dashboard workflow, When reading the UI contract, Then p
 });
 
 test('Given a project spec, When its card opens, Then an integrated state briefing appears before the Notion work-item list', () => {
-  for (const label of ['현재 진행', '막힌 점', '다음 행동', '최근 근거', 'Notion 작업항목']) assert.match(app, new RegExp(label));
-  const briefing = app.indexOf('현재 진행');
+  for (const label of ['브리핑', '막힌 점', '다음 행동', '최근 근거', 'Notion 작업항목']) assert.match(app, new RegExp(label));
+  const briefing = app.indexOf('spec-kicker"><span>브리핑');
   const evidence = app.indexOf('최근 근거', briefing);
   const workItems = app.indexOf('Notion 작업항목', evidence);
   assert.ok(briefing >= 0 && evidence > briefing && workItems > evidence);
+  assert.doesNotMatch(app, /spec-kicker"><span>현재 진행/);
   assert.match(app, /spec-work-items-toggle/);
   assert.match(app, /<span class="toggle-open">열기<\/span><span class="toggle-close">접기<\/span> <span aria-hidden="true">→<\/span>/);
   for (const source of ['Notion', 'Slack', '회의록', 'Git']) assert.match(app, new RegExp(source));
@@ -96,6 +109,7 @@ test('Given a project spec, When its card opens, Then an integrated state briefi
   assert.match(meetingSkill, /specId/);
   assert.doesNotMatch(app, /class="spec-type"/);
   assert.doesNotMatch(app, /지금 이 스펙|이 스펙의 Notion/);
+  assert.doesNotMatch(specInsights, /구조와 배치.*폴리싱/);
 });
 
 test('Given collection health, When reading the briefing contract, Then concrete source status stays in the trust line without a dependency-coverage card', () => {

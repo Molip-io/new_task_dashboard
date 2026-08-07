@@ -312,16 +312,19 @@ function specEvidenceHtml(evidence) {
 function specCard(spec, project) {
   const agentProject = aiProject(project.name);
   const insight = resolveSpecInsight(project, spec, agentProject, {
-    analysisGeneratedAt: D.ai?.generatedAt,
-    dashboardGeneratedAt: D.generatedAt,
+    analysisStatus: D.ai?.analysisStatus,
+    sourceComparisonStatus: D.ai?.sourceComparison?.status,
+    sourceStatus: D.ai?.sourceStatus,
   });
   const origin = insight.hasAgentAnalysis ? `통합 분석 · ${fmt(D.ai?.generatedAt)}` : '규칙 기반 현황 · 통합 분석 대기';
   const blockers = insight.blockers.length
     ? `<div class="spec-callout blocker"><span>막힌 점</span><p>${insight.blockers.map(esc).join(' · ')}</p></div>`
     : insight.hasAgentAnalysis
-      ? '<div class="spec-callout clear"><span>막힌 점</span><p>통합 분석상 확인된 실행 병목 없음</p></div>'
+      ? `<div class="spec-callout clear"><span>막힌 점</span><p>${insight.hasAnalysisLimit ? '확인 가능한 근거 범위에서는 실행 blocker 미확인' : '현재 확인된 실행 blocker 없음'}</p></div>`
       : '<div class="spec-callout clear"><span>막힌 점</span><p>통합 분석 대기 · 규칙상 기한 초과·확인 대기 없음</p></div>';
-  const nextAction = insight.hasAgentAnalysis && insight.nextAction
+  const nextAction = insight.hasAgentAnalysis
+    ? `<div class="spec-callout action"><span>다음 완료 지점</span><p>${esc(insight.nextAction || '근거에서 다음 완료 지점을 특정할 수 없음')}</p></div>`
+    : insight.sourceAttention && insight.nextAction
     ? `<div class="spec-callout action"><span>다음 행동</span><p>${esc(insight.nextAction)}</p></div>`
     : insight.analysisPending
       ? '<div class="spec-callout action"><span>다음 행동</span><p>Notion·Slack·회의록·Git 통합 분석 완료 후 표시</p></div>'
@@ -329,7 +332,7 @@ function specCard(spec, project) {
   const limits = insight.confidenceLimits.length
     ? `<p class="spec-confidence">확인 범위: ${insight.confidenceLimits.map(esc).join(' · ')}</p>`
     : '';
-  return `<details class="spec spec-brief"><summary><div class="spec-heading"><div class="spec-title-line"><strong>${esc(spec.title)}</strong></div><small>${badge(spec.status || '상태 미정', workStatusTone(spec))} 담당 ${esc((spec.owners || []).join(', ') || '미지정')}</small></div><div class="spec-metrics"><b>${spec.progress}%</b><span>작업 ${spec.tasks.length} · 기한 초과 ${spec.overdue}</span><div class="progress"><span style="width:${spec.progress}%"></span></div></div></summary><div class="spec-briefing"><section class="spec-now"><div class="spec-kicker"><span>현재 진행</span><small>${esc(origin)}</small></div><p class="spec-summary">${esc(insight.summary || '아직 요약할 진행 정보가 없습니다.')}</p><div class="spec-callouts">${blockers}${nextAction}</div>${limits}<div class="spec-coverage">${specCoverageHtml(insight.evidence)}</div></section><aside class="evidence-rail"><h5>최근 근거</h5>${specEvidenceHtml(insight.evidence)}</aside></div><details class="spec-work-items"><summary><span class="spec-work-items-label">Notion 작업항목 ${spec.tasks.length}개</span><span class="spec-work-items-toggle"><span class="toggle-open">열기</span><span class="toggle-close">접기</span> <span aria-hidden="true">→</span></span></summary><div class="spec-tasks">${taskRows(spec.tasks, 'status')}</div></details></details>`;
+  return `<details class="spec spec-brief"><summary><div class="spec-heading"><div class="spec-title-line"><strong>${esc(spec.title)}</strong></div><small>${badge(spec.status || '상태 미정', workStatusTone(spec))} 담당 ${esc((spec.owners || []).join(', ') || '미지정')}</small></div><div class="spec-metrics"><b>${spec.progress}%</b><span>작업 ${spec.tasks.length} · 기한 초과 ${spec.overdue}</span><div class="progress"><span style="width:${spec.progress}%"></span></div></div></summary><div class="spec-briefing"><section class="spec-now"><div class="spec-kicker"><span>브리핑</span><small>${esc(origin)}</small></div><p class="spec-summary">${esc(insight.summary || '아직 요약할 진행 정보가 없습니다.')}</p><div class="spec-callouts">${blockers}${nextAction}</div>${limits}<div class="spec-coverage">${specCoverageHtml(insight.evidence)}</div></section><aside class="evidence-rail"><h5>최근 근거</h5>${specEvidenceHtml(insight.evidence)}</aside></div><details class="spec-work-items"><summary><span class="spec-work-items-label">Notion 작업항목 ${spec.tasks.length}개</span><span class="spec-work-items-toggle"><span class="toggle-open">열기</span><span class="toggle-close">접기</span> <span aria-hidden="true">→</span></span></summary><div class="spec-tasks">${taskRows(spec.tasks, 'status')}</div></details></details>`;
 }
 
 function sprintGroups(groups, expandedSprint, project) {
@@ -338,7 +341,7 @@ function sprintGroups(groups, expandedSprint, project) {
 
 function renderProjects() {
   const projects = sortProjects(D.projects);
-  $('#tab-projects').innerHTML = `<div class="section-head"><div><h2>프로젝트</h2><p>프로젝트 → 스프린트 → 상위 작업 → 작업항목 구조입니다. 상위 작업을 열면 현재 진행, 막힌 점, 다음 행동과 Notion·Slack·회의록·Git 근거를 먼저 봅니다.</p></div></div><div class="project-list">${projects.map(project => {
+  $('#tab-projects').innerHTML = `<div class="section-head"><div><h2>프로젝트</h2><p>프로젝트 → 스프린트 → 상위 작업 → 작업항목 구조입니다. 상위 작업을 열면 브리핑, 막힌 점, 다음 행동과 Notion·Slack·회의록·Git 근거를 먼저 봅니다.</p></div></div><div class="project-list">${projects.map(project => {
     const projectItems = D.workItems.filter(item => item.project === project.name);
     const specs = projectSpecs(project, projectItems);
     const allSprints = specs.map(spec => spec.sprint || '스프린트 미지정');

@@ -121,7 +121,7 @@ test('Given a saved sprint filter whose specs are now complete, When project con
   assert.deepEqual(result, { sprint: '', order: 'desc' });
 });
 
-test('Given rule fallback and agent spec analysis, When a spec briefing is resolved, Then agent wording and all direct evidence are combined', () => {
+test('Given rule fallback and agent spec analysis, When a spec briefing is resolved, Then agent narrative and evidence take priority', () => {
   const project = {
     specInsights: [{
       specId: 'spec-1', title: '익스프레스', summary: '규칙 요약', blockers: ['기한 초과'], nextAction: '일정 확인',
@@ -139,8 +139,69 @@ test('Given rule fallback and agent spec analysis, When a spec briefing is resol
 
   assert.equal(result.summary, '기획 확정 후 개발이 진행 중입니다.');
   assert.deepEqual(result.blockers, ['아트 확인 대기']);
-  assert.deepEqual(result.evidence.map(item => item.source), ['slack', 'notion']);
+  assert.deepEqual(result.evidence.map(item => item.source), ['slack']);
   assert.equal(result.hasAgentAnalysis, true);
+});
+
+test('Given a source-backed rule insight and an agent spec summary, When a spec briefing is resolved, Then the Agent result owns the narrative fields', () => {
+  const project = { specInsights: [{
+    specId: 'hidden-temple', title: '라이브 이벤트 - 숨겨진 사원', summary: '규칙 요약',
+    blockers: ['리소스 제작 지연으로 구조와 배치 우선 확정 필요'], nextAction: '협업 순서 확인',
+    evidence: [{ source: 'meeting', attention: true, excerpt: '협업 지연', url: 'https://notion.so/meeting' }],
+  }] };
+  const spec = { id: 'hidden-temple', title: '라이브 이벤트 - 숨겨진 사원', tasks: [] };
+  const agentProject = { specSummaries: [{
+    specId: 'hidden-temple', title: '라이브 이벤트 - 숨겨진 사원', summary: '온보딩 수정본 전달 중',
+    blockers: ['온보딩 수정본 검토 대기'], nextAction: '수정본을 검토한다.', evidence: [], confidenceLimits: [],
+  }] };
+
+  const result = resolveSpecInsight(project, spec, agentProject);
+
+  assert.deepEqual(result.blockers, ['온보딩 수정본 검토 대기']);
+  assert.equal(result.sourceAttention, false);
+});
+
+test('Given an Agent spec summary with an earlier timestamp than the rule snapshot, When the analysis is usable, Then the Agent summary still wins', () => {
+  const project = { specInsights: [{
+    specId: 'spec-1', title: '익스프레스', summary: '정량 fallback', blockers: ['fallback blocker'], nextAction: 'fallback action', evidence: [],
+  }] };
+  const spec = { id: 'spec-1', title: '익스프레스', tasks: [] };
+  const agentProject = { specSummaries: [{
+    specId: 'spec-1', title: '익스프레스', summary: 'Agent가 실제 진행을 요약했습니다.', blockers: [], nextAction: '다음 산출물을 전달하고 검증합니다.', evidence: [], confidenceLimits: [],
+  }] };
+
+  const result = resolveSpecInsight(project, spec, agentProject, {
+    analysisStatus: 'partial',
+  });
+
+  assert.equal(result.summary, 'Agent가 실제 진행을 요약했습니다.');
+  assert.deepEqual(result.blockers, []);
+  assert.equal(result.nextAction, '다음 산출물을 전달하고 검증합니다.');
+  assert.equal(result.hasAgentAnalysis, true);
+});
+
+test('Given an Agent summary with partial source comparison, When no blocker is reported, Then the analysis limitation remains visible to the card', () => {
+  const result = resolveSpecInsight({}, { id: 'spec-1', title: '익스프레스', tasks: [] }, {
+    specSummaries: [{ specId: 'spec-1', title: '익스프레스', summary: '진행 내용', blockers: [], nextAction: null, evidence: [], confidenceLimits: [] }],
+  }, { analysisStatus: 'partial', sourceComparisonStatus: 'partial', sourceStatus: { slack: 'success', meetingNotes: 'not_available' } });
+
+  assert.equal(result.hasAgentAnalysis, true);
+  assert.equal(result.hasAnalysisLimit, true);
+});
+
+test('Given similarly titled specs with different IDs, When a spec briefing is resolved, Then only the exact specId is connected', () => {
+  const project = { specInsights: [{
+    specId: 'spec-other', title: '익스프레스', summary: '다른 작업의 fallback', blockers: [], nextAction: null, evidence: [],
+  }] };
+  const spec = { id: 'spec-target', title: '익스프레스', tasks: [] };
+  const agentProject = { specSummaries: [{
+    specId: 'spec-other', title: '익스프레스', summary: '다른 작업의 Agent 분석', blockers: [], nextAction: null, evidence: [], confidenceLimits: [],
+  }] };
+
+  const result = resolveSpecInsight(project, spec, agentProject);
+
+  assert.equal(result.hasAgentAnalysis, false);
+  assert.match(result.summary, /활성 작업|표시할 활성/);
 });
 
 test('Given an older snapshot without spec insights, When a spec briefing is resolved, Then a Notion-based current-state fallback remains visible', () => {
@@ -171,7 +232,7 @@ test('Given agent wording that mistakes missing management fields for a blocker,
   const result = resolveSpecInsight(project, spec, agentProject);
 
   assert.deepEqual(result.blockers, []);
-  assert.match(result.nextAction, /다음 완료 지점/);
+  assert.equal(result.nextAction, null);
 });
 
 test('Given an agent action that asks to enter readiness metadata, When a briefing is resolved, Then that management action is not shown as the work action', () => {
@@ -188,11 +249,10 @@ test('Given an agent action that asks to enter readiness metadata, When a briefi
 
   const result = resolveSpecInsight(project, spec, agentProject);
 
-  assert.match(result.nextAction, /착수 조건/);
-  assert.doesNotMatch(result.nextAction, /브랜치/);
+  assert.equal(result.nextAction, null);
 });
 
-test('Given an agent summary older than the dashboard snapshot, When a briefing is resolved, Then current rule evidence wins until the agent reruns', () => {
+test('Given an explicitly stale agent summary, When a briefing is resolved, Then current rule evidence wins until the agent reruns', () => {
   const project = { specInsights: [{
     specId: 'spec-1', title: '익스프레스', summary: '최신 규칙 현황', blockers: [], nextAction: '현재 작업 확인', evidence: [],
   }] };
@@ -202,8 +262,7 @@ test('Given an agent summary older than the dashboard snapshot, When a briefing 
   }] };
 
   const result = resolveSpecInsight(project, spec, agentProject, {
-    analysisGeneratedAt: '2026-08-05T08:00:00Z',
-    dashboardGeneratedAt: '2026-08-05T09:00:00Z',
+    analysisStatus: 'stale',
   });
 
   assert.equal(result.summary, '최신 규칙 현황');

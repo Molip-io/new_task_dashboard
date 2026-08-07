@@ -80,6 +80,125 @@ test('Given a generic meeting title with relevant body text, When evidence is ma
   assert.match(evidence.excerpt, /비밀 과자점/);
 });
 
+test('Given an AI automation meeting with only generic wording, When Hidden Temple evidence is matched, Then it is excluded', () => {
+  const [insight] = buildSpecInsights({
+    project: { specs: [{
+      id: 'hidden-temple', title: '라이브 이벤트 - 숨겨진 사원', status: '진행 중',
+      tasks: [
+        { id: 'resource-feedback', title: '[기획] 비밀 과자점 리소스 피드백 내용 반영', status: '완료', team: '기획' },
+        { id: 'development', title: '[개발] 비밀 과자점 기능 개발', status: '진행 중', team: '개발' },
+      ],
+    }] },
+    meetings: [{
+      title: 'AI 자동화 R&D 현황 공유 및 UI 자동화 논의',
+      date: '2026-08-05',
+      content: 'UI 자동화 과제와 테스트 결과를 정리하고 우선순위에 따라 플러그인 개발 방안을 검토하는 내용. 작업 결과를 반영한다.',
+      url: 'https://notion.so/ai-native-meeting',
+    }],
+  });
+
+  assert.equal(insight.evidence.some(item => item.url === 'https://notion.so/ai-native-meeting'), false);
+});
+
+test('Given a directly related meeting with a collaboration schedule risk, When evidence is built, Then the generic schedule rule preserves it as an attention signal', () => {
+  const [insight] = buildSpecInsights({
+    project: { specs: [{
+      id: 'hidden-temple', title: '라이브 이벤트 - 숨겨진 사원', status: '진행 중',
+      tasks: [
+        { id: 'secret-shop', title: '[개발] 비밀 과자점 기능 개발', status: '진행 중', team: '개발' },
+        { id: 'secret-shop-resource', title: '[기획] 비밀 과자점 리소스 대응', status: '진행 중', team: '기획' },
+      ],
+    }] },
+    meetings: [{
+      title: '[몰입&슈센] SP60 비밀과자집 아트 리소스 논의',
+      date: '2026-07-24',
+      content: '비밀 과자점 이벤트의 메인 UI와 보상 연출을 논의했다. 리소스 제작 일정이 지연돼 구조와 배치를 먼저 확정하고 색상·디테일은 폴리싱 단계에서 조정한다.',
+      url: 'https://notion.so/hidden-temple-meeting',
+    }],
+  });
+
+  const evidence = insight.evidence.find(item => item.url === 'https://notion.so/hidden-temple-meeting');
+  assert.ok(evidence);
+  assert.equal(evidence.attention, true);
+  assert.equal(evidence.attentionType, 'schedule');
+  assert.match(evidence.excerpt, /리소스 제작 일정이 지연/);
+  assert.match(evidence.excerpt, /구조와 배치/);
+  assert.match(insight.nextAction, /변경 일정.*영향 작업.*완료 기준/);
+});
+
+test('Given a directly related Slack message with an unresolved approval dependency, When evidence is built, Then every project can surface the dependency and its action', () => {
+  const [insight] = buildSpecInsights({
+    project: { specs: [{
+      id: 'payment-recovery', title: '스토어 결제 복구', status: '진행 중',
+      tasks: [{ id: 'payment-integration', title: '스토어 결제 연동', status: '진행 중', team: '개발' }],
+    }] },
+    slackChannels: [{ channel: 'payments', messages: [{
+      time: '2026-08-06', text: '스토어 결제 연동은 보안 승인 대기 때문에 배포가 중단됐습니다.',
+    }] }],
+  });
+
+  const evidence = insight.evidence.find(item => item.source === 'slack');
+  assert.ok(evidence);
+  assert.equal(evidence.attention, true);
+  assert.equal(evidence.attentionType, 'dependency');
+  assert.match(insight.blockers.join(' '), /보안 승인 대기/);
+  assert.match(insight.nextAction, /선행 조건.*후속 작업.*착수 가능/);
+});
+
+test('Given a directly related meeting with repeated validation failure, When evidence is built, Then the quality rule provides a verification action', () => {
+  const [insight] = buildSpecInsights({
+    project: { specs: [{
+      id: 'guide-quest', title: '가이드 퀘스트', status: '진행 중',
+      tasks: [{ id: 'guide-quest-qa', title: '가이드 퀘스트 QA', status: '진행 중', team: 'QA' }],
+    }] },
+    meetings: [{
+      title: '가이드 퀘스트 QA 회의', date: '2026-08-06',
+      content: '가이드 퀘스트 QA 검증이 반복 실패해 재작업이 필요합니다.',
+    }],
+  });
+
+  const evidence = insight.evidence.find(item => item.source === 'meeting');
+  assert.equal(evidence.attentionType, 'quality');
+  assert.match(insight.nextAction, /재현 조건.*통과 기준.*재검증/);
+});
+
+test('Given a directly related source that says an earlier issue is resolved, When evidence is built, Then it is not promoted as a current attention signal', () => {
+  const [insight] = buildSpecInsights({
+    project: { specs: [{
+      id: 'guide-quest', title: '가이드 퀘스트', status: '진행 중',
+      tasks: [{ id: 'guide-quest-qa', title: '가이드 퀘스트 QA', status: '진행 중', team: 'QA' }],
+    }] },
+    meetings: [{
+      title: '가이드 퀘스트 QA 회의', date: '2026-08-06',
+      content: '가이드 퀘스트 QA 검증 실패는 수정 완료되어 정상화됐습니다.',
+    }],
+  });
+
+  const evidence = insight.evidence.find(item => item.source === 'meeting');
+  assert.ok(evidence);
+  assert.equal(evidence.attention, false);
+  assert.equal(evidence.attentionType, null);
+  assert.deepEqual(insight.blockers, []);
+});
+
+test('Given a project-wide meeting where a nearby sentence names an unrelated technical issue, When evidence is built, Then sentence proximity alone does not promote it for the matched parent work', () => {
+  const [insight] = buildSpecInsights({
+    project: { specs: [{
+      id: 'merchant', title: '특수 상인 개선', status: '진행 중',
+      tasks: [{ id: 'merchant-ui', title: '특수 상인 UI 수정', status: '진행 중', team: '개발' }],
+    }] },
+    meetings: [{
+      title: '프로젝트 스프린트 회의', date: '2026-08-06',
+      content: '특수 상인 UI 수정안을 검토했습니다. 온보딩 UI 연동 오류로 테스트가 불가합니다.',
+    }],
+  });
+
+  const evidence = insight.evidence.find(item => item.source === 'meeting');
+  assert.ok(evidence);
+  assert.equal(evidence.attention, false);
+  assert.deepEqual(insight.blockers, []);
+});
+
 test('Given a generic spec name, When unrelated source activity exists, Then it is not force-matched as evidence', () => {
   const [insight] = buildSpecInsights({
     project: { specs: [{ id: 'spec-1', title: '버그수정', status: '진행 중', tasks: [{ id: 'task-1', title: '개발', status: '진행 중', team: '개발' }] }] },
@@ -121,12 +240,17 @@ test('Given stage 1 and generic new-work chatter, When stage 11 evidence is matc
       { time: '2026-08-04', parentText: '[비밀 과자점 메인 UI 연출]', text: '신규 팝업 제작은 아니며 전환 연출만 추가 정리하겠습니다.' },
       { time: '2026-08-06', parentText: '[베이커리 연출 스레드]', text: '스테이지 1 보상 획득 이후 게이지를 노출합니다.' },
     ] }],
+    meetings: [
+      { title: 'SP60 비밀과자집 아트 리소스 논의', content: '비밀 과자점 인앱상품 연결과 리소스 제작 지연을 논의했습니다.' },
+      { title: '포지앤포춘 스프린트2 회의', content: '다른 프로젝트의 인앱상품 연결과 성장 병목을 논의했습니다.' },
+    ],
   });
 
   const slack = insight.evidence.filter(item => item.source === 'slack');
   assert.equal(slack.length, 1);
   assert.match(slack[0].excerpt, /스테이지 11 인앱상품/);
   assert.doesNotMatch(slack[0].excerpt, /베이커리|비밀 과자점/);
+  assert.equal(insight.evidence.some(item => item.source === 'meeting'), false);
 });
 
 test('Given in-progress and planned work together, When the next action is derived, Then the active completion point is checked first', () => {
