@@ -68,11 +68,12 @@ test('Given a rule dashboard, When an agent packet is built, Then deterministic 
   assert.equal(packet.projects[0].gitEvidence[0].hash, 'abc');
   assert.equal(packet.projects[0].meetingReferences[0].contentChecked, true);
   assert.equal('content' in packet.projects[0].meetingReferences[0], false);
-  assert.deepEqual(packet.projects[0].sourceEvidenceFormat.columns, ['specId', 'source', 'timestamp', 'title', 'excerpt', 'url', 'attentionType']);
+  assert.deepEqual(packet.projects[0].sourceEvidenceFormat.columns, ['specId', 'source', 'timestamp', 'title', 'excerpt', 'url', 'attentionType', 'evidenceRole']);
   assert.equal(packet.projects[0].sourceEvidence[0][0], 'spec-1');
   assert.equal(packet.projects[0].sourceEvidence[0][1], 'meeting');
   assert.match(packet.projects[0].sourceEvidence[0][4], /일정 지연/);
   assert.equal(packet.projects[0].sourceEvidence[0][6], 'schedule');
+  assert.equal(packet.projects[0].sourceEvidence[0][7], 'recent_execution');
   assert.ok(packet.projects[0].sourceEvidence.some(row => row[1] === 'slack' && row[4] === '기획 범위 확정'));
 });
 

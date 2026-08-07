@@ -6,6 +6,7 @@
   "dashboardUrl": "https://task-dashboard-eight-khaki.vercel.app",
   "staleBusinessDays": 3,
   "slackDaysDefault": 3,
+  "historicalContextDays": 45,
   "validation": {
     "sprintOptionalProjects": [
       "AI Native",

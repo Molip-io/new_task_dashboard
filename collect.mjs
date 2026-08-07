@@ -5,7 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadEnv, loadConfig, ROOT } from './lib/env.mjs';
 import { collectNotionData } from './lib/notion-collector.mjs';
-import { channelHistory } from './lib/slack.mjs';
+import { channelHistoryWithContext } from './lib/slack.mjs';
 import { collectGitActivity, collectGitHubActivity } from './lib/git-activity.mjs';
 import { resolveGitRepositories } from './lib/git-repositories.mjs';
 import { buildBaseDashboard } from './lib/base-dashboard.mjs';
@@ -40,9 +40,19 @@ async function collectSlack(projects, errors) {
   for (const project of projects) {
     for (const channel of project.channels) {
       try {
-        const result = await channelHistory(channel, project.days);
+        const result = await channelHistoryWithContext(
+          channel,
+          project.days,
+          config.historicalContextDays || 45,
+          project.name,
+        );
         if (result.error) errors.push(`#${channel}: ${result.error}`);
-        else (out[project.name] ||= []).push(result);
+        else {
+          if (result.historicalWarnings?.length) {
+            for (const warning of result.historicalWarnings) errors.push(`#${channel} historical context: ${warning}`);
+          }
+          (out[project.name] ||= []).push(result);
+        }
       } catch (error) { errors.push(`#${channel}: ${error.message}`); }
     }
   }

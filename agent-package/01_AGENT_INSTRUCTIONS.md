@@ -130,7 +130,7 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - `payload.projects[].ruleIssueCounts`: 프로젝트 규칙 위반 유형별 원본 건수
 - `payload.projects[].analysisTargets`: 작업 ID·제목·링크·상태·스프린트 관계를 가진 출처 대조 우선 대상. `ruleAuditItems`는 집계 전용 압축 행이므로 개별 작업을 서로 결합하지 않는다.
 - `payload.projects[].specCatalogFormat`, `payload.projects[].specCatalog`: 프로젝트 화면에 표시할 활성 스펙 전체와 각 스펙의 상태·진행률·기한 초과·활성 작업 수. 최종 `projects[].specSummaries`는 이 목록의 각 행을 빠짐없이 1건씩 다룬다.
-- `payload.projects[].sourceEvidenceFormat`, `payload.projects[].sourceEvidence`: 수집기가 프로젝트 전체 허용 채널의 Slack 스레드, 회의록 본문, Git 활동을 보수적으로 직접 연결한 스펙별 근거. 각 행은 `sourceEvidenceFormat.columns` 순서이며 `analysisTargets` 제한과 무관하게 `specCatalog` 전체 요약에 사용한다.
+- `payload.projects[].sourceEvidenceFormat`, `payload.projects[].sourceEvidence`: 수집기가 프로젝트 전체 허용 채널의 Slack 스레드, 회의록 본문, Git 활동을 보수적으로 직접 연결한 스펙별 근거. 각 행은 `sourceEvidenceFormat.columns` 순서이며 `evidenceRole`은 `recent_execution` 또는 `persistent_context`다. `recent_execution`은 현재 실제 진행 근거이고, `persistent_context`는 현재 업무 방식에 계속 영향을 주는 과거 합의 맥락이다. `analysisTargets` 제한과 무관하게 `specCatalog` 전체 요약에 사용한다.
 - `payload.projects[].meetingReferences`: 회의록 제목·링크와 수집기의 본문 확인 여부. 본문 전체는 원격 입력 크기 제한 때문에 포함하지 않으며, 연결된 발췌는 `sourceEvidence`를 사용한다. 추가 심층 대조 대상만 링크를 읽는다.
 - `payload.projects[].analysisScope.targetLimit`: 프로젝트별 출처 대조 최대 대상 수
 
@@ -163,7 +163,7 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 
 ## 5. 분석 범위
 
-원격 규칙 입력 `payload`의 프로젝트별 `ruleAuditItems` 전체로 보정 집계를 계산하고, 수집 완료된 `sourceEvidence`는 `specCatalog` 전체에 적용한다. 커넥터를 이용한 추가 심층 대조는 `analysisTargets`를 우선하며 각 프로젝트의 최대 대조 대상은 입력 패킷의 `analysisScope.targetLimit`을 따른다.
+원격 규칙 입력 `payload`의 프로젝트별 `ruleAuditItems` 전체로 보정 집계를 계산하고, 수집 완료된 `sourceEvidence`는 `specCatalog` 전체에 적용한다. `sourceEvidenceFormat.evidenceRole`이 `recent_execution`이면 현재 실제 진행을 판단하고, `persistent_context`이면 현재 리뷰·피드백·handoff·역할·완료 기준을 해석하는 업무 맥락으로 사용한다. `persistent_context` 자체를 blocker로 만들지 말고, 과거 합의와 다른 현재 실행에 재작업·지연·정체 같은 직접 영향이 확인될 때만 기존 위험 후보로 연결한다. 커넥터를 이용한 추가 심층 대조는 `analysisTargets`를 우선하며 각 프로젝트의 최대 대조 대상은 입력 패킷의 `analysisScope.targetLimit`을 따른다.
 
 우선순위는 다음과 같다.
 
@@ -175,7 +175,7 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 6. 상태별 필수 속성·계층 등 핵심 가이드 위반
 7. 최근 회의록에서 직접 언급된 스펙
 
-`analysisTargets`가 비어 있어도 `specCatalog`의 각 스펙은 Notion 규칙 입력과 해당 `sourceEvidence`로 짧게 요약한다. `sourceEvidence`는 이미 허용 범위에서 수집된 입력이므로 모두 읽는다. 커넥터로 프로젝트 전체 Slack이나 GitHub를 다시 확장 탐색하지 않고, 추가 대조는 스펙명·작업항목명·ID가 직접 일치하는 근거만 붙인다. 직접 근거를 찾지 못하면 다른 대화나 커밋을 추정 연결하지 말고 실제 대조 범위를 `confidenceLimits`에 쓴다.
+`analysisTargets`가 비어 있어도 `specCatalog`의 각 스펙은 Notion 규칙 입력과 해당 `sourceEvidence`로 짧게 요약한다. `sourceEvidence`는 이미 허용 범위에서 수집된 입력이므로 모두 읽는다. 최근 실행 근거와 필요한 persistent context를 함께 선택하되 최신순만으로 잘라내지 않는다. 커넥터로 프로젝트 전체 Slack이나 GitHub를 다시 확장 탐색하지 않고, 추가 대조는 스펙명·작업항목명·ID 또는 명확히 적용되는 역할·제작 범위가 직접 연결되는 근거만 붙인다. 직접 연결할 수 없는 과거 합의는 다른 스펙에 재사용하지 않는다. 직접 근거를 찾지 못하면 다른 대화나 커밋을 추정 연결하지 말고 실제 대조 범위를 `confidenceLimits`에 쓴다.
 
 요약은 상태·건수만 반복하지 않는다. Notion의 현재 단계·기간·담당 작업과 Slack·회의록·Git의 직접 근거를 합쳐 “무엇을 만들고 있는지 → 지금 어느 단계인지 → 현재 필요한 입력·검토가 무엇인지”가 1~2문장에 드러나야 한다. Slack에서 샘플, 규칙, 승인, 피드백을 요청했다면 이것을 실행 순서와 담당 산출물로 풀어 쓴다. 요청 이후 완료·전달 근거가 없으면 미완료라고 단정하지 않고 `제공 여부 확인 필요`로 표현한다.
 
