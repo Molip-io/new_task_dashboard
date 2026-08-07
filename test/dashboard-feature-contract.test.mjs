@@ -154,8 +154,11 @@ test('Given a serverless refresh, When Notion hydration is expensive or the plat
   assert.match(collector, /notionOptions/);
   assert.match(api, /hydrateBodies: false/);
   assert.match(api, /checkComments: true/);
-  assert.match(api, /hydrateMeetingBodies: true/);
+  assert.match(api, /hydrateMeetingBodies: false/);
   assert.match(api, /hydrateSummaryBodies: false/);
   assert.match(app, /response\.text\(\)/);
   assert.match(app, /서버 수집 실패/);
+  const notion = fs.readFileSync(new URL('../lib/notion.mjs', import.meta.url), 'utf8');
+  assert.match(notion, /NOTION_REQUEST_TIMEOUT_MS/);
+  assert.match(notion, /MAX_RATE_LIMIT_RETRIES/);
 });

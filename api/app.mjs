@@ -85,8 +85,7 @@ async function collectForWeb() {
     notionOptions: {
       hydrateBodies: false,
       checkComments: true,
-      hydrateMeetingBodies: true,
-      meetingBodyBudget: 120,
+      hydrateMeetingBodies: false,
       hydrateSummaryBodies: false,
     },
   });
