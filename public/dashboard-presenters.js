@@ -5,6 +5,16 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&'
 const safeUrl = value => /^(https?:\/\/|#)/.test(String(value || '')) ? value : '#';
 const fmt = value => value ? String(value).replace('T', ' ').slice(0, 16) : '-';
 
+function filterOptions(values, current) {
+  return `<option value="">전체</option>${[...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'ko')).map(value => `<option value="${esc(value)}" ${value === current ? 'selected' : ''}>${esc(value)}</option>`).join('')}`;
+}
+
+function briefingFilterHtml(items, filters) {
+  const teams = items.map(item => item.team);
+  const assignees = items.flatMap(item => item.assignees || []);
+  return `<div class="toolbar briefing-filters"><label>프로젝트<select data-briefing-filter="project">${filterOptions(items.map(item => item.project), filters.project)}</select></label><label>팀<select data-briefing-filter="team">${filterOptions(teams, filters.team)}</select></label><label>담당자<select data-briefing-filter="assignee">${filterOptions(assignees, filters.assignee)}</select></label><button type="button" class="reset" data-action="reset-briefing-filters">필터 초기화</button></div>`;
+}
+
 export function managementActionHtml(issue, fallbackUrl) {
   const presentation = issuePresentation(issue);
   const targetLabels = { 'work-item': '작업항목', spec: '상위 작업', project: '프로젝트', 'git-repository': 'Git 저장소' };
@@ -30,7 +40,7 @@ function kpi(key, value, label, tone, selectedDetail) {
   return `<button type="button" class="kpi ${tone} ${selectedDetail === key ? 'selected' : ''}" data-briefing-detail="${esc(key)}" aria-expanded="${selectedDetail === key}"><span class="value">${value ?? 0}</span><span class="label">${esc(label)}</span></button>`;
 }
 
-function briefingDetailHtml(dashboard, detail, taskRows) {
+function briefingDetailHtml(dashboard, detail, taskRows, filters = {}) {
   if (!detail) return '';
   if (detail === 'git') {
     const rows = dashboard.projects.map(project => {
@@ -52,15 +62,17 @@ function briefingDetailHtml(dashboard, detail, taskRows) {
     guide: '가이드 위반 작업항목',
     setup: '진행 준비 필요 항목',
   };
-  const items = briefingDetailItems(dashboard, detail);
+  const allItems = briefingDetailItems(dashboard, detail);
+  const items = briefingDetailItems(dashboard, detail, filters);
   if (detail === 'projects') return `<section class="card briefing-detail" aria-live="polite"><h3>${labels[detail]} ${items.length}개</h3>${items.map(project => `<div class="briefing-row"><strong>${esc(project.name)}</strong><small>진행 ${project.stats.inProgress}건 · 기한 초과 ${project.stats.overdue}건 · 관리 확인 ${project.stats.issueCount}건</small></div>`).join('') || '<div class="summary">해당 프로젝트가 없습니다.</div>'}</section>`;
   const shareActions = ['overdue', 'guide', 'setup'].includes(detail)
     ? `<div class="share-actions"><button type="button" class="share-primary" data-copy-slack data-share-detail="${esc(detail)}">복사</button></div>`
     : '';
-  return `<section class="card briefing-detail" aria-live="polite"><div class="detail-heading"><div><h3>${labels[detail]} ${items.length}개</h3>${shareActions ? '<p>현재 목록의 담당자·기한·확인사항·Notion 링크를 공유합니다.</p>' : ''}</div>${shareActions}</div>${taskRows(items, detail === 'overdue' ? 'overdue' : 'risk')}</section>`;
+  const filterToolbar = ['overdue', 'guide', 'setup'].includes(detail) ? briefingFilterHtml(allItems, filters) : '';
+  return `<section class="card briefing-detail" aria-live="polite"><div class="detail-heading"><div><h3>${labels[detail]} ${items.length}개</h3>${shareActions ? '<p>현재 목록의 담당자·기한·확인사항·Notion 링크를 공유합니다.</p>' : ''}</div>${shareActions}</div>${filterToolbar}${taskRows(items, detail === 'overdue' ? 'overdue' : 'risk')}</section>`;
 }
 
-export function briefingHtml(dashboard, selectedDetail, taskRows) {
+export function briefingHtml(dashboard, selectedDetail, taskRows, briefingFilters = {}) {
   const metrics = dashboard.metrics;
   const overallSummary = ['success', 'partial', 'stale'].includes(dashboard.ai?.analysisStatus)
     ? dashboard.ai?.overall?.summary
@@ -86,7 +98,7 @@ export function briefingHtml(dashboard, selectedDetail, taskRows) {
     : '';
   return `<div class="section-head"><div><h2>오늘의 업무 브리핑</h2><p>핵심 지표 → 통합 분석 → 어제와 달라진 것 순서입니다. 이 화면은 읽기 전용입니다.</p></div></div>
     <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', metrics.progressSetupRequiredItems ? 'warning' : '', selectedDetail)}</div>
-    ${briefingDetailHtml(dashboard, selectedDetail, taskRows)}
+    ${briefingDetailHtml(dashboard, selectedDetail, taskRows, briefingFilters)}
     <div class="bento">
     <div class="card span-6"><h3>1. 에이전트 통합 분석${analysisStatus === 'stale' ? ' · 갱신 필요' : ''}</h3>${overallSummary ? `<p class="summary analysis-summary">${esc(overallSummary)}</p>` : `<div class="summary">${esc(analysisEmpty)}</div>`}${importantRiskHtml}</div>
     <div class="card span-6"><h3>2. 어제와 달라진 것</h3>${dashboard.deltas.length ? dashboard.deltas.slice(0, 5).map(delta => `<div class="briefing-row"><strong><span class="dot info"></span>[${esc(delta.project)}] ${esc(delta.taskTitle || '프로젝트')} · ${esc(delta.field)}</strong><small>${esc(JSON.stringify(delta.from))} → ${esc(JSON.stringify(delta.to))}</small></div>`).join('') : `<div class="summary">${esc(dashboard.snapshotComparison?.reason || '변화가 감지되지 않았습니다.')}</div>`}</div>

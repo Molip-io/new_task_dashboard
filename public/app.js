@@ -40,6 +40,11 @@ const saved = JSON.parse(localStorage.getItem('dashboard-preferences') || '{}');
 const query = new URLSearchParams(location.search);
 const queryTab = query.get('tab');
 const queryDetail = query.get('detail');
+const queryBriefingFilters = {
+  project: query.get('briefingProject') || '',
+  team: query.get('briefingTeam') || '',
+  assignee: query.get('briefingAssignee') || '',
+};
 const queryCheckFilters = {
   project: query.get('checkProject') || '',
   category: query.get('checkCategory') || '',
@@ -53,6 +58,7 @@ const state = {
   projectControls: saved.projectControls || {},
   checkFilters: queryTab === 'checks' ? queryCheckFilters : saved.checkFilters || {},
   briefingDetail: queryTab === 'briefing' ? queryDetail : saved.briefingDetail || null,
+  briefingFilters: queryTab === 'briefing' && queryDetail ? { ...(saved.briefingFilters || {}), [queryDetail]: queryBriefingFilters } : saved.briefingFilters || {},
   openProject: saved.openProject || null,
   openPerson: saved.openPerson || null,
 };
@@ -216,11 +222,19 @@ function bindCopyActions(container, shareContext = null) {
 }
 
 function renderBriefing() {
-  $('#tab-briefing').innerHTML = briefingHtml(D, state.briefingDetail, taskRows);
+  const filters = state.briefingFilters?.[state.briefingDetail] || {};
+  $('#tab-briefing').innerHTML = briefingHtml(D, state.briefingDetail, taskRows, filters);
   document.querySelectorAll('#tab-briefing [data-briefing-detail]').forEach(button => button.onclick = () => openBriefingDetail(button.dataset.briefingDetail));
+  document.querySelectorAll('#tab-briefing [data-briefing-filter]').forEach(control => control.onchange = event => {
+    const detail = state.briefingDetail;
+    state.briefingFilters[detail] = { ...(state.briefingFilters[detail] || {}), [event.target.dataset.briefingFilter]: event.target.value || '' };
+    persist(); renderBriefing();
+  });
+  const resetBriefing = $('#tab-briefing [data-action="reset-briefing-filters"]');
+  if (resetBriefing) resetBriefing.onclick = () => { state.briefingFilters[state.briefingDetail] = {}; persist(); renderBriefing(); };
   const shareDetail = state.briefingDetail;
   const shareContext = ['overdue', 'guide', 'setup'].includes(shareDetail) ? {
-    items: briefingDetailItems(D, shareDetail),
+    items: briefingDetailItems(D, shareDetail, filters),
     title: shareDetail === 'overdue' ? '기한 초과 작업항목'
       : shareDetail === 'guide' ? '가이드 위반 작업항목'
         : '진행 준비 필요 항목',
@@ -401,7 +415,8 @@ function renderPeople() {
 
 function renderChecks() {
   const visible = filterVisibleIssues(D.validationIssues, D.workItems, D.projects);
-  const filtered = visible.filter(issue => !state.checkFilters.project || (issue.project || '프로젝트 미분류') === state.checkFilters.project).filter(issue => !state.checkFilters.category || issueMatchesCategory(issue, state.checkFilters.category)).filter(issue => !state.checkFilters.issueType || issue.type === state.checkFilters.issueType);
+  const workItemForIssue = issue => D.workItems.find(item => item.id === issue.workItemId);
+  const filtered = visible.filter(issue => !state.checkFilters.project || (issue.project || '프로젝트 미분류') === state.checkFilters.project).filter(issue => !state.checkFilters.category || issueMatchesCategory(issue, state.checkFilters.category)).filter(issue => !state.checkFilters.issueType || issue.type === state.checkFilters.issueType).filter(issue => !state.checkFilters.team || workItemForIssue(issue)?.team === state.checkFilters.team).filter(issue => !state.checkFilters.assignee || (workItemForIssue(issue)?.assignees || []).includes(state.checkFilters.assignee));
   const groups = groupIssuesByProjectItem(filtered);
   const itemCount = groups.reduce((sum, group) => sum + group.items.length, 0);
   const workItemIds = new Set(filtered.map(issue => issue.workItemId).filter(Boolean));
@@ -412,7 +427,8 @@ function renderChecks() {
         : '확인 필요 작업항목';
   const issueTypes = [...new Set(visible.map(issue => issue.type))].sort().map(type => `<option value="${esc(type)}" ${state.checkFilters.issueType === type ? 'selected' : ''}>${esc(issuePresentation({ type }).label)}</option>`).join('');
   const categories = Object.entries(ISSUE_CATEGORIES).map(([value, label]) => `<option value="${value}" ${state.checkFilters.category === value ? 'selected' : ''}>${label}</option>`).join('');
-  $('#tab-checks').innerHTML = `<div class="section-head"><div><h2>확인필요</h2><p>관리 문제를 진행 준비 · 가이드 위반 · 일정 위험 · 데이터 불일치 · 연동 문제로 분류했습니다. 기한 초과는 일정 위험이며, 같은 작업의 날짜 누락 등은 가이드 위반에 함께 표시될 수 있습니다. 확인 대상 ${itemCount}개 · 세부 규칙 ${filtered.length}건</p></div><div class="share-actions"><button type="button" class="share-primary" data-copy-slack data-share-checks>복사</button></div></div><div class="toolbar"><label>프로젝트<select data-check-filter="project">${options(visible.map(issue => issue.project || '프로젝트 미분류'),state.checkFilters.project)}</select></label><label>분류<select data-check-filter="category"><option value="">전체</option>${categories}</select></label><label>문제 유형<select data-check-filter="issueType"><option value="">전체</option>${issueTypes}</select></label><button class="reset" data-action="reset-checks">필터 초기화</button></div><div class="check-groups">${groups.map(group => `<details class="check-project" open><summary>${group.project === '프로젝트 미분류' ? '<span class="dot check"></span>' : ''}${esc(group.project)} · 확인 대상 ${group.items.length}개</summary><div class="check-type"><div class="issue-list">${group.items.map(item => issueGroupRowHtml(item, D)).join('')}</div></div></details>`).join('') || '<div class="card summary">현재 확인할 항목이 없습니다.</div>'}</div>`;
+  const issueWorkItems = visible.map(workItemForIssue).filter(Boolean);
+  $('#tab-checks').innerHTML = `<div class="section-head"><div><h2>확인필요</h2><p>관리 문제를 진행 준비 · 가이드 위반 · 일정 위험 · 데이터 불일치 · 연동 문제로 분류했습니다. 기한 초과는 일정 위험이며, 같은 작업의 날짜 누락 등은 가이드 위반에 함께 표시될 수 있습니다. 확인 대상 ${itemCount}개 · 세부 규칙 ${filtered.length}건</p></div><div class="share-actions"><button type="button" class="share-primary" data-copy-slack data-share-checks>복사</button></div></div><div class="toolbar"><label>프로젝트<select data-check-filter="project">${options(visible.map(issue => issue.project || '프로젝트 미분류'),state.checkFilters.project)}</select></label><label>팀<select data-check-filter="team">${options(issueWorkItems.map(item => item.team),state.checkFilters.team)}</select></label><label>담당자<select data-check-filter="assignee">${options(issueWorkItems.flatMap(item => item.assignees || []),state.checkFilters.assignee)}</select></label><label>분류<select data-check-filter="category"><option value="">전체</option>${categories}</select></label><label>문제 유형<select data-check-filter="issueType"><option value="">전체</option>${issueTypes}</select></label><button class="reset" data-action="reset-checks">필터 초기화</button></div><div class="check-groups">${groups.map(group => `<details class="check-project" open><summary>${group.project === '프로젝트 미분류' ? '<span class="dot check"></span>' : ''}${esc(group.project)} · 확인 대상 ${group.items.length}개</summary><div class="check-type"><div class="issue-list">${group.items.map(item => issueGroupRowHtml(item, D)).join('')}</div></div></details>`).join('') || '<div class="card summary">현재 확인할 항목이 없습니다.</div>'}</div>`;
   document.querySelectorAll('[data-check-filter]').forEach(control => control.onchange = event => { state.checkFilters[event.target.dataset.checkFilter] = event.target.value || ''; persist(); renderChecks(); });
   $('[data-action="reset-checks"]').onclick = () => { state.checkFilters = {}; persist(); renderChecks(); };
   bindCopyActions($('#tab-checks'), {

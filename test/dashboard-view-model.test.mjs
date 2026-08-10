@@ -387,6 +387,30 @@ test('Given current-sprint setup items, When briefing setup details are selected
   assert.equal(issueMatchesCategory(dashboard.progressSetupItems[0].issues[0], 'readiness'), true);
 });
 
+test('Given briefing detail filters, When overdue, guide, and setup lists are selected, Then project, team, and assignee narrow the same work-item queue', () => {
+  const dashboard = {
+    workItems: [
+      { id: 'late-a', project: '피자레디', team: '개발', assignees: ['루아'], status: '진행 중', overdueDays: 2, issues: [{ type: 'OVERDUE' }] },
+      { id: 'late-b', project: '피자레디', team: '아트', assignees: ['바트'], status: '진행 중', overdueDays: 1, issues: [{ type: 'OVERDUE' }] },
+      { id: 'late-c', project: '포지 앤 포춘', team: '개발', assignees: ['루아'], status: '진행 중', overdueDays: 1, issues: [{ type: 'OVERDUE' }] },
+    ],
+    guideViolationItems: [
+      { id: 'guide-a', project: '피자레디', team: '개발', assignees: ['루아'], status: '진행 중', issues: [{ type: 'MISSING_DUE_DATE' }] },
+      { id: 'guide-b', project: '피자레디', team: '아트', assignees: ['바트'], status: '진행 중', issues: [{ type: 'MISSING_START_DATE' }] },
+    ],
+    progressSetupItems: [
+      { id: 'setup-a', project: '포지 앤 포춘', team: '개발', assignees: ['루아'], status: '시작 전', issues: [{ type: 'CURRENT_SPRINT_SETUP_REQUIRED' }] },
+      { id: 'setup-b', project: '피자레디', team: '기획', assignees: ['제이'], status: '시작 전', issues: [{ type: 'CURRENT_SPRINT_SETUP_REQUIRED' }] },
+    ],
+  };
+
+  const filters = { project: '피자레디', team: '개발', assignee: '루아' };
+  assert.deepEqual(briefingDetailItems(dashboard, 'overdue', filters).map(item => item.id), ['late-a']);
+  assert.deepEqual(briefingDetailItems(dashboard, 'guide', filters).map(item => item.id), ['guide-a']);
+  assert.deepEqual(briefingDetailItems(dashboard, 'setup', filters).map(item => item.id), []);
+  assert.deepEqual(briefingDetailItems(dashboard, 'setup', { project: '포지 앤 포춘', team: '개발', assignee: '루아' }).map(item => item.id), ['setup-a']);
+});
+
 test('Given selected work items, When a Slack handoff is generated, Then it includes management context and Notion links without duplicates', () => {
   const message = slackWorkItemsMessage([
     {
@@ -459,6 +483,14 @@ test('Given a dashboard selection, When a share URL is built, Then briefing deta
       briefingDetail: 'setup',
     }),
     'https://dashboard.example/?tab=briefing&detail=setup',
+  );
+  assert.equal(
+    dashboardShareUrl('https://dashboard.example/', {
+      tab: 'briefing',
+      briefingDetail: 'overdue',
+      briefingFilters: { overdue: { project: '피자레디', team: '개발', assignee: '루아' } },
+    }),
+    'https://dashboard.example/?tab=briefing&detail=overdue&briefingProject=%ED%94%BC%EC%9E%90%EB%A0%88%EB%94%94&briefingTeam=%EA%B0%9C%EB%B0%9C&briefingAssignee=%EB%A3%A8%EC%95%84',
   );
 });
 

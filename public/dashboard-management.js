@@ -91,14 +91,22 @@ export function issueMatchesCategory(issue, category) {
   return !category || issuePresentation(issue).category === category;
 }
 
-export function briefingDetailItems(dashboard, detail) {
+function matchesBriefingFilter(item, filters = {}) {
+  if (filters.project && item.project !== filters.project) return false;
+  if (filters.team && item.team !== filters.team) return false;
+  if (filters.assignee && !(item.assignees || []).includes(filters.assignee)) return false;
+  return true;
+}
+
+export function briefingDetailItems(dashboard, detail, filters = {}) {
   const active = (dashboard.workItems || []).filter(item => !['완료', '일시 정지', '정지', '중단'].includes(item.status));
   if (detail === 'projects') return (dashboard.projects || []).filter(project => project.stats?.inProgress + project.stats?.planned + project.stats?.review > 0);
-  if (detail === 'work-items') return active.filter(item => item.status === '진행 중');
-  if (detail === 'overdue') return active.filter(item => item.overdueDays > 0);
-  if (detail === 'guide') return dashboard.guideViolationItems
-    || active.filter(item => (item.issues || []).some(issue => issueMatchesCategory(issue, 'guide')));
-  if (detail === 'setup') return dashboard.progressSetupItems || [];
+  if (detail === 'work-items') return active.filter(item => item.status === '진행 중' && matchesBriefingFilter(item, filters));
+  if (detail === 'overdue') return active.filter(item => item.overdueDays > 0 && matchesBriefingFilter(item, filters));
+  if (detail === 'guide') return (dashboard.guideViolationItems
+    || active.filter(item => (item.issues || []).some(issue => issueMatchesCategory(issue, 'guide'))))
+    .filter(item => matchesBriefingFilter(item, filters));
+  if (detail === 'setup') return (dashboard.progressSetupItems || []).filter(item => matchesBriefingFilter(item, filters));
   return [];
 }
 
@@ -165,6 +173,10 @@ export function dashboardShareUrl(baseUrl, state = {}) {
   url.searchParams.set('tab', tab);
   if (tab === 'briefing' && ['projects', 'work-items', 'overdue', 'guide', 'setup', 'git'].includes(state.briefingDetail)) {
     url.searchParams.set('detail', state.briefingDetail);
+    const filters = state.briefingFilters?.[state.briefingDetail] || {};
+    if (filters.project) url.searchParams.set('briefingProject', filters.project);
+    if (filters.team) url.searchParams.set('briefingTeam', filters.team);
+    if (filters.assignee) url.searchParams.set('briefingAssignee', filters.assignee);
   }
   if (tab === 'checks') {
     const filters = state.checkFilters || {};
