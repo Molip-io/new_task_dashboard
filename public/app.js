@@ -316,7 +316,9 @@ function specCard(spec, project) {
     sourceComparisonStatus: D.ai?.sourceComparison?.status,
     sourceStatus: D.ai?.sourceStatus,
   });
-  const origin = insight.hasAgentAnalysis ? `통합 분석 · ${fmt(D.ai?.generatedAt)}` : '규칙 기반 현황 · 통합 분석 대기';
+  const origin = insight.hasAgentAnalysis
+    ? D.ai?.analysisStatus === 'stale' ? `통합 분석 · 갱신 필요 · ${fmt(D.ai?.generatedAt)}` : `통합 분석 · ${fmt(D.ai?.generatedAt)}`
+    : '규칙 기반 현황 · 통합 분석 대기';
   const blockers = insight.blockers.length
     ? `<div class="spec-callout blocker"><span>막힌 점</span><p>${insight.blockers.map(esc).join(' · ')}</p></div>`
     : insight.hasAgentAnalysis

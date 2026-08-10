@@ -62,7 +62,7 @@ function briefingDetailHtml(dashboard, detail, taskRows) {
 
 export function briefingHtml(dashboard, selectedDetail, taskRows) {
   const metrics = dashboard.metrics;
-  const overallSummary = ['success', 'partial'].includes(dashboard.ai?.analysisStatus)
+  const overallSummary = ['success', 'partial', 'stale'].includes(dashboard.ai?.analysisStatus)
     ? dashboard.ai?.overall?.summary
     : null;
   const analysisStatus = dashboard.ai?.analysisStatus;
@@ -77,7 +77,7 @@ export function briefingHtml(dashboard, selectedDetail, taskRows) {
       .sort((left, right) => String(right.timestamp).localeCompare(String(left.timestamp)));
     return candidates[0]?.text || null;
   }).filter(Boolean);
-  const agentRisks = ['success', 'partial'].includes(analysisStatus) ? dashboard.ai?.overall?.topRisks || [] : [];
+  const agentRisks = ['success', 'partial', 'stale'].includes(analysisStatus) ? dashboard.ai?.overall?.topRisks || [] : [];
   const importantRisks = [...sourceBackedRisks, ...agentRisks]
     .filter((item, index, rows) => rows.findIndex(candidate => String(candidate).replace(/\s+/g, '') === String(item).replace(/\s+/g, '')) === index)
     .slice(0, 5);
@@ -88,7 +88,7 @@ export function briefingHtml(dashboard, selectedDetail, taskRows) {
     <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', metrics.progressSetupRequiredItems ? 'warning' : '', selectedDetail)}</div>
     ${briefingDetailHtml(dashboard, selectedDetail, taskRows)}
     <div class="bento">
-    <div class="card span-6"><h3>1. 에이전트 통합 분석</h3>${overallSummary ? `<p class="summary analysis-summary">${esc(overallSummary)}</p>` : `<div class="summary">${esc(analysisEmpty)}</div>`}${importantRiskHtml}</div>
+    <div class="card span-6"><h3>1. 에이전트 통합 분석${analysisStatus === 'stale' ? ' · 갱신 필요' : ''}</h3>${overallSummary ? `<p class="summary analysis-summary">${esc(overallSummary)}</p>` : `<div class="summary">${esc(analysisEmpty)}</div>`}${importantRiskHtml}</div>
     <div class="card span-6"><h3>2. 어제와 달라진 것</h3>${dashboard.deltas.length ? dashboard.deltas.slice(0, 5).map(delta => `<div class="briefing-row"><strong><span class="dot info"></span>[${esc(delta.project)}] ${esc(delta.taskTitle || '프로젝트')} · ${esc(delta.field)}</strong><small>${esc(JSON.stringify(delta.from))} → ${esc(JSON.stringify(delta.to))}</small></div>`).join('') : `<div class="summary">${esc(dashboard.snapshotComparison?.reason || '변화가 감지되지 않았습니다.')}</div>`}</div>
     </div>`;
 }

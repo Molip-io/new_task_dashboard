@@ -52,7 +52,7 @@ function isManagementMetadataText(value) {
 }
 
 function sourceStatusIsLimited(status) {
-  return ['failed', 'not_available', 'unavailable', 'partial', 'not_run'].includes(String(status || '').toLowerCase());
+  return ['failed', 'not_available', 'unavailable', 'partial', 'stale', 'not_run'].includes(String(status || '').toLowerCase());
 }
 
 function localSpecFallback(spec) {
@@ -93,7 +93,7 @@ export function resolveSpecInsight(project, spec, agentProject = null, analysisM
   const fallback = (project?.specInsights || []).find(item => item.specId === spec.id)
     || localSpecFallback(spec);
   const analysisStatus = String(analysisMeta.analysisStatus || '').toLowerCase();
-  const agentIsUsable = !['failed', 'legacy', 'not_run', 'stale'].includes(analysisStatus);
+  const agentIsUsable = !['failed', 'legacy', 'not_run'].includes(analysisStatus);
   const agent = agentIsUsable
     ? (agentProject?.specSummaries || []).find(item => item.specId && item.specId === spec.id) || null
     : null;

@@ -252,7 +252,7 @@ test('Given an agent action that asks to enter readiness metadata, When a briefi
   assert.equal(result.nextAction, null);
 });
 
-test('Given an explicitly stale agent summary, When a briefing is resolved, Then current rule evidence wins until the agent reruns', () => {
+test('Given an explicitly stale agent summary, When a briefing is resolved, Then the last integrated narrative remains visible with a freshness limit', () => {
   const project = { specInsights: [{
     specId: 'spec-1', title: '익스프레스', summary: '최신 규칙 현황', blockers: [], nextAction: '현재 작업 확인', evidence: [],
   }] };
@@ -265,9 +265,10 @@ test('Given an explicitly stale agent summary, When a briefing is resolved, Then
     analysisStatus: 'stale',
   });
 
-  assert.equal(result.summary, '최신 규칙 현황');
-  assert.equal(result.hasAgentAnalysis, false);
-  assert.equal(result.analysisPending, true);
+  assert.equal(result.summary, '오래된 AI 현황');
+  assert.equal(result.hasAgentAnalysis, true);
+  assert.equal(result.hasAnalysisLimit, true);
+  assert.equal(result.analysisPending, false);
 });
 
 test('Given a person with only completed history, When people workload has no task filter, Then the person remains with zero active work', () => {
