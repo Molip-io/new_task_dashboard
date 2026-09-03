@@ -11,11 +11,13 @@ import {
 } from '../lib/dashboard-snapshot.mjs';
 import { loadConfig, loadEnv, ROOT } from '../lib/env.mjs';
 import { runCollection } from '../collect.mjs';
+import { createExpiringCache } from '../lib/expiring-cache.mjs';
 
 loadEnv();
 const config = loadConfig();
 const PUBLIC = path.join(ROOT, 'public');
 const TEMP_DATA = path.join(os.tmpdir(), 'molip-task-dashboard');
+const dashboardCache = createExpiringCache({ ttlMs: 60_000 });
 const MIME = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -50,9 +52,16 @@ function send(response, status, body, type = 'application/json') {
 }
 
 async function storedDashboard() {
+  const cached = dashboardCache.get();
+  if (cached) return cached;
+  const errors = [];
   let snapshot;
+  let rows;
   try {
-    snapshot = await readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId });
+    [snapshot, rows] = await Promise.all([
+      readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId }),
+      collectSummaryRows(config, errors),
+    ]);
   } catch (error) {
     // A throttled summary DB must not prevent the rule-engine refresh from
     // collecting the source databases and returning a current dashboard.
@@ -60,8 +69,6 @@ async function storedDashboard() {
     return null;
   }
   if (!snapshot) return null;
-  const errors = [];
-  const rows = await collectSummaryRows(config, errors);
   const merged = mergeAgentSummaryRows(snapshot.dashboard, rows);
   const dashboard = merged.dashboard;
   if (errors.length) dashboard.errors = [...new Set([...(dashboard.errors || []), ...errors])];
@@ -71,7 +78,7 @@ async function storedDashboard() {
     pageId: snapshot.pageId,
     updatedAt: snapshot.updatedAt,
   };
-  return dashboard;
+  return dashboardCache.set(dashboard);
 }
 
 async function collectForWeb() {
@@ -100,11 +107,6 @@ async function collectForWeb() {
   return compactDashboard(result.dashboard);
 }
 
-function snapshotIsStale(dashboard) {
-  const generated = new Date(dashboard?.generatedAt || 0).getTime();
-  return !Number.isFinite(generated) || Date.now() - generated > 36 * 60 * 60_000;
-}
-
 function serveStatic(pathname, response) {
   const relative = pathname === '/' ? 'index.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const full = path.resolve(PUBLIC, relative);
@@ -126,7 +128,10 @@ export default async function handler(request, response) {
   try {
     if (pathname === '/api/dashboard') {
       let dashboard = await storedDashboard();
-      if (!dashboard || snapshotIsStale(dashboard)) dashboard = await collectForWeb();
+      // Opening the dashboard must never turn into a full Notion, Slack, and
+      // Git collection. Scheduled collection and the explicit refresh endpoint
+      // own that work; the latest snapshot remains readable when it is stale.
+      if (!dashboard) dashboard = dashboardCache.set(await collectForWeb());
       return send(response, 200, dashboard);
     }
     if (pathname === '/api/status') {
@@ -139,11 +144,11 @@ export default async function handler(request, response) {
       });
     }
     if (pathname === '/api/refresh' && request.method === 'POST') {
-      const dashboard = await collectForWeb();
+      const dashboard = dashboardCache.set(await collectForWeb());
       return send(response, 200, { started: true, completed: true, dashboard });
     }
     if (pathname === '/api/cron/collect' && request.method === 'GET') {
-      const dashboard = await collectForWeb();
+      const dashboard = dashboardCache.set(await collectForWeb());
       return send(response, 200, { ok: true, generatedAt: dashboard.generatedAt, remoteSnapshot: dashboard.remoteSnapshot || null });
     }
     return serveStatic(pathname, response);

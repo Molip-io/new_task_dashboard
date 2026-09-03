@@ -191,3 +191,10 @@ test('Given a serverless refresh, When Notion hydration is expensive or the plat
   assert.match(notion, /NOTION_REQUEST_TIMEOUT_MS/);
   assert.match(notion, /MAX_RATE_LIMIT_RETRIES/);
 });
+
+test('Given an existing remote dashboard snapshot, When the website opens, Then reads are cached and never start a full source collection just because data is stale', () => {
+  assert.match(api, /createExpiringCache\(\{ ttlMs: 60_000 \}\)/);
+  assert.match(api, /Promise\.all\(\[/);
+  assert.match(api, /if \(!dashboard\) dashboard = dashboardCache\.set\(await collectForWeb\(\)\)/);
+  assert.doesNotMatch(api, /snapshotIsStale/);
+});
