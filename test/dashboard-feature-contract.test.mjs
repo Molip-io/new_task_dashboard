@@ -9,6 +9,7 @@ const collectorPath = new URL('../lib/notion-collector.mjs', import.meta.url);
 const collectPath = new URL('../collect.mjs', import.meta.url);
 const managementPath = new URL('../public/dashboard-management.js', import.meta.url);
 const presentersPath = new URL('../public/dashboard-presenters.js', import.meta.url);
+const stylePath = new URL('../public/style.css', import.meta.url);
 const designPath = new URL('../DESIGN.md', import.meta.url);
 const meetingSkillPath = new URL('../agent-package/skills/structured-meeting-evidence/SKILL.md', import.meta.url);
 const prototype = fs.readFileSync(prototypePath, 'utf8');
@@ -18,6 +19,7 @@ const notionCollector = fs.readFileSync(collectorPath, 'utf8');
 const collector = fs.readFileSync(collectPath, 'utf8');
 const management = fs.readFileSync(managementPath, 'utf8');
 const presenters = fs.readFileSync(presentersPath, 'utf8');
+const style = fs.readFileSync(stylePath, 'utf8');
 const ui = `${app}\n${presenters}`;
 const viewModel = fs.readFileSync(new URL('../public/dashboard-view-model.js', import.meta.url), 'utf8');
 const design = fs.readFileSync(designPath, 'utf8');
@@ -35,8 +37,8 @@ test('Given the executive briefing, When reading its sections, Then one integrat
 });
 
 test('Given a deployed UI bundle, When the browser requests the shell, Then the bundle is cache-busted and local responses are not reusable', () => {
-  assert.match(prototype, /style\.css\?v=20260807-2/);
-  assert.match(prototype, /app\.js\?v=20260807-2/);
+  assert.match(prototype, /style\.css\?v=20260903-1/);
+  assert.match(prototype, /app\.js\?v=20260903-1/);
   const server = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
   assert.match(server, /Cache-Control': 'no-store, max-age=0'/);
 });
@@ -149,6 +151,12 @@ test('Given management issues, When reading task and confirmation UI, Then actio
   assert.match(app, /data-check-filter="category"/);
   for (const category of ['진행 준비', '가이드 위반', '일정 위험', '데이터 불일치', '연동 문제']) assert.match(app, new RegExp(category));
   assert.match(app, /기한 초과는 일정 위험이며/);
+});
+
+test('Given an expanded work-item management check, When its actions render, Then they occupy a full grid row without a negative overlap offset', () => {
+  assert.match(style, /\.management-check \{ display: contents; \}/);
+  assert.match(style, /\.management-check \.management-actions \{ grid-column: 1 \/ -1;/);
+  assert.doesNotMatch(style, /\.management-check \.management-actions[^}]*margin-left:\s*-/);
 });
 
 test('Given a work-item risk list, When sharing it with Slack, Then one concise bulk-copy control and item links are available', () => {
