@@ -69,7 +69,8 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     console.log('▶ Notion 프로젝트·작업항목·회의록 수집...');
     const notion = await collectNotionData(config, errors, notionOptions);
     const sprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
-    notion.projects = applySavedSprintSettings(notion.projects, sprintSettings);
+    const appliedSprint = applySavedSprintSettings(notion.projects, sprintSettings, { workItems: notion.tasks });
+    notion.projects = appliedSprint.projects;
     notion.summaryRows = notion.summaryRows.filter(row => !String(row.run_id || '').startsWith(SETTINGS_PREFIX));
     const tasks = selectProjectTasks(notion.tasks, notion.projects);
     console.log(`  프로젝트 ${notion.projects.length}, 작업 ${tasks.length}, 회의록 ${notion.meetings.length}`);
@@ -132,15 +133,27 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     }
 
     dashboard = attachOperationalMetadata(dashboard, dataDirectory, comparisonSnapshot);
-    dashboard.sprintScope = { revision: sprintSettings.revision, signature: scopeSignature(dashboard.projects), policyVersion: SPRINT_POLICY_VERSION };
-    const workOverview = buildSprintOverview(dashboard);
+    dashboard.sprintScope = {
+      revision: sprintSettings.revision,
+      mode: appliedSprint.scope.mode,
+      input: appliedSprint.scope.input,
+      sprints: appliedSprint.scope.sprints,
+      configured: appliedSprint.scope.configured !== false,
+      signature: scopeSignature(appliedSprint.scope),
+      policyVersion: SPRINT_POLICY_VERSION,
+    };
+    const workOverview = buildSprintOverview(dashboard, appliedSprint.scope);
     fs.mkdirSync(dataDirectory, { recursive: true });
     const agentInputFile = path.join(dataDirectory, 'agent-input.json');
     const agentInput = writeAgentInputPacket(dashboard, agentInputFile);
-    // Preserve raw rules.metrics; publish the shared, child-only briefing projection separately.
+    // Preserve raw rules.metrics; publish the dashboard-aligned, child-only briefing projection separately.
     agentInput.rules.briefingMetrics = workOverview.metrics;
-    agentInput.rules.briefingScope = { ...dashboard.sprintScope, unit: 'child-work-items',
-      outsideOverdueItems: workOverview.outsideOverdueItems.length, unknownSprintItems: workOverview.unknownSprintItems.length };
+    agentInput.rules.briefingScope = {
+      ...dashboard.sprintScope,
+      unit: 'child-work-items',
+      outsideOverdueItems: workOverview.outsideOverdueItems.length,
+      unknownSprintItems: workOverview.unknownSprintItems.length,
+    };
     fs.writeFileSync(agentInputFile, JSON.stringify(agentInput, null, 2));
     const latestSprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
     if (latestSprintSettings.revision !== sprintSettings.revision) throw new Error('수집 중 현재 스프린트 설정이 변경됐습니다. 이전 기준을 게시하지 않습니다.');
