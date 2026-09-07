@@ -14,6 +14,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm test
-      - run: npm run build
-      - run: node --check public/sprint-policy.js && node --check public/sprint-overview.js && node --check lib/sprint-settings.mjs
+      - name: Test
+        run: |
+          mkdir -p validation
+          set -o pipefail
+          npm test | tee validation/tests.tap
+      - name: Build and syntax checks
+        run: |
+          set -o pipefail
+          npm run build | tee validation/build.log
+          node --check public/sprint-policy.js && node --check public/sprint-overview.js && node --check lib/sprint-settings.mjs
+      - name: Archive exact tested sources
+        run: |
+          git rev-parse HEAD > validation/tested-commit.txt
+          git archive --format=zip HEAD -o validation/tested-source.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-validation
+          path: validation/
+          if-no-files-found: error
+          retention-days: 3
