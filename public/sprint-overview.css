@@ -35,10 +35,13 @@ sprint-work-overview { display:block; margin-top:20px; }
 .scope-detail-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
 .scope-detail h4 { margin:0; font-size:17px; }
 .scope-table-scroll { overflow-x:auto; }
-.scope-table { width:100%; border-collapse:collapse; text-align:left; font-size:12px; line-height:1.6; }
+.scope-table { width:100%; min-width:760px; border-collapse:collapse; text-align:left; font-size:12px; line-height:1.6; }
 .scope-table th { color:var(--muted,#65718a); font-weight:600; padding:11px 10px; border-bottom:1px solid var(--line,#d9dfed); }
 .scope-table td { padding:13px 10px; border-bottom:1px solid var(--line-soft,#d9dfed); vertical-align:top; }
 .scope-table td:first-child { width:32%; min-width:200px; font-weight:650; }
+.scope-table td:nth-child(2) { min-width:70px; white-space:nowrap; }
+.scope-table td:nth-child(3) { min-width:100px; }
+.scope-table td:nth-child(4) { min-width:125px; white-space:nowrap; }
 .scope-table small { display:block; font-weight:400; color:var(--muted,#65718a); }
 .scope-table .scope-danger { color:var(--red,#b32434); }
 .scope-table a { color:var(--accent,#5365a9); }
@@ -57,4 +60,4 @@ sprint-work-overview { display:block; margin-top:20px; }
 .scope-auth label { display:grid; gap:8px; }
 .scope-auth input { width:100%; }
 .scope-auth form>div { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
-@media(max-width:780px) { .sprint-overview { padding:16px; } .scope-title { flex-wrap:wrap; } .sprint-overview .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .sprint-overview .kpi:last-child { grid-column:1/-1; } .scope-title h3 { font-size:20px; } .scope-filters select { min-width:100px; max-width:160px; } }
+@media(max-width:780px) { .sprint-overview { padding:16px; } .scope-title { flex-wrap:wrap; } .sprint-overview .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .sprint-overview .kpi:last-child { grid-column:1/-1; } .scope-title h3 { font-size:20px; } .scope-filters select { min-width:100px; max-width:160px; } .scope-table-scroll::before { content:'표를 좌우로 이동해 상세 내용을 확인하세요.'; display:block; color:var(--muted,#65718a); font-size:11px; margin-bottom:8px; } }

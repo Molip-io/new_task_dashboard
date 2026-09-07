@@ -40,8 +40,12 @@
 
 전체 활성 specCatalog 분석과 실제 병목 감지는 조회 필터로 줄이지 않는다. 기존 실행문은 현재 Instructions를 참조하면 유지 가능하며, 기존 실행문에 고정된 Notion 현재 스프린트 지시가 있다면 입력의 projects[].currentSprints를 기준으로 바꾼다.
 
-## 검증과 배포 조건
+## 재현 가능한 검증
 
-추가 단위 테스트는 `node --test test/sprint-policy.test.mjs test/sprint-settings.test.mjs test/sprint-overview.test.mjs`로 실행한다. 전체 저장소 회귀 검증은 `npm test`와 `npm run build`로 수행한다. 오프라인 Chromium 샘플에서 다중 선택·빈 선택·목록 일치·관리자 입력창·모바일 가로 넘침을 확인했다. 실제 운영 Notion 저장, 자동 수집, GPT 실행과 운영 배포는 별도 검증 대상이다.
+단위·회귀 테스트는 `npm test`, 빌드 설정의 구문 검사는 `npm run build`로 실행한다. 새 테스트 42개를 포함한 총 260개 테스트가 통과했다.
+
+브라우저 검증 스크립트는 `tools/sprint-browser-smoke.py`다. Python과 Playwright 1.57.0, Chromium/Google Chrome이 필요하다. GitHub Actions에서 실제 브라우저로 16개 검증을 실행하며 결과와 데스크톱·모바일 화면을 `dashboard-validation` 아티팩트로 보관한다. 이 테스트는 합성 데이터와 모의 저장 응답만 사용한다. 실제 운영 Notion 쓰기·자동 수집·GPT 실행·배포 확인을 대신하지 않는다.
+
+검증 항목은 다중 선택, 프로젝트별 격리, 빈 선택, 숫자와 목록 일치, 중복 제외, 선택 밖 지연, 관리자 입력 취소·저장, 저장 후 명시적 재수집 요청, 이전 분석 표시, 관리자 키 미저장, 공유 링크 복원, 모바일 가로 넘침과 JavaScript 오류다.
 
 기존 웹 UI/일반 API의 접근 정책은 바꾸지 않았으므로 민감한 업무 데이터에 대한 배포 접근 보호를 별도로 확인해야 한다. 변경한 설정 쓰기 API만 별도 인증으로 보호한다.

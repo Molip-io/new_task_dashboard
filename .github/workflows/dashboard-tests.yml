@@ -24,8 +24,11 @@ jobs:
           set -o pipefail
           npm run build | tee validation/build.log
           node --check public/sprint-policy.js && node --check public/sprint-overview.js && node --check lib/sprint-settings.mjs
-      - name: Install browser test driver
-        run: python -m pip install playwright==1.57.0
+      - name: Install browser test driver and Korean fonts
+        run: |
+          python -m pip install playwright==1.57.0
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
       - name: Browser smoke test with synthetic data
         run: |
           set -o pipefail
