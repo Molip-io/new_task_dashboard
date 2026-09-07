@@ -55,6 +55,11 @@ const CATALOG = {
 
 const SEVERITY_RANK = { error: 0, warning: 1, check: 2, info: 3 };
 
+function issuePriority(issue = {}) {
+  if (issue.type === 'OVERDUE') return -100;
+  return SEVERITY_RANK[issue.severity] ?? 9;
+}
+
 export function issuePresentation(issue = {}) {
   const fallback = CATALOG[issue.type] || ['guide', issue.label || '관리 확인 필요', '작업 담당자'];
   const category = CATEGORY_ALIASES[issue.category] || fallback[0];
@@ -77,7 +82,7 @@ function fallbackActionTarget(issue, category) {
 
 export function primaryActionSummary(issues = []) {
   if (!issues.length) return { label: '정상', tone: 'normal', otherCount: 0 };
-  const ordered = [...issues].sort((left, right) => (SEVERITY_RANK[left.severity] ?? 9) - (SEVERITY_RANK[right.severity] ?? 9));
+  const ordered = [...issues].sort((left, right) => issuePriority(left) - issuePriority(right));
   const primary = ordered[0];
   const presentation = issuePresentation(primary);
   return {
@@ -100,12 +105,16 @@ function matchesBriefingFilter(item, filters = {}) {
 
 export function briefingDetailItems(dashboard, detail, filters = {}) {
   const active = (dashboard.workItems || []).filter(item => !['완료', '일시 정지', '정지', '중단'].includes(item.status));
+  const activeById = new Map(active.map(item => [item.id, item]));
   if (detail === 'projects') return (dashboard.projects || []).filter(project => project.stats?.inProgress + project.stats?.planned + project.stats?.review > 0);
   if (detail === 'work-items') return active.filter(item => item.status === '진행 중' && matchesBriefingFilter(item, filters));
   if (detail === 'overdue') return active.filter(item => item.overdueDays > 0 && matchesBriefingFilter(item, filters));
   if (detail === 'guide') return (dashboard.guideViolationItems
     || active.filter(item => (item.issues || []).some(issue => issueMatchesCategory(issue, 'guide'))))
-    .filter(item => matchesBriefingFilter(item, filters));
+    .filter(item => {
+      const current = activeById.get(item.id) || item;
+      return !(current.overdueDays > 0) && matchesBriefingFilter(current, filters);
+    });
   if (detail === 'setup') return (dashboard.progressSetupItems || []).filter(item => matchesBriefingFilter(item, filters));
   return [];
 }
