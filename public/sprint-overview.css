@@ -5,26 +5,18 @@ sprint-work-overview { display:block; margin-top:20px; }
 .scope-title p { margin:0; color:var(--muted,#65718a); line-height:1.6; }
 .scope-title .scope-eyebrow { font-size:10px; font-weight:750; letter-spacing:.16em; color:var(--accent,#5365a9); margin-bottom:7px; }
 .scope-mode { font-size:11px; padding:6px 10px; background:var(--accent-bg,#ecf0ff); border-radius:99px; white-space:nowrap; }
-.scope-picker { background:var(--panel-3,#f7f8fc); border:1px solid var(--line-soft,#d9dfed); border-radius:12px; margin:0 0 16px; }
-.scope-picker>summary { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 16px; cursor:pointer; list-style:none; }
-.scope-picker>summary::before { content:'▸'; color:var(--muted,#65718a); }
-.scope-picker[open]>summary::before { transform:rotate(90deg); }
-.scope-picker>summary span { flex:1; min-width:150px; color:var(--muted,#65718a); overflow-wrap:anywhere; line-height:1.6; }
-.scope-picker>summary em { font-style:normal; font-size:11px; }
-.scope-picker-body { padding:0 16px 16px; }
-.scope-project { border:1px solid var(--line-soft,#d9dfed); border-radius:10px; padding:14px; margin:12px 0; min-width:0; }
-.scope-project legend { font-weight:700; padding:0 6px; }
-.scope-choices { display:flex; gap:8px; flex-wrap:wrap; }
-.scope-choice { display:inline-flex; align-items:center; gap:7px; padding:7px 10px; border-radius:8px; background:var(--control-bg,#fff); border:1px solid var(--line-soft,#d9dfed); cursor:pointer; }
-.scope-choice:has(input:checked) { border-color:var(--accent,#5365a9); background:var(--accent-bg,#ecf0ff); }
-.scope-choice input { width:16px; height:16px; margin:0; padding:0; accent-color:var(--accent,#5365a9); }
-.scope-project-foot { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; }
-.scope-project-foot small,.scope-help { color:var(--muted,#65718a); }
-.scope-help { font-size:12px; line-height:1.7; margin:10px 0; }
-.scope-filters { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin-bottom:16px; }
+.scope-help { color:var(--muted,#65718a); font-size:12px; line-height:1.7; margin:10px 0; }
+.scope-filters { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; margin-bottom:16px; }
 .scope-filters label { display:grid; gap:6px; font-size:11px; color:var(--muted,#65718a); }
 .scope-filters select { min-width:130px; max-width:220px; }
+.scope-global-filters { padding:14px; border:1px solid var(--line-soft,#d9dfed); border-radius:12px; background:var(--panel-3,#f7f8fc); }
+.scope-sprint-input { min-width:260px; }
+.scope-sprint-input small { color:var(--muted,#8a93a8); font-size:11px; font-weight:400; }
+.scope-input-row { display:flex; align-items:center; gap:7px; }
+.scope-input-row input { width:170px; min-width:120px; }
+.scope-input-row button { white-space:nowrap; }
 .scope-notice { padding:11px 14px; border-left:3px solid var(--yellow,#997219); background:var(--yellow-bg,#fff6d7); border-radius:5px; line-height:1.7; font-size:12px; }
+.scope-error { border-left-color:var(--red,#b32434); }
 .scope-exceptions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0; }
 .scope-exceptions span { color:var(--muted,#65718a); font-size:12px; }
 .scope-exceptions button { font-size:12px; }
@@ -60,4 +52,16 @@ sprint-work-overview { display:block; margin-top:20px; }
 .scope-auth label { display:grid; gap:8px; }
 .scope-auth input { width:100%; }
 .scope-auth form>div { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
-@media(max-width:780px) { .sprint-overview { padding:16px; } .scope-title { flex-wrap:wrap; } .sprint-overview .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .sprint-overview .kpi:last-child { grid-column:1/-1; } .scope-title h3 { font-size:20px; } .scope-filters select { min-width:100px; max-width:160px; } .scope-table-scroll::before { content:'표를 좌우로 이동해 상세 내용을 확인하세요.'; display:block; color:var(--muted,#65718a); font-size:11px; margin-bottom:8px; } }
+@media(max-width:780px) {
+  .sprint-overview { padding:16px; }
+  .scope-title { flex-wrap:wrap; }
+  .sprint-overview .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .sprint-overview .kpi:last-child { grid-column:1/-1; }
+  .scope-title h3 { font-size:20px; }
+  .scope-global-filters { align-items:stretch; }
+  .scope-global-filters label { flex:1 1 140px; }
+  .scope-sprint-input { flex-basis:100% !important; min-width:0; }
+  .scope-input-row input { flex:1; width:auto; min-width:0; }
+  .scope-filters select { min-width:100%; max-width:none; }
+  .scope-table-scroll::before { content:'표를 좌우로 이동해 상세 내용을 확인하세요.'; display:block; color:var(--muted,#65718a); font-size:11px; margin-bottom:8px; }
+}
