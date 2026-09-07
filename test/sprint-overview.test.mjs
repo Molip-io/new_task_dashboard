@@ -20,26 +20,28 @@ test('Section uses one shared sprint text input with gray usage guide',()=>{
   assert.ok(!html.includes('type="checkbox"'));
 });
 
-test('Preview is explicitly separate from stored AI analysis',()=>{
-  const html=renderSprintOverview(data,{...state,sprintInput:'4'},kpis);
-  assert.ok(html.includes('조회 미리보기'));
-  assert.ok(html.includes('저장해야 팀 공통 기준'));
+test('Preview copy explicitly separates unsaved scope from stored analysis',()=>{
+  const code=fs.readFileSync(new URL('../public/sprint-overview.js',import.meta.url),'utf8');
+  assert.ok(code.includes('조회 미리보기'));
+  assert.ok(code.includes('저장해야 팀 공통 기준'));
 });
 
-test('Blank input is shown as unconfigured rather than zero-result success',()=>{
-  const html=renderSprintOverview(data,{...state,sprintInput:''},kpis);
+test('Blank saved scope is shown as unconfigured rather than zero-result success',()=>{
+  const blank={...data,sprintScope:{mode:'unset',input:'',sprints:[],configured:false,signature:'u'},sprintSettings:{...data.sprintSettings,scope:{mode:'unset',input:'',sprints:[],configured:false}}};
+  const html=renderSprintOverview(blank,state,kpis);
   assert.ok(html.includes('미입력 상태'));
   assert.ok(html.includes('미계산'));
 });
 
-test('ALL is accepted as an explicit input mode',()=>{
-  const html=renderSprintOverview(data,{...state,sprintInput:'전체'},kpis);
+test('ALL saved scope renders as an explicit input mode',()=>{
+  const all={...data,sprintScope:{mode:'all',input:'전체',sprints:['Sprint3','Sprint4'],configured:true,signature:'a'},sprintSettings:{...data.sprintSettings,scope:{mode:'all',input:'전체',sprints:['Sprint3','Sprint4'],configured:true}}};
+  const html=renderSprintOverview(all,state,kpis);
   assert.ok(!html.includes('입력 확인 필요'));
   assert.ok(html.includes('value="전체"'));
 });
 
 test('Disable save without server administrator capability',()=>{
-  const html=renderSprintOverview({...data,sprintSettings:{...data.sprintSettings,writable:false}}, {...state,sprintInput:'4'}, kpis);
+  const html=renderSprintOverview({...data,sprintSettings:{...data.sprintSettings,writable:false}}, state, kpis);
   assert.ok(html.includes('data-scope-save disabled'));
 });
 
