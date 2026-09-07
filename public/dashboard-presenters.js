@@ -28,7 +28,7 @@ function projectOperationsHtml(projects = []) {
   const rows = projects.map(project => {
     const ops = project.projectOperations || {};
     const hasEvidence = Boolean(ops.evidence?.length || ops.latestBuild || ops.latestQa || ops.latestRelease || ops.latestData);
-    return `<div class="card span-6"><h3>${esc(project.name)} · 프로젝트 운영 현황</h3>${hasEvidence ? '' : '<div class="summary">최근 Slack 운영 근거를 찾지 못했습니다.</div>'}${signal(ops.latestBuild, '빌드')}${signal(ops.latestQa, 'QA/리뷰')}${signal(ops.latestRelease, '배포/출시')}${signal(ops.latestData, '데이터')}</div>`;
+    return `<div class="card span-6"><h4>${esc(project.name)} · 프로젝트 운영 현황</h4>${hasEvidence ? '' : '<div class="summary">최근 Slack 운영 근거를 찾지 못했습니다.</div>'}${signal(ops.latestBuild, '빌드')}${signal(ops.latestQa, 'QA/리뷰')}${signal(ops.latestRelease, '배포/출시')}${signal(ops.latestData, '데이터')}</div>`;
   }).join('');
   return rows ? `<div class="bento project-operations-bento">${rows}</div>` : '';
 }
