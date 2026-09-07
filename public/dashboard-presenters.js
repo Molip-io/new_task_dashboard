@@ -1,5 +1,7 @@
 import { briefingDetailItems, gitRepositoryStatus, issuePresentation, primaryActionSummary } from './dashboard-management.js';
 
+import { sprintOverviewHtml } from './sprint-overview.js';
+
 const SEVERITY_RANK = { error: 0, warning: 1, check: 2, info: 3 };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 const safeUrl = value => /^(https?:\/\/|#)/.test(String(value || '')) ? value : '#';
@@ -73,7 +75,7 @@ function briefingDetailHtml(dashboard, detail, taskRows, filters = {}) {
 }
 
 export function briefingHtml(dashboard, selectedDetail, taskRows, briefingFilters = {}) {
-  const metrics = dashboard.metrics;
+  const scopedKpis = (metrics, selectedDetail) => `<div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', metrics.progressSetupRequiredItems ? 'warning' : '', selectedDetail)}</div>`;
   const overallSummary = ['success', 'partial', 'stale'].includes(dashboard.ai?.analysisStatus)
     ? dashboard.ai?.overall?.summary
     : null;
@@ -96,11 +98,10 @@ export function briefingHtml(dashboard, selectedDetail, taskRows, briefingFilter
   const importantRiskHtml = importantRisks.length
     ? `<div class="analysis-risks"><h4>중요 확인사항</h4>${importantRisks.map(risk => `<div class="briefing-row"><strong><span class="dot warning"></span>${esc(risk)}</strong></div>`).join('')}</div>`
     : '';
-  return `<div class="section-head"><div><h2>오늘의 업무 브리핑</h2><p>핵심 지표 → 통합 분석 → 어제와 달라진 것 순서입니다. 이 화면은 읽기 전용입니다.</p></div></div>
-    <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', metrics.progressSetupRequiredItems ? 'warning' : '', selectedDetail)}</div>
-    ${briefingDetailHtml(dashboard, selectedDetail, taskRows, briefingFilters)}
+  return `<div class="section-head"><div><h2>오늘의 업무 브리핑</h2><p>통합 분석 → 어제와 달라진 것 → 스프린트별 업무 현황 순서입니다. 업무 원본에 대해 이 화면은 읽기 전용입니다.</p></div></div>
+    ${selectedDetail === 'git' ? briefingDetailHtml(dashboard, 'git', taskRows, briefingFilters) : ''}
     <div class="bento">
     <div class="card span-6"><h3>1. 에이전트 통합 분석${analysisStatus === 'stale' ? ' · 갱신 필요' : ''}</h3>${overallSummary ? `<p class="summary analysis-summary">${esc(overallSummary)}</p>` : `<div class="summary">${esc(analysisEmpty)}</div>`}${importantRiskHtml}</div>
     <div class="card span-6"><h3>2. 어제와 달라진 것</h3>${dashboard.deltas.length ? dashboard.deltas.slice(0, 5).map(delta => `<div class="briefing-row"><strong><span class="dot info"></span>[${esc(delta.project)}] ${esc(delta.taskTitle || '프로젝트')} · ${esc(delta.field)}</strong><small>${esc(JSON.stringify(delta.from))} → ${esc(JSON.stringify(delta.to))}</small></div>`).join('') : `<div class="summary">${esc(dashboard.snapshotComparison?.reason || '변화가 감지되지 않았습니다.')}</div>`}</div>
-    </div>`;
+    </div>${sprintOverviewHtml(dashboard, { kpisHtml: scopedKpis, initialDetail: selectedDetail, initialFilters: briefingFilters })}`;
 }

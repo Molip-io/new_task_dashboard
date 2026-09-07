@@ -12,6 +12,7 @@ import {
 import { loadConfig, loadEnv, ROOT } from '../lib/env.mjs';
 import { runCollection } from '../collect.mjs';
 import { createExpiringCache } from '../lib/expiring-cache.mjs';
+import { SETTINGS_PREFIX, readSprintSettings, decorateSprintDashboard, saveSprintSettings, readSettingsBody, settingsWriteAuthorized, settingsOriginAllowed } from '../lib/sprint-settings.mjs';
 
 loadEnv();
 const config = loadConfig();
@@ -57,20 +58,21 @@ async function storedDashboard() {
   const errors = [];
   let snapshot;
   let rows;
+  let sprintSettings;
   try {
-    [snapshot, rows] = await Promise.all([
+    [snapshot, rows, sprintSettings] = await Promise.all([
       readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId }),
       collectSummaryRows(config, errors),
+      readSprintSettings({ databaseId: config.notion.summaryDbId }),
     ]);
   } catch (error) {
-    // A throttled summary DB must not prevent the rule-engine refresh from
-    // collecting the source databases and returning a current dashboard.
-    console.error('[dashboard] stored snapshot unavailable:', error.message);
-    return null;
+    // A settings-read failure must not silently revert the shared sprint scope.
+    console.error('[dashboard] stored snapshot/settings unavailable:', error.message);
+    throw error;
   }
   if (!snapshot) return null;
-  const merged = mergeAgentSummaryRows(snapshot.dashboard, rows);
-  const dashboard = merged.dashboard;
+  const merged = mergeAgentSummaryRows(snapshot.dashboard, rows.filter(row => !String(row.run_id || '').startsWith(SETTINGS_PREFIX)));
+  const dashboard = decorateSprintDashboard(merged.dashboard, sprintSettings, { writable: (process.env.SPRINT_SETTINGS_TOKEN || '').length >= 24 });
   if (errors.length) dashboard.errors = [...new Set([...(dashboard.errors || []), ...errors])];
   dashboard.remoteSnapshot = {
     status: 'loaded',
@@ -104,7 +106,8 @@ async function collectForWeb() {
       hydrateSummaryBodies: false,
     },
   });
-  return compactDashboard(result.dashboard);
+  const settings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+  return decorateSprintDashboard(compactDashboard(result.dashboard), settings, { writable: (process.env.SPRINT_SETTINGS_TOKEN || '').length >= 24 });
 }
 
 function serveStatic(pathname, response) {
@@ -126,6 +129,17 @@ export default async function handler(request, response) {
   }
 
   try {
+    if (pathname === '/api/sprint-settings') {
+      if (request.method !== 'POST') return send(response, 405, { message: 'POST만 허용합니다.' });
+      if (!settingsWriteAuthorized(request) || !settingsOriginAllowed(request)) return send(response, 403, { message: '스프린트 설정 관리자 인증이 필요합니다.' });
+      const body = await readSettingsBody(request);
+      const dashboard = await storedDashboard();
+      if (!dashboard) return send(response, 409, { message: '먼저 데이터를 수집하세요.' });
+      const result = await saveSprintSettings({ databaseId: config.notion.summaryDbId, dashboard,
+        projectId: body.projectId, sprints: body.sprints, expectedRevision: body.expectedRevision });
+      dashboardCache.clear();
+      return send(response, 200, result);
+    }
     if (pathname === '/api/dashboard') {
       let dashboard = await storedDashboard();
       // Opening the dashboard must never turn into a full Notion, Slack, and
@@ -154,6 +168,6 @@ export default async function handler(request, response) {
     return serveStatic(pathname, response);
   } catch (error) {
     console.error(`[dashboard] ${pathname} failed:`, error);
-    return send(response, 500, { error: 'dashboard_unavailable', message: error.message });
+    return send(response, error.statusCode || 500, { error: 'dashboard_unavailable', message: error.message });
   }
 }

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { loadEnv, loadConfig, ROOT } from './lib/env.mjs';
 import { shouldRunDaily, zonedClock } from './lib/scheduler.mjs';
+import { readSprintSettings, decorateSprintDashboard, saveSprintSettings, readSettingsBody, settingsWriteAuthorized, settingsOriginAllowed } from './lib/sprint-settings.mjs';
 
 loadEnv();
 const config = loadConfig();
@@ -37,7 +38,7 @@ function readJson(file) {
   catch { return null; }
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const send = (code, body, type = 'application/json') => {
     res.writeHead(code, {
@@ -47,9 +48,26 @@ const server = http.createServer((req, res) => {
     res.end(type === 'application/json' ? JSON.stringify(body) : body);
   };
 
+  if (url.pathname === '/api/sprint-settings') {
+    if (req.method !== 'POST') return send(405, { message: 'POST only' });
+    if (!settingsWriteAuthorized(req) || !settingsOriginAllowed(req)) return send(403, { message: 'Sprint settings admin authorization required' });
+    try {
+      const dashboard = readJson('dashboard.json');
+      if (!dashboard) return send(409, { message: 'Collect dashboard data first' });
+      const body = await readSettingsBody(req);
+      const result = await saveSprintSettings({ databaseId: config.notion.summaryDbId, dashboard,
+        projectId: body.projectId, sprints: body.sprints, expectedRevision: body.expectedRevision });
+      return send(200, result);
+    } catch (error) { return send(error.statusCode || 500, { message: error.message }); }
+  }
   if (url.pathname === '/api/dashboard') {
     const d = readJson('dashboard.json');
-    if (d) return send(200, d);
+    if (d) {
+      try {
+        const settings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+        return send(200, decorateSprintDashboard(d, settings, { writable: (process.env.SPRINT_SETTINGS_TOKEN || '').length >= 24 }));
+      } catch (error) { return send(error.statusCode || 503, { message: error.message }); }
+    }
     const sample = readJson('dashboard.sample.json');
     if (sample) return send(200, { ...sample, sample: true });
     return send(404, { error: 'no_data', message: '아직 수집된 데이터가 없습니다. 새로고침을 눌러 수집을 시작하세요.' });

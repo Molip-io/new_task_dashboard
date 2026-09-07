@@ -19,6 +19,8 @@ import { aiEnrich } from './lib/ai-summary.mjs';
 import { writeAgentInputPacket } from './lib/agent-handoff.mjs';
 import { publishAgentInputToNotion } from './lib/notion-agent-handoff.mjs';
 import { publishDashboardSnapshotToNotion } from './lib/dashboard-snapshot.mjs';
+import { SETTINGS_PREFIX, readSprintSettings, applySavedSprintSettings } from './lib/sprint-settings.mjs';
+import { buildSprintOverview, scopeSignature, SPRINT_POLICY_VERSION } from './public/sprint-policy.js';
 
 loadEnv();
 const config = loadConfig();
@@ -66,6 +68,9 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     if (!process.env.NOTION_TOKEN) throw new Error('NOTION_TOKEN 없음 — .env 파일을 설정하세요.');
     console.log('▶ Notion 프로젝트·작업항목·회의록 수집...');
     const notion = await collectNotionData(config, errors, notionOptions);
+    const sprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+    notion.projects = applySavedSprintSettings(notion.projects, sprintSettings);
+    notion.summaryRows = notion.summaryRows.filter(row => !String(row.run_id || '').startsWith(SETTINGS_PREFIX));
     const tasks = selectProjectTasks(notion.tasks, notion.projects);
     console.log(`  프로젝트 ${notion.projects.length}, 작업 ${tasks.length}, 회의록 ${notion.meetings.length}`);
 
@@ -127,9 +132,18 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     }
 
     dashboard = attachOperationalMetadata(dashboard, dataDirectory, comparisonSnapshot);
+    dashboard.sprintScope = { revision: sprintSettings.revision, signature: scopeSignature(dashboard.projects), policyVersion: SPRINT_POLICY_VERSION };
+    const workOverview = buildSprintOverview(dashboard);
     fs.mkdirSync(dataDirectory, { recursive: true });
     const agentInputFile = path.join(dataDirectory, 'agent-input.json');
     const agentInput = writeAgentInputPacket(dashboard, agentInputFile);
+    // Preserve raw rules.metrics; publish the shared, child-only briefing projection separately.
+    agentInput.rules.briefingMetrics = workOverview.metrics;
+    agentInput.rules.briefingScope = { ...dashboard.sprintScope, unit: 'child-work-items',
+      outsideOverdueItems: workOverview.outsideOverdueItems.length, unknownSprintItems: workOverview.unknownSprintItems.length };
+    fs.writeFileSync(agentInputFile, JSON.stringify(agentInput, null, 2));
+    const latestSprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+    if (latestSprintSettings.revision !== sprintSettings.revision) throw new Error('수집 중 현재 스프린트 설정이 변경됐습니다. 이전 기준을 게시하지 않습니다.');
     let remoteHandoff = { status: 'disabled', runId: `rule-input:${agentInput.runId}` };
     if (config.features?.publishAgentInputToNotion !== false) {
       try {
