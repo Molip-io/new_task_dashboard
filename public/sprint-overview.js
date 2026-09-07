@@ -156,12 +156,18 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
       this.render();
     }
     render() {
-      const focused = document.activeElement;
-      const restore = focused && this.contains(focused) ? { sprint: focused.matches('[data-scope-sprint]'), filter: focused.dataset.scopeFilter, detail: focused.dataset.scopeDetail } : null;
-      this.innerHTML = renderSprintOverview(this.binding.dashboard, state, this.binding.kpisHtml);
-      if (restore?.sprint) this.querySelector('[data-scope-sprint]')?.focus();
-      else if (restore) [...this.querySelectorAll('button,select')].find(el =>
-        (restore.detail && el.dataset.scopeDetail === restore.detail) || (restore.filter && el.dataset.scopeFilter === restore.filter))?.focus();
+      if (this.rendering) return;
+      this.rendering = true;
+      try {
+        const focused = document.activeElement;
+        const restore = focused && this.contains(focused) ? { sprint: focused.matches('[data-scope-sprint]'), filter: focused.dataset.scopeFilter, detail: focused.dataset.scopeDetail } : null;
+        this.innerHTML = renderSprintOverview(this.binding.dashboard, state, this.binding.kpisHtml);
+        if (restore?.sprint) this.querySelector('[data-scope-sprint]')?.focus();
+        else if (restore) [...this.querySelectorAll('button,select')].find(el =>
+          (restore.detail && el.dataset.scopeDetail === restore.detail) || (restore.filter && el.dataset.scopeFilter === restore.filter))?.focus();
+      } finally {
+        this.rendering = false;
+      }
     }
     async copyList() {
       const parsed = parsedPreview(this.binding.dashboard);
