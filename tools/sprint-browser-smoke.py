@@ -112,7 +112,8 @@ try:
         check('Previous analysis marked stale', '갱신 필요' in page.locator('#tab-briefing h3').first.inner_text())
         stored = page.evaluate('JSON.stringify(localStorage)+JSON.stringify(sessionStorage)')
         check('Admin key not persisted in browser storage', 'TEST-ONLY-KEY-' not in stored)
-        page.locator('button[data-scope-detail="guide"]').click()
+        if page.locator('[data-scope-copy]').count() == 0:
+            page.locator('button[data-scope-detail="guide"]').click()
         page.locator('[data-scope-copy]').click()
         page.wait_for_timeout(100)
         copied = page.evaluate('navigator.clipboard.readText()')
