@@ -79,13 +79,17 @@ export function allKnownSprints(dashboard = {}) {
 }
 
 export function legacyGlobalSprintScope(projects = []) {
-  const sprints = uniqueSprints(projects.flatMap(currentSprints));
+  const sprintProjects = projects.filter(usesSprints);
+  const sets = sprintProjects.map(project => currentSprints(project).map(normalizeSprint).sort());
+  const first = JSON.stringify(sets[0] || []);
+  const consistent = sets.length > 0 && sets.every(set => set.length > 0 && JSON.stringify(set) === first);
+  const sprints = consistent ? currentSprints(sprintProjects[0]) : [];
   return {
-    mode: sprints.length ? 'selected' : 'unset',
-    input: inputFromSprints(sprints),
+    mode: consistent ? 'selected' : 'unset',
+    input: consistent ? inputFromSprints(sprints) : '',
     sprints,
-    configured: sprints.length > 0,
-    source: 'notion-legacy',
+    configured: consistent,
+    source: consistent ? 'notion-legacy' : 'notion-legacy-conflict',
   };
 }
 
@@ -118,7 +122,6 @@ export function applyGlobalSprintScope(projects = [], scope = {}) {
       });
 }
 
-// Compatibility helper: apply one shared list to all sprint-enabled projects.
 export function applySprintSelections(projects = [], selections = []) {
   const sprints = Array.isArray(selections) ? selections : uniqueSprints(Object.values(selections || {}).flat());
   return applyGlobalSprintScope(projects, { sprints, source: 'dashboard' });
@@ -144,7 +147,6 @@ export function isOverdue(item) {
   return !CLOSED.has(item.status) && (Number(item.overdueDays) > 0 || (item.issues || []).some(issue => issue.type === 'OVERDUE'));
 }
 
-// All four task KPIs use child work items. Parent checks remain in the audit/Checks tab.
 export function buildSprintOverview(dashboard, scopeOverride = null, filters = {}) {
   let scope;
   if (typeof scopeOverride === 'string') scope = parseSprintInput(scopeOverride);
@@ -183,7 +185,7 @@ export function buildSprintOverview(dashboard, scopeOverride = null, filters = {
     if (!scope.configured && scope.mode === 'unset') return false;
     const project = byName.get(item.project);
     if (project && !usesSprints(project)) return true;
-    if (scope.mode === 'all') return true;
+    if (scope.mode === 'all') return Boolean(item.sprint);
     return selectedKeys.has(normalizeSprint(item.sprint));
   };
 
@@ -217,7 +219,6 @@ export function buildSprintOverview(dashboard, scopeOverride = null, filters = {
     parentIssueCount: parentIds.size,
     unconfiguredProjects: scope.mode === 'unset' ? projects.filter(usesSprints).map(project => project.name) : [],
     metrics: {
-      scopeConfigured: scope.mode !== 'unset' && scope.configured !== false,
       activeProjects: selectedProjects.length,
       inProgressWorkItems: running.length,
       overdueWorkItems: overdue.length,
