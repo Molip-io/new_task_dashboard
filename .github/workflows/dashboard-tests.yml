@@ -32,7 +32,7 @@ jobs:
       - name: Browser smoke test with synthetic data
         run: |
           set -o pipefail
-          python tools/sprint-browser-smoke.py | tee validation/browser.log
+          python tools/sprint-browser-smoke.py 2>&1 | tee validation/browser.log
       - name: Archive exact tested sources
         if: always()
         run: |
