@@ -21,6 +21,8 @@ import { publishAgentInputToNotion } from './lib/notion-agent-handoff.mjs';
 import { publishDashboardSnapshotToNotion } from './lib/dashboard-snapshot.mjs';
 import { SETTINGS_PREFIX, readSprintSettings, applySavedSprintSettings } from './lib/sprint-settings.mjs';
 import { buildSprintOverview, scopeSignature, SPRINT_POLICY_VERSION } from './public/sprint-policy.js';
+import { enrichParentChildCompletion } from './lib/project-state-enrichment.mjs';
+import { enrichAgentPacketWithProjectOperations } from './lib/agent-project-operations.mjs';
 
 loadEnv();
 const config = loadConfig();
@@ -40,11 +42,17 @@ async function collectSlack(projects, errors) {
     return out;
   }
   for (const project of projects) {
-    for (const channel of project.channels) {
+    const operationChannels = new Set(config.slack?.projectChannels?.[project.name] || []);
+    const channels = [...new Set([...(project.channels || []), ...operationChannels])];
+    for (const channel of channels) {
       try {
+        const defaultDays = project.days || config.slackDaysDefault || 3;
+        const recentDays = operationChannels.has(channel)
+          ? Math.max(defaultDays, config.slack?.operationDays || 14)
+          : defaultDays;
         const result = await channelHistoryWithContext(
           channel,
-          project.days,
+          recentDays,
           config.historicalContextDays || 45,
           project.name,
         );
@@ -96,7 +104,7 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     const comparisonSnapshot = previousSnapshot === undefined
       ? loadPreviousSnapshot(dataDirectory, kstDate(now))
       : previousSnapshot;
-    const validation = validateWorkManagement({
+    const validation = enrichParentChildCompletion(validateWorkManagement({
       tasks,
       projects: notion.projects,
       gitActivity: git.commits,
@@ -105,7 +113,7 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       now,
       staleBusinessDays: config.staleBusinessDays || 3,
       excludedStatusWorkItems: notion.collectionStats?.excludedStatusWorkItems || 0,
-    });
+    }), tasks, now);
     const base = buildBaseDashboard({ notion, slack, errors, dashboardUrl: config.dashboardUrl });
     let dashboard = buildManagementDashboard({
       base, tasks, workItems: validation.workItems, issues: validation.issues,
@@ -145,7 +153,8 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     const workOverview = buildSprintOverview(dashboard, appliedSprint.scope);
     fs.mkdirSync(dataDirectory, { recursive: true });
     const agentInputFile = path.join(dataDirectory, 'agent-input.json');
-    const agentInput = writeAgentInputPacket(dashboard, agentInputFile);
+    let agentInput = writeAgentInputPacket(dashboard, agentInputFile);
+    agentInput = enrichAgentPacketWithProjectOperations(agentInput, dashboard);
     // Preserve raw rules.metrics; publish the dashboard-aligned, child-only briefing projection separately.
     agentInput.rules.briefingMetrics = workOverview.metrics;
     agentInput.rules.briefingScope = {
