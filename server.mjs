@@ -13,7 +13,7 @@ const DATA = path.join(ROOT, 'data');
 const PUBLIC = path.join(ROOT, 'public');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
-let collecting = null; // 실행 중인 수집 프로세스
+let collecting = null;
 let summarySyncing = null;
 
 function runCollect() {
@@ -55,8 +55,12 @@ const server = http.createServer(async (req, res) => {
       const dashboard = readJson('dashboard.json');
       if (!dashboard) return send(409, { message: 'Collect dashboard data first' });
       const body = await readSettingsBody(req);
-      const result = await saveSprintSettings({ databaseId: config.notion.summaryDbId, dashboard,
-        projectId: body.projectId, sprints: body.sprints, expectedRevision: body.expectedRevision });
+      const result = await saveSprintSettings({
+        databaseId: config.notion.summaryDbId,
+        dashboard,
+        input: body.input,
+        expectedRevision: body.expectedRevision,
+      });
       return send(200, result);
     } catch (error) { return send(error.statusCode || 500, { message: error.message }); }
   }
@@ -80,7 +84,6 @@ const server = http.createServer(async (req, res) => {
     return send(started ? 202 : 409, { started });
   }
 
-  // 정적 파일
   let file = url.pathname === '/' ? '/index.html' : url.pathname;
   file = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
   const full = path.join(PUBLIC, file);
@@ -88,7 +91,6 @@ const server = http.createServer(async (req, res) => {
   send(200, fs.readFileSync(full), MIME[path.extname(full)] || 'application/octet-stream');
 });
 
-// 매일 config.scheduleTime 에 자동 수집
 const lastStatus = readJson('collect-status.json');
 let lastRunDay = lastStatus?.state === 'done' && lastStatus.at ? zonedClock(new Date(lastStatus.at), config.timeZone).day : null;
 const lastSummaryStatus = readJson('summary-sync-status.json');
