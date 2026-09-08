@@ -1,4 +1,4 @@
-name: Build temporary Vercel deploy payload
+name: Build compact temporary Vercel deploy payload
 
 on:
   push:
@@ -9,52 +9,59 @@ permissions:
 
 jobs:
   build-payload:
-    if: ${{ !contains(github.event.head_commit.message, '[payload-generated]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[deploy-ready-generated]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ops/vercel-payload-20260908
           fetch-depth: 1
-      - name: Build payload parts
+      - name: Build compact runtime
+        run: |
+          rm -rf deploy-ready deploy-compact-payload
+          mkdir -p deploy-ready/api deploy-ready/public deploy-ready/prompts deploy-ready/schemas
+          npx --yes esbuild@0.25.9 api/app.mjs collect.mjs lib/*.mjs public/*.js \
+            --bundle --splitting --format=esm --platform=node --target=node22 --minify \
+            --outdir=deploy-ready --outbase=. --out-extension:.js=.mjs \
+            --chunk-names=chunks/[name]-[hash]
+          # Browser entry files must keep .js names. Rebuild them for the browser over the generated server copies.
+          npx --yes esbuild@0.25.9 public/*.js \
+            --bundle --splitting --format=esm --platform=browser --target=es2022 --minify \
+            --outdir=deploy-ready/public --outbase=public --chunk-names=chunks/[name]-[hash]
+          npx --yes esbuild@0.25.9 public/*.css --minify --outdir=deploy-ready/public
+          cp public/*.html deploy-ready/public/
+          cp config.json package.json vercel.json deploy-ready/
+          cp prompts/* deploy-ready/prompts/
+          cp schemas/* deploy-ready/schemas/
+      - name: Build small payload parts
         run: |
           python - <<'PY'
           import json, pathlib, shutil
-          root = pathlib.Path('.')
-          out = root / 'deploy-payload'
+          root = pathlib.Path('deploy-ready')
+          out = pathlib.Path('deploy-compact-payload')
           shutil.rmtree(out, ignore_errors=True)
           out.mkdir()
-          files = []
-          roots = ['package.json', 'vercel.json', 'config.json', 'collect.mjs']
-          for name in roots:
-              p = root / name
-              if p.exists(): files.append(p)
-          for folder in ['api', 'lib', 'public', 'prompts', 'schemas']:
-              base = root / folder
-              if base.exists():
-                  files.extend(p for p in base.rglob('*') if p.is_file())
-          files = sorted(set(files), key=lambda p: p.as_posix())
-          rows = []
+          files = sorted((p for p in root.rglob('*') if p.is_file()), key=lambda p: p.as_posix())
+          rows=[]
           for p in files:
-              rows.append({'file': p.as_posix(), 'data': p.read_text(encoding='utf-8')})
-          parts, current, size = [], [], 0
-          limit = 42000
+              rows.append({'file': p.relative_to(root).as_posix(), 'data': p.read_text(encoding='utf-8')})
+          parts=[]; current=[]; size=0; limit=14000
           for row in rows:
-              encoded = json.dumps(row, ensure_ascii=False, separators=(',', ':'))
+              encoded=json.dumps(row, ensure_ascii=False, separators=(',', ':'))
               if current and size + len(encoded) > limit:
                   parts.append(current); current=[]; size=0
               current.append(row); size += len(encoded)
           if current: parts.append(current)
           for i, part in enumerate(parts, 1):
               (out / f'part-{i:03d}.json').write_text(json.dumps(part, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
-          manifest = {'sourceCommit': '${{ github.sha }}', 'files': len(rows), 'parts': len(parts), 'paths': [p.as_posix() for p in files]}
-          (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+          manifest={'sourceCommit':'5c7fff066f32530cebfc4b9076cfa6298aee1d32','files':len(rows),'parts':len(parts),'maxPartChars':max(len((out/f'part-{i:03d}.json').read_text(encoding='utf-8')) for i in range(1,len(parts)+1)),'paths':[p.relative_to(root).as_posix() for p in files]}
+          (out/'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
           print(manifest)
           PY
-      - name: Commit payload
+      - name: Commit compact payload
         run: |
           git config user.name 'MOLIP deploy bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add deploy-payload
-          git commit -m 'chore: [payload-generated] build temporary Vercel payload'
+          git add -f deploy-ready deploy-compact-payload
+          git commit -m 'chore: [deploy-ready-generated] build compact Vercel payload'
           git push origin HEAD:ops/vercel-payload-20260908
