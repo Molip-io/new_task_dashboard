@@ -1,4 +1,4 @@
-name: Build compact temporary Vercel deploy payload
+name: Build self-contained temporary Vercel capsule
 
 on:
   push:
@@ -9,59 +9,96 @@ permissions:
 
 jobs:
   build-payload:
-    if: ${{ !contains(github.event.head_commit.message, '[deploy-ready-generated]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[capsule-generated]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ops/vercel-payload-20260908
           fetch-depth: 1
-      - name: Build compact runtime
+      - name: Build self-contained capsule
         run: |
-          rm -rf deploy-ready deploy-compact-payload
-          mkdir -p deploy-ready/api deploy-ready/public deploy-ready/prompts deploy-ready/schemas
-          npx --yes esbuild@0.25.9 api/app.mjs collect.mjs lib/*.mjs public/*.js \
-            --bundle --splitting --format=esm --platform=node --target=node22 --minify \
-            --outdir=deploy-ready --outbase=. --out-extension:.js=.mjs \
-            --chunk-names=chunks/[name]-[hash]
-          # Browser entry files must keep .js names. Rebuild them for the browser over the generated server copies.
-          npx --yes esbuild@0.25.9 public/*.js \
-            --bundle --splitting --format=esm --platform=browser --target=es2022 --minify \
-            --outdir=deploy-ready/public --outbase=public --chunk-names=chunks/[name]-[hash]
-          npx --yes esbuild@0.25.9 public/*.css --minify --outdir=deploy-ready/public
-          cp public/*.html deploy-ready/public/
-          cp config.json package.json vercel.json deploy-ready/
-          cp prompts/* deploy-ready/prompts/
-          cp schemas/* deploy-ready/schemas/
-      - name: Build small payload parts
+          rm -rf deploy-src deploy-capsule deploy-capsule-build deploy-capsule-payload
+          mkdir -p deploy-src/api deploy-capsule/api deploy-capsule-build deploy-capsule-payload
+          cp api/app.mjs deploy-src/api/app.mjs
+          cp collect.mjs deploy-src/collect.mjs
+          cp -R lib deploy-src/lib
+          cp -R public deploy-src/public
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('deploy-src/lib/env.mjs')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("import { fileURLToPath } from 'node:url';\n", '')
+          s=s.replace("export const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));", "export const ROOT = process.cwd();")
+          p.write_text(s, encoding='utf-8')
+          PY
+          npx --yes esbuild@0.25.9 deploy-src/api/app.mjs \
+            --bundle --platform=node --format=esm --target=node22 --minify \
+            --outfile=deploy-capsule-build/core-source.mjs
+          python - <<'PY'
+          import base64, gzip, json, pathlib
+          root=pathlib.Path('.')
+          out=pathlib.Path('deploy-capsule')
+          api=out/'api'; api.mkdir(parents=True, exist_ok=True)
+          assets={}
+          for name in ['config.json']:
+              p=root/name; assets[name]=p.read_text(encoding='utf-8')
+          for folder in ['public','prompts','schemas']:
+              for p in sorted((root/folder).rglob('*')):
+                  if p.is_file(): assets[p.as_posix()]=p.read_text(encoding='utf-8')
+          def chunks(text, n=9000): return [text[i:i+n] for i in range(0,len(text),n)]
+          core=(root/'deploy-capsule-build/core-source.mjs').read_bytes()
+          core64=base64.b64encode(gzip.compress(core, compresslevel=9)).decode('ascii')
+          asset64=base64.b64encode(gzip.compress(json.dumps(assets,ensure_ascii=False,separators=(',',':')).encode('utf-8'), compresslevel=9)).decode('ascii')
+          core_chunks=chunks(core64); asset_chunks=chunks(asset64)
+          for i,c in enumerate(core_chunks,1): (api/f'core-{i:03d}.mjs').write_text(f'export default {json.dumps(c)};\n',encoding='utf-8')
+          for i,c in enumerate(asset_chunks,1): (api/f'assets-{i:03d}.mjs').write_text(f'export default {json.dumps(c)};\n',encoding='utf-8')
+          imports=[]
+          core_names=[]; asset_names=[]
+          for i in range(1,len(core_chunks)+1):
+              n=f'core{i}'; core_names.append(n); imports.append(f"import {n} from './core-{i:03d}.mjs';")
+          for i in range(1,len(asset_chunks)+1):
+              n=f'asset{i}'; asset_names.append(n); imports.append(f"import {n} from './assets-{i:03d}.mjs';")
+          wrapper='\n'.join(imports)+f'''\nimport fs from 'node:fs';\nimport path from 'node:path';\nimport {{ gunzipSync }} from 'node:zlib';\nconst root=process.cwd();\nconst assetJson=gunzipSync(Buffer.from([{','.join(asset_names)}].join(''),'base64')).toString('utf8');\nconst assetSource=JSON.parse(assetJson);\nconst virtual=new Map(Object.entries(assetSource).map(([name,value])=>[path.resolve(root,name),Buffer.from(value,'utf8')]));\nconst originalRead=fs.readFileSync.bind(fs);\nconst originalExists=fs.existsSync.bind(fs);\nconst originalStat=fs.statSync.bind(fs);\nfs.existsSync=(target)=>virtual.has(path.resolve(String(target)))||originalExists(target);\nfs.readFileSync=(target,options)=>{{const key=path.resolve(String(target));const value=virtual.get(key);if(!value)return originalRead(target,options);const enc=typeof options==='string'?options:options?.encoding;return enc?value.toString(enc):Buffer.from(value);}};\nfs.statSync=(target,...args)=>{{const key=path.resolve(String(target));const value=virtual.get(key);if(!value)return originalStat(target,...args);return {{size:value.length,isFile:()=>true,isDirectory:()=>false}};}};\nlet corePromise;\nasync function loadCore(){{if(!corePromise){{const source=gunzipSync(Buffer.from([{','.join(core_names)}].join(''),'base64'));const data='data:text/javascript;base64,'+source.toString('base64');corePromise=import(data);}}return corePromise;}}\nexport default async function handler(request,response){{const mod=await loadCore();return mod.default(request,response);}}\n'''
+          (api/'app.mjs').write_text(wrapper,encoding='utf-8')
+          (out/'package.json').write_text(json.dumps({'name':'work-status-dashboard','private':True,'type':'module','engines':{'node':'>=18'}},separators=(',',':')),encoding='utf-8')
+          vercel={'$schema':'https://openapi.vercel.sh/vercel.json','framework':None,'buildCommand':'','installCommand':'','functions':{'api/app.mjs':{'maxDuration':300}},'routes':[{'src':'/(.*)','dest':'/api/app.mjs'}],'crons':[{'path':'/api/cron/collect','schedule':'30 22 * * *'}]}
+          (out/'vercel.json').write_text(json.dumps(vercel,separators=(',',':')),encoding='utf-8')
+          print({'coreChunks':len(core_chunks),'assetChunks':len(asset_chunks),'coreGzipBase64':len(core64),'assetGzipBase64':len(asset64)})
+          PY
+      - name: Verify capsule can serve the dashboard shell
+        run: |
+          node --input-type=module <<'JS'
+          import handler from './deploy-capsule/api/app.mjs';
+          let body=Buffer.alloc(0);
+          const response={statusCode:0,setHeader(){},end(value){body=Buffer.isBuffer(value)?value:Buffer.from(String(value??''));}};
+          await handler({url:'/',method:'GET',headers:{}},response);
+          if(response.statusCode!==200) throw new Error(`unexpected status ${response.statusCode}`);
+          if(!body.toString('utf8').includes('업무현황 대시보드')) throw new Error('dashboard shell missing');
+          console.log('capsule static smoke ok');
+          JS
+      - name: Build capsule payload parts
         run: |
           python - <<'PY'
-          import json, pathlib, shutil
-          root = pathlib.Path('deploy-ready')
-          out = pathlib.Path('deploy-compact-payload')
-          shutil.rmtree(out, ignore_errors=True)
-          out.mkdir()
-          files = sorted((p for p in root.rglob('*') if p.is_file()), key=lambda p: p.as_posix())
-          rows=[]
-          for p in files:
-              rows.append({'file': p.relative_to(root).as_posix(), 'data': p.read_text(encoding='utf-8')})
-          parts=[]; current=[]; size=0; limit=14000
+          import json, pathlib
+          root=pathlib.Path('deploy-capsule'); out=pathlib.Path('deploy-capsule-payload')
+          files=sorted((p for p in root.rglob('*') if p.is_file()),key=lambda p:p.as_posix())
+          rows=[{'file':p.relative_to(root).as_posix(),'data':p.read_text(encoding='utf-8')} for p in files]
+          parts=[]; cur=[]; size=0; limit=13500
           for row in rows:
-              encoded=json.dumps(row, ensure_ascii=False, separators=(',', ':'))
-              if current and size + len(encoded) > limit:
-                  parts.append(current); current=[]; size=0
-              current.append(row); size += len(encoded)
-          if current: parts.append(current)
-          for i, part in enumerate(parts, 1):
-              (out / f'part-{i:03d}.json').write_text(json.dumps(part, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+              encoded=json.dumps(row,ensure_ascii=False,separators=(',',':'))
+              if cur and size+len(encoded)>limit: parts.append(cur); cur=[]; size=0
+              cur.append(row); size+=len(encoded)
+          if cur: parts.append(cur)
+          for i,part in enumerate(parts,1):(out/f'part-{i:03d}.json').write_text(json.dumps(part,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
           manifest={'sourceCommit':'5c7fff066f32530cebfc4b9076cfa6298aee1d32','files':len(rows),'parts':len(parts),'maxPartChars':max(len((out/f'part-{i:03d}.json').read_text(encoding='utf-8')) for i in range(1,len(parts)+1)),'paths':[p.relative_to(root).as_posix() for p in files]}
-          (out/'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+          (out/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
           print(manifest)
           PY
-      - name: Commit compact payload
+      - name: Commit capsule
         run: |
           git config user.name 'MOLIP deploy bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add -f deploy-ready deploy-compact-payload
-          git commit -m 'chore: [deploy-ready-generated] build compact Vercel payload'
+          git add -f deploy-capsule deploy-capsule-payload
+          git commit -m 'chore: [capsule-generated] build self-contained Vercel capsule'
           git push origin HEAD:ops/vercel-payload-20260908
