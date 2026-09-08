@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "5c7fff066f32530cebfc4b9076cfa6298aee1d32",
+  "files": 18,
+  "parts": 15,
+  "maxPartChars": 11528,
+  "paths": [
+    "api/app.mjs",
+    "api/assets-001.mjs",
+    "api/assets-002.mjs",
+    "api/assets-003.mjs",
+    "api/assets-004.mjs",
+    "api/assets-005.mjs",
+    "api/assets-006.mjs",
+    "api/assets-007.mjs",
+    "api/assets-008.mjs",
+    "api/core-001.mjs",
+    "api/core-002.mjs",
+    "api/core-003.mjs",
+    "api/core-004.mjs",
+    "api/core-005.mjs",
+    "api/core-006.mjs",
+    "api/core-007.mjs",
+    "package.json",
+    "vercel.json"
+  ]
+}
