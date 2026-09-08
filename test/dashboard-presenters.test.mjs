@@ -75,3 +75,38 @@ test('Given several source-backed risks, When executive briefing renders, Then o
   assert.doesNotMatch(html, /오래된 위험/);
   assert.match(html, /디자인 협업 지연/);
 });
+
+
+test('Given project operational evidence, When briefing renders, Then project operations render collapsed with an expandable evidence body', () => {
+  const dashboard = {
+    metrics: {}, validationIssues: [], deltas: [], git: { repositories: [] }, ai: { overall: {} },
+    projects: [{
+      name: '포지 앤 포춘', stats: {}, slack: [{ channel: 's2_forge_and_fortune', count: 4 }],
+      projectOperations: {
+        evidenceCount: 4,
+        latestBuild: { category: 'build', excerpt: 'SP3 빌드 공유 완료', timestamp: '2026-09-04T09:00:00.000Z', channel: 's2_forge_and_fortune', url: 'https://slack.test/build' },
+        latestQa: { category: 'qa', excerpt: 'Fun QA 진행', timestamp: '2026-09-04T10:00:00.000Z', channel: 's2_forge_and_fortune', url: 'https://slack.test/qa' },
+        latestRelease: { category: 'release', excerpt: '마켓 업로드 완료', timestamp: '2026-09-04T11:00:00.000Z', channel: 's2_forge_and_fortune', url: 'https://slack.test/release' },
+        latestData: { category: 'data', excerpt: 'CPI 테스트 결과 확인', timestamp: '2026-09-04T12:00:00.000Z', channel: 's2_forge_and_fortune', url: 'https://slack.test/data' },
+      },
+    }],
+  };
+
+  const html = briefingHtml(dashboard, null, () => '');
+  assert.match(html, /<details class="card span-6 project-operations-card">/);
+  assert.match(html, /운영 근거 4건/);
+  assert.match(html, /펼치기/);
+  assert.match(html, /접기/);
+  assert.match(html, /SP3 빌드 공유 완료/);
+  assert.match(html, /Fun QA 진행/);
+});
+
+test('Given collected project Slack but no classified operation evidence, When briefing renders, Then absence is described as unconfirmed rather than nonexistent', () => {
+  const dashboard = {
+    metrics: {}, validationIssues: [], deltas: [], git: { repositories: [] }, ai: { overall: {} },
+    projects: [{ name: '포지 앤 포춘', stats: {}, slack: [{ channel: 's2_forge_and_fortune', count: 1 }], projectOperations: {} }],
+  };
+  const html = briefingHtml(dashboard, null, () => '');
+  assert.match(html, /현재 수집 범위에서 직접 운영 근거 미확인/);
+  assert.doesNotMatch(html, /운영 근거를 찾지 못했습니다/);
+});

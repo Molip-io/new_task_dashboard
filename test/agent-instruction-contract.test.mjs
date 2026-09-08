@@ -17,6 +17,8 @@ test('Given linked evidence, When agent instructions are applied, Then metric-on
     assert.match(document, /다시 작성/);
     assert.match(document, /persistent_context/);
     assert.match(document, /recent_execution/);
+    assert.match(document, /project_operation/);
+    assert.match(document, /현재 수집 범위에서 확인 불가/);
     assert.match(document, /blocker로 만들지/);
   }
 });

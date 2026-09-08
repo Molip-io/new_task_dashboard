@@ -257,3 +257,18 @@ details.card > summary:hover { background: var(--control-bg-hover); }
 .empty-inline { padding: 16px 12px; }
 @media (max-width: 1000px) { .kpis { grid-template-columns: repeat(3, 1fr); } .span-2, .span-4 { grid-column: span 6; } .row-2 { grid-row: auto; } .project-title, .person-title { grid-template-columns: 1fr repeat(2, auto); } .task-row { grid-template-columns: 1fr 90px 90px; } .task-row > :nth-child(4), .task-row > :nth-child(5):not(.management-check) { display:none; } .management-check > summary { grid-column: 1 / -1; padding: 8px 0 0; border-top: 1px solid var(--line-soft); border-left: 0; } .management-check .management-actions { grid-column: 1 / -1; grid-template-columns: 1fr; padding-inline: 0; background: transparent; } .spec-briefing { grid-template-columns: 1fr; } .evidence-rail { border-top: 1px solid var(--line-soft); border-left: 0; } }
 @media (max-width: 640px) { body { padding: 16px 16px 48px; } h1 { font-size: 25px; } .section-head h2 { font-size: 23px; } .kpi { min-height: 104px; padding: 14px; } .kpi .value { font-size: 40px; } .topbar { flex-direction: column; align-items: stretch; } .header-actions { width: 100%; } nav#tabs { overflow-x:auto; } nav#tabs button { flex: 0 0 auto; padding-inline: 10px; white-space: nowrap; } .kpis { grid-template-columns: 1fr 1fr; } .project-title, .person-title { display:flex; flex-wrap:wrap; } .detail-heading { display: block; } .detail-heading .share-actions { justify-content: flex-start; margin-top: 10px; } .section-head .share-actions { width: 100%; justify-content: flex-start; } .spec-brief > summary { align-items: flex-start; } .spec-metrics { flex-basis: 105px; } .spec-callouts { grid-template-columns: 1fr; } .spec-kicker { align-items: flex-start; flex-direction: column; gap: 4px; } }
+
+
+/* 프로젝트 운영 현황 — 기본 접힘, 클릭 시 운영 근거 상세 노출 */
+.project-operations-bento { margin: 10px 0; }
+.project-operations-card > summary { justify-content: space-between; }
+.project-operations-summary { flex: 1; min-width: 0; }
+.project-operations-summary strong, .project-operations-summary small { display: block; }
+.project-operations-summary strong { font-size: 15px; }
+.project-operations-summary small { margin-top: 5px; color: var(--muted); font-size: 11px; }
+.project-operations-toggle { flex: none; padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.project-operations-card[open] .project-operations-toggle { border-color: var(--accent); color: var(--accent); }
+.project-operations-toggle .toggle-close, .project-operations-card[open] .project-operations-toggle .toggle-open { display: none; }
+.project-operations-card[open] .project-operations-toggle .toggle-close { display: inline; }
+.project-operations-body { padding: 4px 18px 16px; border-top: 1px solid var(--line); background: var(--panel-3); }
+.project-operations-empty { margin: 12px 0 4px; color: var(--muted); }

@@ -130,7 +130,7 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - `payload.projects[].ruleIssueCounts`: 프로젝트 규칙 위반 유형별 원본 건수
 - `payload.projects[].analysisTargets`: 작업 ID·제목·링크·상태·스프린트 관계를 가진 출처 대조 우선 대상. `ruleAuditItems`는 집계 전용 압축 행이므로 개별 작업을 서로 결합하지 않는다.
 - `payload.projects[].specCatalogFormat`, `payload.projects[].specCatalog`: 프로젝트 화면에 표시할 활성 스펙 전체와 각 스펙의 상태·진행률·기한 초과·활성 작업 수. 최종 `projects[].specSummaries`는 이 목록의 각 행을 빠짐없이 1건씩 다룬다.
-- `payload.projects[].sourceEvidenceFormat`, `payload.projects[].sourceEvidence`: 수집기가 프로젝트 전체 허용 채널의 Slack 스레드, 회의록 본문, Git 활동을 보수적으로 직접 연결한 스펙별 근거. 각 행은 `sourceEvidenceFormat.columns` 순서이며 `evidenceRole`은 `recent_execution` 또는 `persistent_context`다. `recent_execution`은 현재 실제 진행 근거이고, `persistent_context`는 현재 업무 방식에 계속 영향을 주는 과거 합의 맥락이다. `analysisTargets` 제한과 무관하게 `specCatalog` 전체 요약에 사용한다.
+- `payload.projects[].sourceEvidenceFormat`, `payload.projects[].sourceEvidence`: 수집기가 프로젝트 전체 허용 채널의 Slack 스레드, 회의록 본문, Git 활동을 보수적으로 직접 연결한 스펙별 근거. 각 행은 `sourceEvidenceFormat.columns` 순서이며 `evidenceRole`은 `recent_execution`, `persistent_context`, `project_operation`이다. `recent_execution`은 현재 실제 진행 근거이고, `persistent_context`는 현재 업무 방식에 계속 영향을 주는 과거 합의 맥락이며, `project_operation`은 `specId = null`인 프로젝트 전체의 빌드·QA/리뷰·배포/출시·데이터 상태 근거다. `project_operation`을 특정 스펙에 억지로 연결하지 않고, 원문에 직접 명시된 운영 상태만 사용한다. 운영 근거가 수집되지 않았으면 `없음`이 아니라 `현재 수집 범위에서 확인 불가`로 기록한다. `analysisTargets` 제한과 무관하게 `specCatalog` 전체 요약에 사용한다.
 - `payload.projects[].meetingReferences`: 회의록 제목·링크와 수집기의 본문 확인 여부. 본문 전체는 원격 입력 크기 제한 때문에 포함하지 않으며, 연결된 발췌는 `sourceEvidence`를 사용한다. 추가 심층 대조 대상만 링크를 읽는다.
 - `payload.projects[].analysisScope.targetLimit`: 프로젝트별 출처 대조 최대 대상 수
 
@@ -163,7 +163,7 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 
 ## 5. 분석 범위
 
-원격 규칙 입력 `payload`의 프로젝트별 `ruleAuditItems` 전체로 보정 집계를 계산하고, 수집 완료된 `sourceEvidence`는 `specCatalog` 전체에 적용한다. `sourceEvidenceFormat.evidenceRole`이 `recent_execution`이면 현재 실제 진행을 판단하고, `persistent_context`이면 현재 리뷰·피드백·handoff·역할·완료 기준을 해석하는 업무 맥락으로 사용한다. `persistent_context` 자체를 blocker로 만들지 말고, 과거 합의와 다른 현재 실행에 재작업·지연·정체 같은 직접 영향이 확인될 때만 기존 위험 후보로 연결한다. 커넥터를 이용한 추가 심층 대조는 `analysisTargets`를 우선하며 각 프로젝트의 최대 대조 대상은 입력 패킷의 `analysisScope.targetLimit`을 따른다.
+원격 규칙 입력 `payload`의 프로젝트별 `ruleAuditItems` 전체로 보정 집계를 계산하고, 수집 완료된 `sourceEvidence`는 `specCatalog` 전체에 적용한다. `sourceEvidenceFormat.evidenceRole`이 `recent_execution`이면 현재 실제 진행을 판단하고, `persistent_context`이면 현재 리뷰·피드백·handoff·역할·완료 기준을 해석하는 업무 맥락으로 사용하며, `project_operation`이면 특정 스펙과 분리된 프로젝트 단위의 빌드·QA/리뷰·배포/출시·데이터 상태를 설명하는 근거로 사용한다. `persistent_context` 자체를 blocker로 만들지 말고, 과거 합의와 다른 현재 실행에 재작업·지연·정체 같은 직접 영향이 확인될 때만 기존 위험 후보로 연결한다. 커넥터를 이용한 추가 심층 대조는 `analysisTargets`를 우선하며 각 프로젝트의 최대 대조 대상은 입력 패킷의 `analysisScope.targetLimit`을 따른다.
 
 우선순위는 다음과 같다.
 
