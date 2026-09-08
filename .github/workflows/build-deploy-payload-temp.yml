@@ -46,7 +46,7 @@ jobs:
           for folder in ['public','prompts','schemas']:
               for p in sorted((root/folder).rglob('*')):
                   if p.is_file(): assets[p.as_posix()]=p.read_text(encoding='utf-8')
-          def chunks(text, n=9000): return [text[i:i+n] for i in range(0,len(text),n)]
+          def chunks(text, n=3500): return [text[i:i+n] for i in range(0,len(text),n)]
           core=(root/'deploy-capsule-build/core-source.mjs').read_bytes()
           core64=base64.b64encode(gzip.compress(core, compresslevel=9)).decode('ascii')
           asset64=base64.b64encode(gzip.compress(json.dumps(assets,ensure_ascii=False,separators=(',',':')).encode('utf-8'), compresslevel=9)).decode('ascii')
@@ -84,7 +84,7 @@ jobs:
           root=pathlib.Path('deploy-capsule'); out=pathlib.Path('deploy-capsule-payload')
           files=sorted((p for p in root.rglob('*') if p.is_file()),key=lambda p:p.as_posix())
           rows=[{'file':p.relative_to(root).as_posix(),'data':p.read_text(encoding='utf-8')} for p in files]
-          parts=[]; cur=[]; size=0; limit=13500
+          parts=[]; cur=[]; size=0; limit=6000
           for row in rows:
               encoded=json.dumps(row,ensure_ascii=False,separators=(',',':'))
               if cur and size+len(encoded)>limit: parts.append(cur); cur=[]; size=0
