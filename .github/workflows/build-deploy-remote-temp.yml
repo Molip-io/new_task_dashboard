@@ -1,0 +1,52 @@
+name: Build immutable remote deployment bundle
+
+on:
+  push:
+    branches: [ops/vercel-payload-20260908]
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    if: ${{ !contains(github.event.head_commit.message, '[remote-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/vercel-payload-20260908
+          fetch-depth: 1
+      - name: Join verified capsule chunks
+        run: |
+          python - <<'PY'
+          import json, pathlib, re, shutil
+          src=pathlib.Path('deploy-capsule/api')
+          out=pathlib.Path('deploy-remote')
+          shutil.rmtree(out, ignore_errors=True)
+          out.mkdir()
+          def join(prefix):
+              values=[]
+              for p in sorted(src.glob(f'{prefix}-*.mjs')):
+                  text=p.read_text(encoding='utf-8').strip()
+                  m=re.fullmatch(r'export default (.+);', text)
+                  if not m: raise SystemExit(f'bad chunk {p}')
+                  values.append(json.loads(m.group(1)))
+              if not values: raise SystemExit(f'no {prefix} chunks')
+              return ''.join(values)
+          core=join('core')
+          assets=join('assets')
+          (out/'core.b64').write_text(core,encoding='ascii')
+          (out/'assets.b64').write_text(assets,encoding='ascii')
+          (out/'manifest.json').write_text(json.dumps({
+              'sourceCommit':'5c7fff066f32530cebfc4b9076cfa6298aee1d32',
+              'coreChars':len(core),'assetChars':len(assets)
+          },indent=2),encoding='utf-8')
+          print(len(core),len(assets))
+          PY
+      - name: Commit immutable bundle
+        run: |
+          git config user.name 'MOLIP deploy bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -f deploy-remote
+          git commit -m 'chore: [remote-generated] immutable Vercel runtime bundle'
+          git push origin HEAD:ops/vercel-payload-20260908
