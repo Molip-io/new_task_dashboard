@@ -1,27 +1,26 @@
-"""Browser smoke tests using synthetic data only; production APIs are never called.
-Run with Python + playwright==1.57.0 and an installed Chromium/Google Chrome.
-"""
-from pathlib import Path
+"""Real Chromium regression checks with synthetic dashboard data and mocked writes."""
+import json
+import shutil
+import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-import json, shutil, threading
+from pathlib import Path
 from playwright.sync_api import sync_playwright
-
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'validation' / 'browser'
 OUT.mkdir(parents=True, exist_ok=True)
 projects = [
     {'name': 'Project A', 'notionId': 'a', 'currentSprints': ['Sprint3'], 'sprintRequired': True},
     {'name': 'Project B', 'notionId': 'b', 'currentSprints': ['Sprint3'], 'sprintRequired': True},
-    {'name': 'Operations', 'notionId': 'ops', 'currentSprints': [], 'sprintRequired': False},
+    {'name': 'Operations', 'notionId': 'o', 'currentSprints': [], 'sprintRequired': False},
 ]
 tasks = []
 def task(key, project, sprint, status, guide=False, late=False):
     issues = []
     if guide:
-        issues.append({'id': 'g-' + key, 'type': 'MISSING_BRANCH', 'category': 'guide', 'severity': 'error', 'message': 'Branch missing', 'label': 'Branch missing', 'workItemId': key, 'project': project['name']})
+        issues.append({'id': key + '-guide', 'type': 'MISSING_BRANCH', 'category': 'guide', 'severity': 'error', 'message': 'Missing branch', 'label': 'Missing branch', 'workItemId': key, 'project': project['name']})
     if late:
-        issues.append({'id': 'l-' + key, 'type': 'OVERDUE', 'category': 'schedule', 'severity': 'warning', 'message': 'Overdue', 'label': 'Overdue', 'workItemId': key, 'project': project['name']})
+        issues.append({'id': key + '-late', 'type': 'OVERDUE', 'category': 'schedule', 'severity': 'warning', 'message': 'Overdue', 'label': 'Overdue', 'workItemId': key, 'project': project['name']})
     tasks.append({'id': key, 'title': key, 'project': project['name'], 'sprint': sprint, 'status': status, 'itemLevel': 'child', 'team': 'Development', 'assignees': ['Test Owner'], 'specId': project['notionId'] + '-spec', 'spec': 'Test Spec', 'start': '2026-09-01', 'due': '2026-09-04' if late else '2026-09-12', 'overdueDays': 3 if late else 0, 'issues': issues, 'url': 'https://example.invalid/work/' + key})
 a, b, ops = projects
 task('overdue-and-guide', a, 'Sprint3', '진행 중', True, True)
@@ -86,7 +85,7 @@ try:
         sprint = page.locator('[data-scope-sprint]')
         check('Baseline five scoped KPIs', values() == [3, 3, 1, 2, 1], values())
         headings = page.locator('#tab-briefing h3').all_text_contents()
-        check('Three briefing sections are ordered', [h[:2] for h in headings[:3]] == ['1.', '2.', '3.'], headings)
+        check('Analysis changes project briefing and sprint overview are ordered', len(headings) >= 4 and headings[0].startswith('1.') and headings[1].startswith('2.') and '프로젝트 현황' in headings[2] and headings[3].startswith('3.'), headings)
         sprint.fill('3,4'); sprint.press('Enter')
         check('Global multi-sprint input recomputes five KPIs', values() == [3, 4, 1, 4, 2], values())
         check('Preview does not write shared settings', not writes)
