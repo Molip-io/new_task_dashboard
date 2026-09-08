@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>몰입 업무현황 대시보드</title>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem('dashboard-theme')
+      || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  </script>
+  <link rel="stylesheet" href="style.css?v=20260903-1">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">MOLIP · WORK MANAGEMENT</p>
+      <h1>업무현황 대시보드</h1>
+      <p id="meta" class="muted"></p>
+    </div>
+    <div class="header-actions">
+      <span id="sampleBadge" class="badge check hidden">샘플 데이터</span>
+      <span id="collectState" class="muted"></span>
+      <button id="themeToggle" aria-label="테마 전환"></button>
+      <button id="refreshBtn">데이터 다시 수집</button>
+    </div>
+  </header>
+
+  <div id="errors" class="notice error hidden"></div>
+  <div id="trustLine" class="trust-line"></div>
+
+  <nav id="tabs" aria-label="대시보드 메뉴">
+    <button data-tab="briefing" class="active">브리핑</button>
+    <button data-tab="projects">프로젝트</button>
+    <button data-tab="people">담당자</button>
+    <button data-tab="checks">확인필요 <span id="checkCount" class="nav-count">0</span></button>
+  </nav>
+
+  <main>
+    <section id="tab-briefing" class="tab"></section>
+    <section id="tab-projects" class="tab hidden"></section>
+    <section id="tab-people" class="tab hidden"></section>
+    <section id="tab-checks" class="tab hidden"></section>
+  </main>
+
+  <div id="loading" class="empty">
+    <h2>데이터를 불러오는 중…</h2>
+    <p>마지막 수집 결과를 여는 중입니다.</p>
+  </div>
+  <div id="empty" class="empty hidden">
+    <h2>아직 수집된 데이터가 없습니다</h2>
+    <p><code>.env</code>를 설정한 뒤 데이터 다시 수집을 누르세요.</p>
+  </div>
+  <script type="module" src="app.js?v=20260903-1"></script>
+</body>
+</html>

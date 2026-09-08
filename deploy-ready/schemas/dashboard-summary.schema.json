@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dashboard AI Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["overall", "projects"],
+  "properties": {
+    "overall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "topRisks", "sourceConflicts", "decisionsForCEO"],
+      "properties": {
+        "summary": { "type": "string", "maxLength": 800 },
+        "topRisks": { "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 300 } },
+        "sourceConflicts": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["project", "subject", "notionClaim", "slackClaim", "slackChannel", "slackTime"],
+            "properties": {
+              "project": { "type": "string" },
+              "subject": { "type": "string" },
+              "notionClaim": { "type": "string", "maxLength": 300 },
+              "slackClaim": { "type": "string", "maxLength": 300 },
+              "slackChannel": { "type": "string" },
+              "slackTime": { "type": "string" }
+            }
+          }
+        },
+        "decisionsForCEO": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["project", "question", "context"],
+            "properties": { "project": { "type": "string" }, "question": { "type": "string" }, "context": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "summary", "blockers", "highlights", "nextActions"],
+        "properties": {
+          "name": { "type": "string" }, "summary": { "type": "string", "maxLength": 800 },
+          "blockers": { "type": "array", "items": { "type": "string" } },
+          "highlights": { "type": "array", "items": { "type": "string" } },
+          "nextActions": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

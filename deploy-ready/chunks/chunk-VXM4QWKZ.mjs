@@ -1,0 +1,1 @@
+function i(o={},t=process.env){let e=o.ignoredNotionUserIds||[],n=String(t.IGNORED_NOTION_USER_IDS||"").split(",").map(r=>r.trim()).filter(Boolean);return new Set([...e,...n])}function s(o,t){let e=(o||[]).filter(n=>!t.has(n.id));return{names:e.map(n=>n.name).filter(Boolean),users:e,removedCount:(o||[]).length-e.length}}export{i as a,s as b};

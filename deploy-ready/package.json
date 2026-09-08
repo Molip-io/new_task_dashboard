@@ -1,0 +1,16 @@
+{
+  "name": "work-status-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.mjs",
+    "build": "node --check collect.mjs && node --check server.mjs && node --check api/app.mjs && node --check public/app.js && node --check public/dashboard-view-model.js && node --check public/dashboard-presenters.js",
+    "test": "node --test",
+    "collect": "node collect.mjs",
+    "collect:raw": "node collect.mjs --no-ai",
+    "collect:direct-ai": "AI_SUMMARY_PROVIDER=openai node collect.mjs",
+    "sync:agent-summary": "node sync-agent-summary.mjs"
+  }
+}

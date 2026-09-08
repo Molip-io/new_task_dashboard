@@ -1,0 +1,1 @@
+var r=new Set(["\uC644\uB8CC","\uC77C\uC2DC \uC815\uC9C0","\uC815\uC9C0","\uC911\uB2E8"]);function o(a){return a.filter(t=>{let e=t.tasks||[];return t.status?!r.has(t.status)||e.some(s=>!r.has(s?.status)):e.some(s=>!r.has(s?.status))})}export{o as a};

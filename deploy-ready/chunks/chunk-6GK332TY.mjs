@@ -1,0 +1,2 @@
+import e from"node:fs";import n from"node:path";import{fileURLToPath as s}from"node:url";var t=n.dirname(n.dirname(s(import.meta.url)));function p(){let r=n.join(t,".env");if(e.existsSync(r))for(let i of e.readFileSync(r,"utf8").split(`
+`)){let o=i.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);o&&!process.env[o[1]]&&(process.env[o[1]]=o[2].replace(/^["']|["']$/g,""))}}function m(){return JSON.parse(e.readFileSync(n.join(t,"config.json"),"utf8"))}export{t as a,p as b,m as c};
