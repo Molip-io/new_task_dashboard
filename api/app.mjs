@@ -12,6 +12,7 @@ import {
 import { loadConfig, loadEnv, ROOT } from '../lib/env.mjs';
 import { runCollection } from '../collect.mjs';
 import { createExpiringCache } from '../lib/expiring-cache.mjs';
+import { SETTINGS_PREFIX, readSprintSettings, decorateSprintDashboard, saveSprintSettings, readSettingsBody, settingsWriteAuthorized, settingsOriginAllowed } from '../lib/sprint-settings.mjs';
 
 loadEnv();
 const config = loadConfig();
@@ -34,9 +35,6 @@ function safeEqual(left, right) {
 }
 
 export function requestIsAuthorized(request, pathname) {
-  // The dashboard is public for now. Keep only the internal cron guard so
-  // anyone can view the UI/API without a Basic Auth prompt while scheduled
-  // collection cannot be triggered anonymously.
   if (pathname !== '/api/cron/collect') return true;
   const authorization = request.headers.authorization || '';
   const secret = process.env.CRON_SECRET;
@@ -57,20 +55,20 @@ async function storedDashboard() {
   const errors = [];
   let snapshot;
   let rows;
+  let sprintSettings;
   try {
-    [snapshot, rows] = await Promise.all([
+    [snapshot, rows, sprintSettings] = await Promise.all([
       readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId }),
       collectSummaryRows(config, errors),
+      readSprintSettings({ databaseId: config.notion.summaryDbId }),
     ]);
   } catch (error) {
-    // A throttled summary DB must not prevent the rule-engine refresh from
-    // collecting the source databases and returning a current dashboard.
-    console.error('[dashboard] stored snapshot unavailable:', error.message);
-    return null;
+    console.error('[dashboard] stored snapshot/settings unavailable:', error.message);
+    throw error;
   }
   if (!snapshot) return null;
-  const merged = mergeAgentSummaryRows(snapshot.dashboard, rows);
-  const dashboard = merged.dashboard;
+  const merged = mergeAgentSummaryRows(snapshot.dashboard, rows.filter(row => !String(row.run_id || '').startsWith(SETTINGS_PREFIX)));
+  const dashboard = decorateSprintDashboard(merged.dashboard, sprintSettings, { writable: (process.env.SPRINT_SETTINGS_TOKEN || '').length >= 24 });
   if (errors.length) dashboard.errors = [...new Set([...(dashboard.errors || []), ...errors])];
   dashboard.remoteSnapshot = {
     status: 'loaded',
@@ -94,9 +92,6 @@ async function collectForWeb() {
     dataDirectory: TEMP_DATA,
     noAi: true,
     previousSnapshot: previous,
-    // The serverless refresh must finish within a request. Properties and
-    // database rows are enough for the rule engine; full page/comment hydration
-    // remains enabled for the local `node collect.mjs` path.
     notionOptions: {
       hydrateBodies: false,
       checkComments: true,
@@ -104,7 +99,8 @@ async function collectForWeb() {
       hydrateSummaryBodies: false,
     },
   });
-  return compactDashboard(result.dashboard);
+  const settings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+  return decorateSprintDashboard(compactDashboard(result.dashboard), settings, { writable: (process.env.SPRINT_SETTINGS_TOKEN || '').length >= 24 });
 }
 
 function serveStatic(pathname, response) {
@@ -126,11 +122,23 @@ export default async function handler(request, response) {
   }
 
   try {
+    if (pathname === '/api/sprint-settings') {
+      if (request.method !== 'POST') return send(response, 405, { message: 'POST만 허용합니다.' });
+      if (!settingsWriteAuthorized(request) || !settingsOriginAllowed(request)) return send(response, 403, { message: '스프린트 설정 관리자 인증이 필요합니다.' });
+      const body = await readSettingsBody(request);
+      const dashboard = await storedDashboard();
+      if (!dashboard) return send(response, 409, { message: '먼저 데이터를 수집하세요.' });
+      const result = await saveSprintSettings({
+        databaseId: config.notion.summaryDbId,
+        dashboard,
+        input: body.input,
+        expectedRevision: body.expectedRevision,
+      });
+      dashboardCache.clear();
+      return send(response, 200, result);
+    }
     if (pathname === '/api/dashboard') {
       let dashboard = await storedDashboard();
-      // Opening the dashboard must never turn into a full Notion, Slack, and
-      // Git collection. Scheduled collection and the explicit refresh endpoint
-      // own that work; the latest snapshot remains readable when it is stale.
       if (!dashboard) dashboard = dashboardCache.set(await collectForWeb());
       return send(response, 200, dashboard);
     }
@@ -154,6 +162,6 @@ export default async function handler(request, response) {
     return serveStatic(pathname, response);
   } catch (error) {
     console.error(`[dashboard] ${pathname} failed:`, error);
-    return send(response, 500, { error: 'dashboard_unavailable', message: error.message });
+    return send(response, error.statusCode || 500, { error: 'dashboard_unavailable', message: error.message });
   }
 }

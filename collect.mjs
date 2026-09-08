@@ -19,6 +19,10 @@ import { aiEnrich } from './lib/ai-summary.mjs';
 import { writeAgentInputPacket } from './lib/agent-handoff.mjs';
 import { publishAgentInputToNotion } from './lib/notion-agent-handoff.mjs';
 import { publishDashboardSnapshotToNotion } from './lib/dashboard-snapshot.mjs';
+import { SETTINGS_PREFIX, readSprintSettings, applySavedSprintSettings } from './lib/sprint-settings.mjs';
+import { buildSprintOverview, scopeSignature, SPRINT_POLICY_VERSION } from './public/sprint-policy.js';
+import { enrichParentChildCompletion } from './lib/project-state-enrichment.mjs';
+import { enrichAgentPacketWithProjectOperations } from './lib/agent-project-operations.mjs';
 
 loadEnv();
 const config = loadConfig();
@@ -38,11 +42,17 @@ async function collectSlack(projects, errors) {
     return out;
   }
   for (const project of projects) {
-    for (const channel of project.channels) {
+    const operationChannels = new Set(config.slack?.projectChannels?.[project.name] || []);
+    const channels = [...new Set([...(project.channels || []), ...operationChannels])];
+    for (const channel of channels) {
       try {
+        const defaultDays = project.days || config.slackDaysDefault || 3;
+        const recentDays = operationChannels.has(channel)
+          ? Math.max(defaultDays, config.slack?.operationDays || 14)
+          : defaultDays;
         const result = await channelHistoryWithContext(
           channel,
-          project.days,
+          recentDays,
           config.historicalContextDays || 45,
           project.name,
         );
@@ -66,6 +76,10 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     if (!process.env.NOTION_TOKEN) throw new Error('NOTION_TOKEN 없음 — .env 파일을 설정하세요.');
     console.log('▶ Notion 프로젝트·작업항목·회의록 수집...');
     const notion = await collectNotionData(config, errors, notionOptions);
+    const sprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+    const appliedSprint = applySavedSprintSettings(notion.projects, sprintSettings, { workItems: notion.tasks });
+    notion.projects = appliedSprint.projects;
+    notion.summaryRows = notion.summaryRows.filter(row => !String(row.run_id || '').startsWith(SETTINGS_PREFIX));
     const tasks = selectProjectTasks(notion.tasks, notion.projects);
     console.log(`  프로젝트 ${notion.projects.length}, 작업 ${tasks.length}, 회의록 ${notion.meetings.length}`);
 
@@ -90,7 +104,7 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     const comparisonSnapshot = previousSnapshot === undefined
       ? loadPreviousSnapshot(dataDirectory, kstDate(now))
       : previousSnapshot;
-    const validation = validateWorkManagement({
+    const validation = enrichParentChildCompletion(validateWorkManagement({
       tasks,
       projects: notion.projects,
       gitActivity: git.commits,
@@ -99,7 +113,7 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       now,
       staleBusinessDays: config.staleBusinessDays || 3,
       excludedStatusWorkItems: notion.collectionStats?.excludedStatusWorkItems || 0,
-    });
+    }), tasks, now);
     const base = buildBaseDashboard({ notion, slack, errors, dashboardUrl: config.dashboardUrl });
     let dashboard = buildManagementDashboard({
       base, tasks, workItems: validation.workItems, issues: validation.issues,
@@ -127,9 +141,31 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     }
 
     dashboard = attachOperationalMetadata(dashboard, dataDirectory, comparisonSnapshot);
+    dashboard.sprintScope = {
+      revision: sprintSettings.revision,
+      mode: appliedSprint.scope.mode,
+      input: appliedSprint.scope.input,
+      sprints: appliedSprint.scope.sprints,
+      configured: appliedSprint.scope.configured !== false,
+      signature: scopeSignature(appliedSprint.scope),
+      policyVersion: SPRINT_POLICY_VERSION,
+    };
+    const workOverview = buildSprintOverview(dashboard, appliedSprint.scope);
     fs.mkdirSync(dataDirectory, { recursive: true });
     const agentInputFile = path.join(dataDirectory, 'agent-input.json');
-    const agentInput = writeAgentInputPacket(dashboard, agentInputFile);
+    let agentInput = writeAgentInputPacket(dashboard, agentInputFile);
+    agentInput = enrichAgentPacketWithProjectOperations(agentInput, dashboard);
+    // Preserve raw rules.metrics; publish the dashboard-aligned, child-only briefing projection separately.
+    agentInput.rules.briefingMetrics = workOverview.metrics;
+    agentInput.rules.briefingScope = {
+      ...dashboard.sprintScope,
+      unit: 'child-work-items',
+      outsideOverdueItems: workOverview.outsideOverdueItems.length,
+      unknownSprintItems: workOverview.unknownSprintItems.length,
+    };
+    fs.writeFileSync(agentInputFile, JSON.stringify(agentInput, null, 2));
+    const latestSprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+    if (latestSprintSettings.revision !== sprintSettings.revision) throw new Error('수집 중 현재 스프린트 설정이 변경됐습니다. 이전 기준을 게시하지 않습니다.');
     let remoteHandoff = { status: 'disabled', runId: `rule-input:${agentInput.runId}` };
     if (config.features?.publishAgentInputToNotion !== false) {
       try {
