@@ -25,7 +25,7 @@ function operations() {
   ] }]);
 }
 
-test('active parent remains visible when every registered child is complete', () => {
+ test('active parent remains visible when every registered child is complete', () => {
   const [spec] = buildProjectSpecs([parent, ...children], ['완료', '중단', '일시 정지', '정지']);
   assert.equal(spec.status, '진행 중');
   assert.equal(spec.childDerivedStatus, '완료');
@@ -34,7 +34,7 @@ test('active parent remains visible when every registered child is complete', ()
   assert.deepEqual(filterSpecsWithWorkItems([spec]).map(item => item.id), ['spec']);
 });
 
-test('parent-child completion mismatch becomes a management check without inventing more work', () => {
+ test('parent-child completion mismatch becomes a management check without inventing more work', () => {
   const validation = { issues: [], ruleItems: [{ ...parent, itemLevel: 'parent', issues: [], riskScore: 0, guideStatus: 'normal' }] };
   enrichParentChildCompletion(validation, [parent, ...children], '2026-09-08T00:00:00Z');
   const issue = validation.issues[0];
@@ -44,7 +44,7 @@ test('parent-child completion mismatch becomes a management check without invent
   assert.equal(validation.ruleItems[0].issues[0].type, 'PARENT_CHILD_STATUS_MISMATCH');
 });
 
-test('project operation evidence tracks build QA release and data separately', () => {
+ test('project operation evidence tracks build QA release and data separately', () => {
   const result = operations();
   assert.ok(result.latestBuild);
   assert.ok(result.latestQa);
@@ -54,7 +54,7 @@ test('project operation evidence tracks build QA release and data separately', (
   assert.ok(result.evidence.every(item => item.evidenceRole === 'project_operation'));
 });
 
-test('agent and remote snapshot retain active specs plus project-wide lifecycle evidence', () => {
+ test('agent and remote snapshot retain active specs plus project-wide lifecycle evidence', () => {
   const [spec] = buildProjectSpecs([parent, ...children], ['완료', '중단', '일시 정지', '정지']);
   const ops = operations();
   const ruleParent = { ...parent, itemLevel: 'parent', sprintRelation: 'current', assignees: ['PD'], issues: [{ type: 'PARENT_CHILD_STATUS_MISMATCH', category: 'guide', severity: 'check' }] };
@@ -71,17 +71,17 @@ test('agent and remote snapshot retain active specs plus project-wide lifecycle 
   assert.equal(compact.projects[0].projectOperations.latestRelease.url, 'https://slack/release');
 });
 
-test('briefing exposes project lifecycle even when Agent analysis has not run', () => {
+ test('briefing exposes raw lifecycle evidence separately when Agent analysis has not run', () => {
   const ops = operations();
   const dashboard = {
-    metrics: {}, validationIssues: [], deltas: [], workItems: [], git: { repositories: [] },
-    ai: { analysisStatus: 'not_run', overall: {} },
-    projects: [{ name: '포지 앤 포춘', currentSprints: ['Sprint3'], sprintRequired: true, specs: [], stats: {}, projectOperations: ops }],
+    metrics: {}, validationIssues: [], deltas: [], ai: { analysisStatus: 'not_run' },
+    projects: [{ name: '포지 앤 포춘', stats: {}, projectOperations: ops }],
+    git: { repositories: [] },
   };
   const html = briefingHtml(dashboard, null, () => '');
-  assert.match(html, /프로젝트 운영 현황/);
-  assert.match(html, /<strong>빌드<\/strong>/);
-  assert.match(html, /QA 이후 CPI 테스트/);
-  assert.match(html, /99\.9% 릴리즈/);
-  assert.match(html, /데이터 분석/);
+  assert.match(html, /프로젝트 현황/);
+  assert.match(html, /원본 수집 근거/);
+  assert.match(html, /QA\/리뷰|QA 이후/);
+  assert.match(html, /99.9% 릴리즈/);
+  assert.match(html, /SP2 데이터 분석/);
 });

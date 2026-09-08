@@ -33,6 +33,7 @@ jobs:
         run: |
           set -o pipefail
           python tools/sprint-browser-smoke.py 2>&1 | tee validation/browser.log
+          python tools/project-briefing-browser-smoke.py 2>&1 | tee validation/project-briefing-browser.log
       - name: Archive exact tested sources
         if: always()
         run: |

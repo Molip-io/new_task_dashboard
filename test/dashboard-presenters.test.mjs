@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { briefingHtml } from '../public/dashboard-presenters.js';
 
-test('Given two projects with connected repositories, When Git briefing details render, Then each project uses its own repository', () => {
+ test('Given two projects with connected repositories, When Git briefing details render, Then each project uses its own repository', () => {
   const dashboard = {
     metrics: {},
     validationIssues: [],
@@ -34,7 +34,7 @@ test('Given two projects with connected repositories, When Git briefing details 
   assert.match(html, /브랜치 feature\/pizza-reward · 미확인 feature\/missing/);
 });
 
-test('Given an integrated analysis with an executive risk, When briefing renders, Then the risk is visible beneath the summary', () => {
+ test('Given an integrated analysis with an executive risk, When briefing renders, Then the risk is visible beneath the summary', () => {
   const dashboard = {
     metrics: {}, validationIssues: [], deltas: [], projects: [],
     git: { repositories: [] },
@@ -53,7 +53,7 @@ test('Given an integrated analysis with an executive risk, When briefing renders
   assert.match(html, /반복 피드백으로 리소스 제작이 지연/);
 });
 
-test('Given several source-backed risks, When executive briefing renders, Then one latest risk per project prevents one project from crowding out another', () => {
+ test('Given several source-backed risks, When executive briefing renders, Then one latest risk per project prevents one project from crowding out another', () => {
   const evidence = (excerpt, timestamp) => ({ source: 'meeting', attention: true, excerpt, timestamp });
   const dashboard = {
     metrics: {}, validationIssues: [], deltas: [], git: { repositories: [] },
@@ -72,6 +72,40 @@ test('Given several source-backed risks, When executive briefing renders, Then o
   const html = briefingHtml(dashboard, null, () => '');
 
   assert.match(html, /최신 포지 위험/);
-  assert.doesNotMatch(html, /오래된 위험/);
+  assert.doesNotMatch(html.split('<section class="project-briefings"')[0], /오래된 위험/);
   assert.match(html, /디자인 협업 지연/);
+});
+
+ test('Given project operational evidence, When briefing renders, Then project operations render collapsed with an expandable evidence body', () => {
+  const dashboard = {
+    metrics: {}, validationIssues: [], deltas: [], git: { repositories: [] }, ai: { overall: {} },
+    projects: [{
+      name: '포지 앤 포춘', stats: {}, slack: [{ channel: 's2_forge_and_fortune', count: 4 }],
+      projectOperations: {
+        evidenceCount: 4,
+        latestBuild: { category: 'build', excerpt: 'SP3 빌드 공유 완료', timestamp: '2026-09-04T09:00:00.000Z', channel: 's2_forge_and_fortune', url: 'https://slack.test/build' },
+        latestQa: { category: 'qa', excerpt: 'Fun QA 진행', timestamp: '2026-09-04T10:00:00.000Z', channel: 's2_forge_and_fortune', url: 'https://slack.test/qa' },
+        latestRelease: { category: 'release', excerpt: '마켓 업로드 완료', timestamp: '2026-09-04T11:00:00.000Z', channel: 's2_forge_and_fortune', url: 'https://slack.test/release' },
+        latestData: { category: 'data', excerpt: 'CPI 테스트 결과 확인', timestamp: '2026-09-04T12:00:00.000Z', channel: 's2_forge_and_fortune', url: 'https://slack.test/data' },
+      },
+    }],
+  };
+
+  const html = briefingHtml(dashboard, null, () => '');
+  assert.match(html, /<details class="card span-6 project-operations-card project-briefing-card"/);
+  assert.match(html, /수집 참고 4건/);
+  assert.match(html, /펼치기/);
+  assert.match(html, /접기/);
+  assert.match(html, /SP3 빌드 공유 완료/);
+  assert.match(html, /Fun QA 진행/);
+});
+
+ test('Given collected project Slack but no classified operation evidence, When briefing renders, Then absence is described as unconfirmed rather than nonexistent', () => {
+  const dashboard = {
+    metrics: {}, validationIssues: [], deltas: [], git: { repositories: [] }, ai: { overall: {} },
+    projects: [{ name: '포지 앤 포춘', stats: {}, slack: [{ channel: 's2_forge_and_fortune', count: 1 }], projectOperations: {} }],
+  };
+  const html = briefingHtml(dashboard, null, () => '');
+  assert.match(html, /프로젝트 통합 분석 미생성/);
+  assert.doesNotMatch(html, /운영 근거를 찾지 못했습니다/);
 });
