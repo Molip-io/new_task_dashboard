@@ -1,0 +1,35 @@
+name: One-shot dashboard collect
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[collect-dashboard]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.DASHBOARD_GITHUB_TOKEN || github.token }}
+      AI_SUMMARY_PROVIDER: notion-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci
+      - name: Check required collection secret
+        run: |
+          if [ -z "$NOTION_TOKEN" ]; then
+            echo "NOTION_TOKEN repository secret is not configured" >&2
+            exit 2
+          fi
+      - name: Collect and publish current dashboard inputs
+        run: node collect.mjs --no-ai
