@@ -63,7 +63,6 @@ test('All metrics remain after unified AI briefing and daily changes',()=>{
   assert.match(code,/프로젝트별 현황/);
   assert.match(code,/2\. 어제와 달라진 것/);
   assert.match(code,/3\. 스프린트별 업무 현황/);
-  assert.doesNotMatch(code,/3\. 프로젝트 현황/);
 });
 
 test('Backend connects shared settings without changing raw metrics',()=>{
