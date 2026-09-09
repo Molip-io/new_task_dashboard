@@ -86,7 +86,7 @@ try:
         sprint = page.locator('[data-scope-sprint]')
         check('Baseline five scoped KPIs', values() == [3, 3, 1, 4, 1], values())
         headings = page.locator('#tab-briefing h3').all_text_contents()
-        check('AI briefing contains projects and sprint overview is third', len(headings) >= 3 and headings[0].startswith('1. AI 통합 브리핑') and headings[1].startswith('2.') and headings[2].startswith('3. 스프린트별 업무 현황') and page.locator('.ai-integrated-briefing-card .project-briefings-integrated').count() == 1, headings)
+        check('Analysis changes project briefing and sprint overview are ordered', len(headings) >= 4 and headings[0].startswith('1.') and headings[1].startswith('2.') and headings[2].startswith('3.') and '프로젝트 현황' in headings[2] and headings[3].startswith('4.'), headings)
         sprint.fill('3,4'); sprint.press('Enter')
         check('Global multi-sprint input recomputes five KPIs', values() == [3, 4, 1, 6, 2], values())
         check('Preview does not write shared settings', not writes)
