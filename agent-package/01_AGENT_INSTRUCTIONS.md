@@ -86,7 +86,7 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 
 ### 스프린트 판정과 진행 준비
 
-프로젝트 리스트 DB의 `현재 스프린트`를 프로젝트별 기준으로 사용한다. 여러 값이 있으면 모두 현재 스프린트로 인정한다. `Sprint60`, `Sprint 60`, `스프린트60`처럼 표기만 다른 값은 숫자를 기준으로 정규화하되, 다른 숫자를 유사값으로 추정하지 않는다.
+당일 규칙 입력의 `rules.briefingScope`를 전사 공용 현재 스프린트의 최우선 기준으로 사용한다. 수집기가 이 기준으로 프로젝트별 `currentSprints`와 작업별 `sprintRelation`을 계산하므로 이를 그대로 사용하고, 과거 프로젝트별 값이나 다른 출처로 현재 스프린트를 다시 추정하지 않는다.
 
 `project.sprintRequired = false`인 프로젝트는 스프린트를 운영하지 않는다. 해당 프로젝트의 `sprint = null`, `sprintRelation = not-applicable`, sprint missing bit 0은 정상이며 `MISSING_SPRINT`, `RULE_NOT_EVALUATED`, 진행 준비·지난 스프린트 미착수의 원인으로 사용하지 않는다.
 
@@ -121,6 +121,8 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 - 실제 분석 입력은 페이지 본문에서 caption이 `MOLIP_AGENT_INPUT_V1`인 마지막 JSON 코드 블록이다. 이를 파싱한 객체를 아래에서 `payload`라고 부른다.
 - `payload.outputSchema`: 최종 출력 JSON이 따라야 할 전체 스키마
 - `payload.rules.metrics`: 대시보드 원본 집계
+- `payload.rules.briefingMetrics`: 공용 스프린트 범위의 브리핑 집계. 지표별 단위는 아래 공용 스프린트 브리핑 지표 계약을 따른다.
+- `payload.rules.briefingScope`: 전사 공용 현재 스프린트 기준과 지표 단위·범위 밖 항목 메타데이터
 - `payload.rules.deltas`: 전일 대비 변경
 - `payload.projects[].currentSprints`: 프로젝트 리스트 DB의 현재 스프린트 값
 - `payload.projects[].sprintRequired`: 프로젝트의 스프린트 운영 여부. `false`면 스프린트 미지정을 정상으로 처리한다.
@@ -137,6 +139,21 @@ AI는 규칙 엔진의 위험도나 프로젝트 상태를 올리거나 내리�
 `outputSchema.ruleMetrics.original`과 `outputSchema.ruleMetrics.corrected`에는 가이드 위반·기한 초과뿐 아니라 `progressSetupRequiredItems`, `pastSprintNotStartedItems`, `futureSprintExcludedItems`, `ruleNotEvaluatedItems`, `excludedStatusWorkItems`가 포함된다.
 
 `dashboard-snapshot:` 페이지의 gzip+base64 payload는 웹 대시보드용이므로 분석 입력으로 압축 해제하거나 대체 사용하지 않는다. `outputSchema`, `ruleAuditItems`, `analysisTargets`, `specCatalog` 중 하나라도 누락되면 임의로 보완하지 말고 `ruleEngine: failed`와 누락 필드를 구체적으로 보고한다.
+
+<!-- GUIDE_METRIC_SCOPE_V2 -->
+### 공용 스프린트 브리핑 지표 계약
+
+당일 `payload.rules.briefingScope`를 전사 공용 현재 스프린트의 최우선 기준으로 사용한다. `briefingScope.mode = selected`면 지정된 스프린트만, `all`이면 입력이 제공한 전체 스프린트 범위를 사용하고, `unset`이면 스프린트 기반 브리핑 지표를 0건으로 해석하지 않는다. 과거 프로젝트별 현재 스프린트 값이나 Slack·조회 미리보기로 이 기준을 재구성하지 않는다.
+
+`payload.rules.briefingMetrics`는 **지표별 단위가 다른 mixed-by-metric 집계**다.
+
+- `inProgressWorkItems`, `overdueWorkItems`, `progressSetupRequiredItems`: 선택 범위의 활성 **하위 작업항목** 기준
+- `guideViolationWorkItems`: 선택 범위의 활성 **상위 작업 + 하위 작업** 기준
+- 가이드 위반은 기한 초과와 독립적인 관리 분류이므로 같은 하위 작업이 `overdueWorkItems`와 `guideViolationWorkItems`에 동시에 포함될 수 있다. 기한 초과라는 이유로 가이드 위반에서 제거하지 않는다.
+- `briefingScope.guideUnit = parent-and-child-items`, `briefingScope.guideOverlapAllowed = true`가 제공되면 이 계약을 명시적으로 확인한다.
+- `briefingScope.outsideGuideViolationItems`, `unknownGuideViolationItems`가 제공되면 각각 선택 스프린트 밖과 스프린트 분류 불가로 인해 현재 가이드 KPI에 포함되지 않은 항목 수다.
+
+`확인필요` 탭의 전체 활성 범위와 현재 스프린트 브리핑 숫자를 직접 동일하다고 가정하지 않는다. 차이를 설명하거나 검증할 때는 최소한 `선택 스프린트 범위 / 상위·하위 단위 / 기한 초과 중복 / 선택 밖 / 스프린트 미지정·분류 불가`를 분리한다. 동일 스프린트·동일 항목인데 두 화면에서 가이드 분류 자체가 다르면 집계 차이로 덮지 말고 규칙·분류 불일치 후보로 기록한다.
 
 ## 4. 허용된 소스
 
@@ -276,7 +293,7 @@ Notion 당일 규칙 입력 `payload`의 `gitEvidence`, 프로젝트명, 스펙�
 올바른 출력 예시:
 
 - `summary`: `UI 리소스 자동 생성에 앞서 Prefab 자동화 방식을 만드는 작업으로, 현재 포지앤포춘을 기준으로 레이어그룹과 레이어의 상세 제작 규칙을 구성하고 있다. 피자레디·포지앤포춘 UI 기획서와 하이어라키 표준이 선행 입력으로 요청된 상태다.`
-- `blockers`: `피자레디 UI 기획서와 공통 하이어라키 표준의 제공·확정 여부 확인 필요`처럼 실제 제공 여부가 근거에서 확인되지 않을 때만 기록
+- `blockers`: 단순히 자료가 요청됐거나 제공 여부가 확인되지 않는다는 이유로 기록하지 않는다. `자료 미전달 때문에 통합 테스트를 시작하지 못함`처럼 현재 실행 영향이 직접 확인될 때만 기록
 - `nextAction`: `개발 담당이 포지앤포춘 기준 레이어그룹·레이어 규칙안을 완성하고, 아트 담당이 실제 리소스 적용 결과를 검증한다.`
 
 `project.summary`도 스펙별 실제 산출물과 현재 단계를 합쳐 작성한다. 가이드 위반 건수·완료율·`RULE_NOT_EVALUATED`만 나열한 프로젝트 요약은 허용하지 않는다.
