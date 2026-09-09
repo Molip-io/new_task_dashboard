@@ -2,8 +2,7 @@ name: Build immutable Vercel runtime 20260909
 
 on:
   push:
-    branches:
-      - ops/vercel-payload-20260909
+    branches: [ops/vercel-payload-20260909]
 
 permissions:
   contents: write
@@ -18,10 +17,10 @@ jobs:
         with:
           ref: ops/vercel-payload-20260909
           fetch-depth: 1
-      - name: Build bundled server and compressed assets
+      - name: Build self-contained capsule
         run: |
-          rm -rf deploy-src deploy-build deploy-remote deploy-smoke
-          mkdir -p deploy-src/api deploy-build deploy-remote deploy-smoke/api
+          rm -rf deploy-src deploy-capsule deploy-capsule-build deploy-remote
+          mkdir -p deploy-src/api deploy-capsule/api deploy-capsule-build deploy-remote
           cp api/app.mjs deploy-src/api/app.mjs
           cp collect.mjs deploy-src/collect.mjs
           cp -R lib deploy-src/lib
@@ -35,71 +34,80 @@ jobs:
           PY
           npx --yes esbuild@0.25.9 deploy-src/api/app.mjs \
             --bundle --platform=node --format=esm --target=node22 --minify \
-            --outfile=deploy-build/core-source.mjs
+            --outfile=deploy-capsule-build/core-source.mjs
           python - <<'PY'
           import base64, gzip, json, pathlib
           root=pathlib.Path('.')
-          remote=root/'deploy-remote'
-          smoke=root/'deploy-smoke'/'api'
+          out=pathlib.Path('deploy-capsule')
+          api=out/'api'; api.mkdir(parents=True, exist_ok=True)
           assets={}
           for name in ['config.json']:
-              p=root/name
-              assets[name]=p.read_text(encoding='utf-8')
+              p=root/name; assets[name]=p.read_text(encoding='utf-8')
           for folder in ['public','prompts','schemas']:
               for p in sorted((root/folder).rglob('*')):
-                  if p.is_file():
-                      assets[p.as_posix()]=p.read_text(encoding='utf-8')
-          core=(root/'deploy-build/core-source.mjs').read_bytes()
+                  if p.is_file(): assets[p.as_posix()]=p.read_text(encoding='utf-8')
+          def chunks(text, n=3500): return [text[i:i+n] for i in range(0,len(text),n)]
+          core=(root/'deploy-capsule-build/core-source.mjs').read_bytes()
           core64=base64.b64encode(gzip.compress(core, compresslevel=9)).decode('ascii')
           asset64=base64.b64encode(gzip.compress(json.dumps(assets,ensure_ascii=False,separators=(',',':')).encode('utf-8'), compresslevel=9)).decode('ascii')
-          (remote/'core.b64').write_text(core64,encoding='ascii')
-          (remote/'assets.b64').write_text(asset64,encoding='ascii')
-          source='b6844ae7114a5fa01ddf0aba9f7517294dc5c079'
-          (remote/'manifest.json').write_text(json.dumps({'sourceCommit':source,'coreChars':len(core64),'assetChars':len(asset64)},indent=2),encoding='utf-8')
-          wrapper=f'''import fs from 'node:fs';
-import path from 'node:path';
-import {{ fileURLToPath, pathToFileURL }} from 'node:url';
-import {{ gunzipSync }} from 'node:zlib';
-const root=process.cwd();
-const coreB64={json.dumps(core64)};
-const assetB64={json.dumps(asset64)};
-const assetSource=JSON.parse(gunzipSync(Buffer.from(assetB64,'base64')).toString('utf8'));
-const virtual=new Map();
-for(const [name,value] of Object.entries(assetSource)){{const buffer=Buffer.from(value,'utf8');virtual.set(path.resolve(root,name),buffer);virtual.set(path.resolve('/',name),buffer);}}
-const keyFor=(target)=>{{if(target instanceof URL)return fileURLToPath(target);const text=String(target);if(text.startsWith('file:'))return fileURLToPath(text);return path.resolve(text);}};
-const originalRead=fs.readFileSync.bind(fs);
-const originalExists=fs.existsSync.bind(fs);
-const originalStat=fs.statSync.bind(fs);
-fs.existsSync=(target)=>virtual.has(keyFor(target))||originalExists(target);
-fs.readFileSync=(target,options)=>{{const value=virtual.get(keyFor(target));if(!value)return originalRead(target,options);const enc=typeof options==='string'?options:options?.encoding;return enc?value.toString(enc):Buffer.from(value);}};
-fs.statSync=(target,...args)=>{{const value=virtual.get(keyFor(target));if(!value)return originalStat(target,...args);return {{size:value.length,isFile:()=>true,isDirectory:()=>false}};}};
-let corePromise;
-async function loadCore(){{if(!corePromise){{const source=gunzipSync(Buffer.from(coreB64,'base64'));const corePath=path.join('/tmp','molip-dashboard-core-b6844.mjs');fs.writeFileSync(corePath,source);corePromise=import(pathToFileURL(corePath).href);}}return corePromise;}}
-export default async function handler(request,response){{const mod=await loadCore();return mod.default(request,response);}}
-'''
-          (smoke/'app.mjs').write_text(wrapper,encoding='utf-8')
-          print({'sourceCommit':source,'coreChars':len(core64),'assetChars':len(asset64),'assetFiles':len(assets)})
+          core_chunks=chunks(core64); asset_chunks=chunks(asset64)
+          for i,c in enumerate(core_chunks,1): (api/f'core-{i:03d}.mjs').write_text(f'export default {json.dumps(c)};\n',encoding='utf-8')
+          for i,c in enumerate(asset_chunks,1): (api/f'assets-{i:03d}.mjs').write_text(f'export default {json.dumps(c)};\n',encoding='utf-8')
+          imports=[]
+          core_names=[]; asset_names=[]
+          for i in range(1,len(core_chunks)+1):
+              n=f'core{i}'; core_names.append(n); imports.append(f"import {n} from './core-{i:03d}.mjs';")
+          for i in range(1,len(asset_chunks)+1):
+              n=f'asset{i}'; asset_names.append(n); imports.append(f"import {n} from './assets-{i:03d}.mjs';")
+          wrapper='\n'.join(imports)+f'''\nimport fs from 'node:fs';\nimport path from 'node:path';\nimport {{ fileURLToPath, pathToFileURL }} from 'node:url';\nimport {{ gunzipSync }} from 'node:zlib';\nconst root=process.cwd();\nconst assetJson=gunzipSync(Buffer.from([{','.join(asset_names)}].join(''),'base64')).toString('utf8');\nconst assetSource=JSON.parse(assetJson);\nconst virtual=new Map();\nfor(const [name,value] of Object.entries(assetSource)){{const buffer=Buffer.from(value,'utf8');virtual.set(path.resolve(root,name),buffer);virtual.set(path.resolve('/',name),buffer);}}\nconst keyFor=(target)=>{{if(target instanceof URL)return fileURLToPath(target);const text=String(target);if(text.startsWith('file:'))return fileURLToPath(text);return path.resolve(text);}};\nconst originalRead=fs.readFileSync.bind(fs);\nconst originalExists=fs.existsSync.bind(fs);\nconst originalStat=fs.statSync.bind(fs);\nfs.existsSync=(target)=>virtual.has(keyFor(target))||originalExists(target);\nfs.readFileSync=(target,options)=>{{const value=virtual.get(keyFor(target));if(!value)return originalRead(target,options);const enc=typeof options==='string'?options:options?.encoding;return enc?value.toString(enc):Buffer.from(value);}};\nfs.statSync=(target,...args)=>{{const value=virtual.get(keyFor(target));if(!value)return originalStat(target,...args);return {{size:value.length,isFile:()=>true,isDirectory:()=>false}};}};\nlet corePromise;\nasync function loadCore(){{if(!corePromise){{const source=gunzipSync(Buffer.from([{','.join(core_names)}].join(''),'base64'));const corePath=path.join('/tmp','molip-dashboard-core-b6844ae7.mjs');fs.writeFileSync(corePath,source);corePromise=import(pathToFileURL(corePath).href);}}return corePromise;}}\nexport default async function handler(request,response){{const mod=await loadCore();return mod.default(request,response);}}\n'''
+          (api/'app.mjs').write_text(wrapper,encoding='utf-8')
+          print({'coreChunks':len(core_chunks),'assetChunks':len(asset_chunks),'coreGzipBase64':len(core64),'assetGzipBase64':len(asset64)})
           PY
-      - name: Verify bundled runtime and new UI contracts
+      - name: Verify capsule and new UI contracts
         run: |
           node --input-type=module <<'JS'
-          import handler from './deploy-smoke/api/app.mjs';
-          async function request(url){
+          import handler from './deploy-capsule/api/app.mjs';
+          async function request(url) {
             let body=Buffer.alloc(0);
-            const response={statusCode:0,headers:{},setHeader(k,v){this.headers[k]=v;},end(value){body=Buffer.isBuffer(value)?value:Buffer.from(String(value??''));}};
+            const response={statusCode:0,setHeader(){},end(value){body=Buffer.isBuffer(value)?value:Buffer.from(String(value??''));}};
             await handler({url,method:'GET',headers:{}},response);
             return {status:response.statusCode,text:body.toString('utf8')};
           }
           const shell=await request('/');
-          if(shell.status!==200 || !shell.text.includes('업무현황 대시보드')) throw new Error('dashboard shell smoke failed');
+          if(shell.status!==200 || !shell.text.includes('업무현황 대시보드')) throw new Error('dashboard shell missing');
           const policy=await request('/sprint-policy.js');
           if(policy.status!==200 || !policy.text.includes("SPRINT_POLICY_VERSION = '2026-09-09.1'")) throw new Error('sprint policy version missing');
           const sprint=await request('/sprint-overview.js');
           if(sprint.status!==200 || !sprint.text.includes('GUIDE COVERAGE') || !sprint.text.includes('4. 스프린트별 업무 현황')) throw new Error('sprint overview contract missing');
           const project=await request('/project-briefing.js');
           if(project.status!==200 || !project.text.includes('PROJECT BRIEFING') || !project.text.includes('project-briefing-tri-grid')) throw new Error('project briefing contract missing');
-          console.log('immutable runtime smoke ok');
+          console.log('capsule smoke ok');
           JS
+      - name: Build immutable remote bundle
+        run: |
+          python - <<'PY'
+          import json, pathlib, re
+          src=pathlib.Path('deploy-capsule/api')
+          out=pathlib.Path('deploy-remote')
+          def join(prefix):
+              values=[]
+              for p in sorted(src.glob(f'{prefix}-*.mjs')):
+                  text=p.read_text(encoding='utf-8').strip()
+                  m=re.fullmatch(r'export default (.+);', text)
+                  if not m: raise SystemExit(f'bad chunk {p}')
+                  values.append(json.loads(m.group(1)))
+              if not values: raise SystemExit(f'no {prefix} chunks')
+              return ''.join(values)
+          core=join('core')
+          assets=join('assets')
+          (out/'core.b64').write_text(core,encoding='ascii')
+          (out/'assets.b64').write_text(assets,encoding='ascii')
+          (out/'manifest.json').write_text(json.dumps({
+              'sourceCommit':'b6844ae7114a5fa01ddf0aba9f7517294dc5c079',
+              'coreChars':len(core),'assetChars':len(assets)
+          },indent=2),encoding='utf-8')
+          print({'coreChars':len(core),'assetChars':len(assets)})
+          PY
       - name: Commit immutable runtime bundle
         run: |
           git config user.name 'MOLIP deploy bot'
