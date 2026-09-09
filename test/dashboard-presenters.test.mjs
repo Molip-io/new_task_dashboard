@@ -53,11 +53,11 @@ import { briefingHtml } from '../public/dashboard-presenters.js';
   assert.match(html, /반복 피드백으로 리소스 제작이 지연/);
 });
 
- test('Given several source-backed risks, When executive briefing renders, Then one latest risk per project prevents one project from crowding out another', () => {
+ test('Given project or spec source-backed risks, When executive briefing renders, Then they are not promoted above project status unless Agent overall selects them', () => {
   const evidence = (excerpt, timestamp) => ({ source: 'meeting', attention: true, excerpt, timestamp });
   const dashboard = {
     metrics: {}, validationIssues: [], deltas: [], git: { repositories: [] },
-    ai: { analysisStatus: 'stale', overall: {} },
+    ai: { analysisStatus: 'stale', overall: { topRisks: [] }, projects: [] },
     projects: [
       { name: '포지 앤 포춘', specInsights: [
         { title: '특수상인', evidence: [evidence('오래된 위험', '2026-07-01')] },
@@ -70,10 +70,9 @@ import { briefingHtml } from '../public/dashboard-presenters.js';
   };
 
   const html = briefingHtml(dashboard, null, () => '');
+  const beforeProjects = html.split('프로젝트별 현황')[0];
 
-  assert.match(html, /최신 포지 위험/);
-  assert.doesNotMatch(html.split('<section class="project-briefings"')[0], /오래된 위험/);
-  assert.match(html, /디자인 협업 지연/);
+  assert.doesNotMatch(beforeProjects, /최신 포지 위험|오래된 위험|디자인 협업 지연/);
 });
 
  test('Given project operational evidence, When briefing renders, Then project operations render collapsed with an expandable evidence body', () => {
@@ -108,4 +107,33 @@ import { briefingHtml } from '../public/dashboard-presenters.js';
   const html = briefingHtml(dashboard, null, () => '');
   assert.match(html, /프로젝트 통합 분석 미생성/);
   assert.doesNotMatch(html, /운영 근거를 찾지 못했습니다/);
+});
+
+ test('Given project briefings, When briefing renders, Then overall and projects share one AI integrated section and sprint overview is third', () => {
+  const dashboard = {
+    generatedAt: '2026-09-09T01:00:00Z',
+    agentHandoff: { generatedAt: '2026-09-09T01:00:00Z', runId: '2026-09-09-morning' },
+    metrics: {}, validationIssues: [], deltas: [], git: { repositories: [] },
+    ai: {
+      analysisStatus: 'success', runId: '2026-09-09-morning', generatedAt: '2026-09-09T02:00:00Z',
+      sourceComparison: { status: 'complete' }, sourceStatus: {},
+      overall: { summary: '전체 상황 요약', topRisks: [] },
+      projects: [{
+        name: '포지 앤 포춘', summary: '프로젝트 요약', blockers: [], specSummaries: [], confidenceLimits: [],
+        projectBriefing: {
+          currentProgress: '핵심 기능을 구현하고 현재 QA 준비 단계다.', buildRelease: null, data: null,
+          confirmationRequired: [], nextActions: [], evidence: [], confidenceLimits: [],
+        },
+      }],
+    },
+    projects: [{ name: '포지 앤 포춘', stats: {}, specs: [], projectOperations: {} }],
+  };
+
+  const html = briefingHtml(dashboard, null, () => '');
+
+  assert.match(html, /1\. AI 통합 브리핑/);
+  assert.match(html, /프로젝트별 현황/);
+  assert.ok(html.indexOf('프로젝트별 현황') < html.indexOf('2. 어제와 달라진 것'));
+  assert.match(html, /3\. 스프린트별 업무 현황/);
+  assert.doesNotMatch(html, /3\. 프로젝트 현황|4\. 스프린트별 업무 현황/);
 });
