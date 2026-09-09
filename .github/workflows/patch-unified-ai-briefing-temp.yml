@@ -1,0 +1,305 @@
+name: Patch unified AI briefing
+
+on:
+  push:
+    branches: [feat/unified-ai-briefing-20260909-2]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/unified-ai-briefing-20260909-2
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply unified briefing patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path):
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path, text):
+              Path(path).write_text(text, encoding='utf-8')
+
+          def replace_once(path, old, new):
+              text = read(path)
+              if old not in text:
+                  raise SystemExit(f'missing target in {path}: {old[:120]!r}')
+              write(path, text.replace(old, new, 1))
+
+          def regex_once(path, pattern, replacement):
+              text = read(path)
+              text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f'pattern matched {count} times in {path}: {pattern[:120]!r}')
+              write(path, text)
+
+          # Agent Instructions: strengthen project-level narrative quality without changing the schema.
+          project_quality = '''### 프로젝트 통합 브리핑 작성 기준
+
+`projects[].projectBriefing`은 프로젝트의 숫자 현황표가 아니라, 대표가 읽었을 때 **현재 상황의 흐름이 바로 이해되는 자연어 브리핑**이어야 한다. 새 실행에서는 `outputSchema`가 이 필드를 허용하는 한 반드시 작성한다.
+
+`projectBriefing.currentProgress`는 프로젝트 단위에서 다음 질문에 답해야 한다.
+
+> 이 프로젝트는 지금 무엇을 목표로 하고 있고, 확인된 범위에서 무엇이 진행·완료됐으며, 현재 핵심적으로 무엇을 하고 있고, 무엇이 남았고, 다음 중요한 단계는 무엇인가?
+
+작성 순서는 가능한 범위에서 다음 흐름을 따른다.
+
+1. 프로젝트가 현재 만들거나 해결하려는 핵심 목표·산출물
+2. 직접 근거로 확인된 진행·완료 범위
+3. 지금 핵심적으로 진행 중인 일과 현재 단계
+4. 아직 남은 범위·검증·결정
+5. 직접 근거로 확인되는 다음 중요한 단계
+
+상태명, 완료율, 활성 작업 수, 기한 초과 수, 가이드 위반 수, 진행 준비 수 같은 정량값은 **보조 근거**다. 숫자나 상태값을 문장의 중심으로 나열해 `currentProgress`를 대체하지 않는다. 첫 문장만 읽어도 프로젝트가 지금 어느 단계에 있는지 이해할 수 있어야 한다.
+
+다음과 같은 문장은 실패로 본다.
+
+- `Sprint3 진행 중이며 활성 작업 8건, 완료율 72%, 기한 초과 2건이다.`
+- `진행 중 스펙 4개와 확인 필요 항목 3개가 있다.`
+- `가이드 위반이 감소했고 진행 준비 항목이 남아 있다.`
+
+이런 경우 저장하지 말고 `specCatalog`, `specSummaries`, `recent_execution`, `persistent_context`, `project_operation`, 허용된 회의록·Git 근거를 다시 종합해 **무엇이 진행되고 있는지 중심으로 다시 작성**한다.
+
+`projectBriefing.buildRelease`와 `projectBriefing.data`는 `currentProgress`의 숫자 반복이 아니라 서로 다른 축이다.
+
+- `buildRelease`: 확인된 빌드·QA/리뷰·심사·배포·출시 상태. 버전과 플랫폼을 섞지 않는다.
+- `data`: 배포·테스트 이후 확인된 결과와 관찰 상태. 버전·기간·국가·비교군을 섞지 않는다.
+- `confirmationRequired`: 사실 확인이 더 필요한 항목. 실행 병목으로 올리지 않는다.
+- `blockers`: 현재 실행·완료 조건·후속 일정에 직접 영향을 주는 미해결 병목만 기록한다.
+- `nextActions`: 원문에 합의된 행동과 AI 확인 제안을 구분한다.
+
+`projects[].summary`는 `projectBriefing.currentProgress`와 별개의 숫자 요약을 만들지 않는다. **`currentProgress`를 1~2문장으로 압축한 프로젝트 요약**으로 작성하고, 프로젝트 브리핑과 의미가 충돌하지 않게 한다.
+
+`overall.summary`는 회사 전체 관점의 통합 요약이다. 프로젝트별 `currentProgress`를 한 줄씩 반복하지 말고, 여러 프로젝트를 관통하는 현재 상황·우선순위·큰 위험·대표 판단 맥락만 요약한다. 개별 프로젝트의 상세 진행은 `projects[].projectBriefing`에서 설명한다.
+
+저장 전 품질 게이트:
+
+- `currentProgress`만 읽어도 “무엇을 하고 있는가 / 어디까지 왔는가 / 무엇이 남았는가”가 이해되는가?
+- 숫자·상태명·완료율이 문장의 주어가 되어 있지 않은가?
+- 최신 Slack 한 문장이나 KPI를 그대로 옮긴 것이 아니라 여러 관련 근거를 종합했는가?
+- 완료·QA·배포·데이터 상태를 근거 없이 확장하지 않았는가?
+- `project.summary`가 `currentProgress`와 같은 상황을 더 짧게 설명하고 있는가?
+
+하나라도 충족하지 못하면 저장 전에 다시 작성한다.
+
+'''
+          path = 'agent-package/01_AGENT_INSTRUCTIONS.md'
+          marker = '### 스펙 요약 작성 알고리즘과 품질 게이트\n'
+          text = read(path)
+          if '### 프로젝트 통합 브리핑 작성 기준' not in text:
+              if marker not in text:
+                  raise SystemExit('agent instructions project quality marker missing')
+              text = text.replace(marker, project_quality + marker, 1)
+          text = text.replace('`project.summary`도 스펙별 실제 산출물과 현재 단계를 합쳐 작성한다. 가이드 위반 건수·완료율·`RULE_NOT_EVALUATED`만 나열한 프로젝트 요약은 허용하지 않는다.', '`project.summary`는 `projectBriefing.currentProgress`를 1~2문장으로 압축한 요약으로 작성한다. 스펙별 실제 산출물과 현재 단계를 연결하되 가이드 위반 건수·완료율·`RULE_NOT_EVALUATED`만 나열한 프로젝트 요약은 허용하지 않는다.', 1)
+          write(path, text)
+
+          # Daily run prompt: force a project narrative quality gate each run.
+          path = 'agent-package/02_DAILY_RUN_PROMPT.md'
+          daily_insert = '''\n17-1. 모든 요약 대상 프로젝트에 `projectBriefing`을 작성해. `currentProgress`는 숫자 현황표가 아니라 대표가 읽으면 현재 상황이 그려지는 자연어 브리핑이어야 해. `specCatalog` 전체, `specSummaries`, `recent_execution`, 필요한 `persistent_context`, `project_operation`, 허용된 meeting/Git 근거를 종합해서 가능한 범위에서 **무엇을 목표로 하는지 → 무엇이 확인된 범위에서 진행·완료됐는지 → 지금 핵심적으로 무엇을 하는지 → 무엇이 남았는지 → 다음 중요한 단계가 무엇인지**를 연결해. 상태·완료율·활성 작업 수·기한 초과 수·가이드 위반 수는 보조 근거로만 쓰고 문장의 중심으로 나열하지 마. `buildRelease`는 버전·플랫폼별 빌드/QA/심사/출시 상태, `data`는 버전·기간·국가·비교군을 구분한 결과·관찰 상태로 분리해. 단순 확인은 `confirmationRequired`, 실제 실행 영향이 있는 미해결 문제만 `blockers`, 합의된 행동과 AI 확인 제안은 `nextActions.kind`로 구분해. `projects[].summary`는 `currentProgress`를 1~2문장으로 압축하고 별도의 숫자 요약을 만들지 마. `overall.summary`는 회사 전체 관점만 요약하고 프로젝트별 진행 문장을 반복하지 마. 저장 전에 `currentProgress`만 읽어도 “무엇을 하고 있고 / 어디까지 왔고 / 무엇이 남았는가”가 이해되는지 검사해. `Sprint3 진행 중, 활성 작업 8건, 완료율 72%`처럼 숫자·상태 나열형이면 저장하지 말고 관련 근거를 다시 종합해 상황 중심 문장으로 다시 작성해.\n'''
+          text = read(path)
+          if '17-1. 모든 요약 대상 프로젝트에 `projectBriefing`을 작성해.' not in text:
+              if '\n</analysis_contract>' not in text:
+                  raise SystemExit('daily prompt analysis contract marker missing')
+              text = text.replace('\n</analysis_contract>', daily_insert + '\n</analysis_contract>', 1)
+          write(path, text)
+
+          # Runtime execution guide mirrors the same quality bar.
+          path = 'prompts/업무대시보드_에이전트_실행지시.md'
+          runtime_insert = '''### 프로젝트 통합 브리핑 품질 기준\n\n- `projectBriefing.currentProgress`는 프로젝트의 숫자 현황표가 아니라, 대표가 읽었을 때 현재 상황의 흐름이 이해되는 자연어 브리핑으로 작성한다.\n- `specCatalog` 전체, `specSummaries`, `recent_execution`, 필요한 `persistent_context`, `project_operation`, 허용된 회의록·Git 근거를 종합해 가능한 범위에서 **목표·핵심 산출물 → 확인된 진행·완료 범위 → 현재 핵심 작업과 단계 → 남은 범위·검증 → 다음 중요한 단계**를 연결한다.\n- 상태·완료율·활성 작업 수·기한 초과 수·가이드 위반 수는 보조 근거다. 숫자나 상태값을 문장의 중심으로 나열하지 않는다.\n- `buildRelease`와 `data`는 현재 진행 요약과 분리한다. 빌드/QA/심사/출시는 버전·플랫폼을, 데이터는 버전·기간·국가·비교군을 구분한다.\n- `confirmationRequired`는 확인 필요, `blockers`는 직접 실행 영향이 있는 미해결 병목, `nextActions`는 합의 행동과 AI 확인 제안을 구분한다.\n- `projects[].summary`는 `currentProgress`를 1~2문장으로 압축하며 별도의 숫자 요약을 만들지 않는다. `overall.summary`는 회사 전체 관점만 요약하고 프로젝트별 진행을 반복하지 않는다.\n- 저장 전에 `currentProgress`만 읽어도 “무엇을 하고 있고 / 어디까지 왔고 / 무엇이 남았는가”가 이해되는지 검사한다. 숫자·상태 나열형이면 관련 근거를 다시 종합해 상황 중심 문장으로 다시 작성한다.\n\n'''
+          text = read(path)
+          marker = '### 프로젝트\n\n'
+          if '### 프로젝트 통합 브리핑 품질 기준' not in text:
+              if marker not in text:
+                  raise SystemExit('runtime project writing marker missing')
+              text = text.replace(marker, marker + runtime_insert, 1)
+          write(path, text)
+
+          # Runtime packet contract uses the same narrative rule.
+          path = 'lib/agent-project-operations.mjs'
+          text = read(path)
+          old = "새 분석에서는 outputSchema의 projects[].projectBriefing을 작성한다. project.goal·milestones·specCatalog 전체·sourceEvidence 전체(recent_execution/persistent_context/project_operation)·허용 meetingReferences·gitEvidence를 종합해 currentProgress(프로젝트 전반의 진행), buildRelease, data를 구분한다. 관련 직접 근거만 쓰며 Slack 최신 발췌 복사나 KPI 나열을 통합 요약으로 쓰지 않는다. 버전·플랫폼·관찰 기간이 다른 개발/QA/배포/데이터는 분리한다. buildRelease/data 미확인은 null, 제한은 confidenceLimits, 단순 확인은 confirmationRequired, 실제 실행 영향이 있는 병목만 기존 blockers에 기록한다. nextActions.kind는 합의 근거가 있으면 agreed, AI 확인 제안이면 suggested_check다. 사용한 출처만 evidence로 연결하고 출처 미수집을 활동 없음으로 단정하지 않는다. 기존 summary는 세 축을 압축해 유지하며 출력 스키마에 없는 필드는 생성하지 않는다."
+          new = "새 분석에서는 outputSchema의 projects[].projectBriefing을 작성한다. project.goal·milestones·specCatalog 전체·specSummaries·sourceEvidence 전체(recent_execution/persistent_context/project_operation)·허용 meetingReferences·gitEvidence를 종합해 currentProgress(프로젝트 전반의 진행), buildRelease, data를 구분한다. currentProgress는 숫자 현황표가 아니라 대표가 읽었을 때 무엇을 목표로 하고, 확인된 범위에서 어디까지 왔으며, 지금 무엇을 하고, 무엇이 남았고, 다음 중요한 단계가 무엇인지 이해되는 자연어 브리핑으로 작성한다. 상태·완료율·활성 작업 수·기한 초과·가이드 위반 수는 보조 근거로만 쓰고 Slack 최신 발췌 복사나 KPI 나열을 통합 요약으로 쓰지 않는다. 버전·플랫폼·관찰 기간이 다른 개발/QA/배포/데이터는 분리한다. buildRelease/data 미확인은 null, 제한은 confidenceLimits, 단순 확인은 confirmationRequired, 실제 실행 영향이 있는 병목만 기존 blockers에 기록한다. nextActions.kind는 합의 근거가 있으면 agreed, AI 확인 제안이면 suggested_check다. 사용한 출처만 evidence로 연결하고 출처 미수집을 활동 없음으로 단정하지 않는다. projects[].summary는 currentProgress를 1~2문장으로 압축하며 별도의 숫자 요약을 만들지 않고, overall.summary는 회사 전체 관점만 요약한다. 출력 스키마에 없는 필드는 생성하지 않는다."
+          if old not in text:
+              raise SystemExit('agent packet narrative constraint target missing')
+          write(path, text.replace(old, new, 1))
+
+          # Dashboard: overall + project briefings are one AI integrated briefing.
+          path = 'public/dashboard-presenters-base.js'
+          text = read(path)
+          text, count = re.subn(r"  const sourceBackedRisks = \(dashboard\.projects \|\| \[\]\).*?\.filter\(Boolean\);\n  const agentRisks =", "  const agentRisks =", text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('sourceBackedRisks block not found')
+          text = text.replace('const importantRisks = [...sourceBackedRisks, ...agentRisks]', 'const importantRisks = [...agentRisks]', 1)
+          return_pattern = r"  return `<div class=\"section-head\"><div><h2>오늘의 업무 브리핑</h2>.*?\$\{sprintOverviewHtml\(dashboard, \{ kpisHtml: scopedKpis, initialDetail: selectedDetail, initialFilters: briefingFilters \}\)\}`;\n"
+          new_return = '''  const executiveDecisions = ['success', 'partial', 'stale'].includes(analysisStatus) ? dashboard.ai?.overall?.decisionsForCEO || [] : [];
+  const decisionHtml = executiveDecisions.length
+    ? `<div class="analysis-risks analysis-decisions"><h4>대표 판단 필요</h4>${executiveDecisions.map(item => `<div class="briefing-row"><strong><span class="dot info"></span>${esc(item.project ? `[${item.project}] ` : '')}${esc(item.question || item)}</strong>${item.context ? `<small>${esc(item.context)}</small>` : ''}</div>`).join('')}</div>`
+    : '';
+  return `<div class="section-head"><div><h2>오늘의 업무 브리핑</h2><p>AI 통합 브리핑 → 어제와 달라진 것 → 스프린트별 업무 현황 순서입니다. 업무 원본에 대해 이 화면은 읽기 전용입니다.</p></div></div>
+    ${selectedDetail === 'git' ? briefingDetailHtml(dashboard, 'git', taskRows, briefingFilters) : ''}
+    <div class="bento briefing-primary-bento">
+    <div class="card span-12 ai-integrated-briefing-card"><h3>1. AI 통합 브리핑${analysisStatus === 'stale' ? ' · 갱신 필요' : ''}</h3>${overallSummary ? `<p class="summary analysis-summary">${esc(overallSummary)}</p>` : `<div class="summary">${esc(analysisEmpty)}</div>`}${importantRiskHtml}${decisionHtml}<div data-project-briefings-slot></div></div>
+    <div class="card span-12"><h3>2. 어제와 달라진 것</h3>${dashboard.deltas.length ? dashboard.deltas.slice(0, 5).map(delta => `<div class="briefing-row"><strong><span class="dot info"></span>[${esc(delta.project)}] ${esc(delta.taskTitle || '프로젝트')} · ${esc(delta.field)}</strong><small>${esc(JSON.stringify(delta.from))} → ${esc(JSON.stringify(delta.to))}</small></div>`).join('') : `<div class="summary">${esc(dashboard.snapshotComparison?.reason || '변화가 감지되지 않았습니다.')}</div>`}</div>
+    </div>${sprintOverviewHtml(dashboard, { kpisHtml: scopedKpis, initialDetail: selectedDetail, initialFilters: briefingFilters })}`;
+'''
+          text, count = re.subn(return_pattern, new_return, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('briefing return block not found')
+          write(path, text)
+
+          # Presenter inserts project briefing into the AI briefing slot rather than as section 3.
+          path = 'public/dashboard-presenters.js'
+          write(path, '''/*
+Delegated source-contracts preserved by dashboard-presenters-base.js:
+1. AI 통합 브리핑
+2. 어제와 달라진 것
+snapshotComparison?.reason
+이 화면은 읽기 전용입니다
+권장 처리
+data-copy-slack
+진행 준비 필요 항목
+<div class="kpis">${kpi('projects', metrics.activeProjects)}${kpi('work-items', metrics.inProgressWorkItems)}${kpi('overdue', metrics.overdueWorkItems)}${kpi('guide', metrics.guideViolationWorkItems)}${kpi('setup', metrics.progressSetupRequiredItems)}</div>
+${sprintOverviewHtml
+*/
+import { briefingHtml as baseBriefingHtml } from './dashboard-presenters-base.js';
+export * from './dashboard-presenters-base.js';
+
+import { projectBriefingsHtml } from './project-briefing.js';
+
+export function briefingHtml(dashboard, selectedDetail, taskRows, briefingFilters = {}) {
+  const base = baseBriefingHtml(dashboard, selectedDetail, taskRows, briefingFilters);
+  const projects = projectBriefingsHtml(dashboard);
+  const slot = '<div data-project-briefings-slot></div>';
+  return base.includes(slot) ? base.replace(slot, projects || '') : base;
+}
+''')
+
+          # Project briefing becomes a subsection inside AI integrated briefing, not a numbered top-level section.
+          path = 'public/project-briefing.js'
+          text = read(path)
+          old = "export function projectBriefingsHtml(dashboard) {\n  const projects = rows(dashboard.projects);\n  return projects.length ? `<section class=\"project-briefings\" aria-label=\"프로젝트 현황\"><div class=\"project-briefings-head\"><div><p class=\"project-briefings-kicker\">PROJECT STATUS</p><h3 class=\"project-briefings-title\">3. 프로젝트 현황</h3><p class=\"project-briefing-muted\">모든 관련 근거를 Agent가 종합한 현재 진행 · 빌드·출시 · 데이터 브리핑입니다. 원문은 ‘근거 보기’에서 확인합니다.</p></div></div><div class=\"bento project-operations-bento\">${projects.map(project => projectBriefingHtml(dashboard, project)).join('')}</div></section>` : '';\n}"
+          new = "export function projectBriefingsHtml(dashboard) {\n  const projects = rows(dashboard.projects);\n  return projects.length ? `<section class=\"project-briefings project-briefings-integrated\" aria-label=\"프로젝트별 현황\"><div class=\"project-briefings-head\"><div><p class=\"project-briefings-kicker\">PROJECT STATUS</p><h4 class=\"project-briefings-title\">프로젝트별 현황</h4><p class=\"project-briefing-muted\">각 프로젝트의 현재 진행을 중심으로 빌드·출시·데이터·병목·다음 행동을 같은 Agent 분석 안에서 확인합니다. 원문은 ‘근거 보기’에서 확인합니다.</p></div></div><div class=\"bento project-operations-bento\">${projects.map(project => projectBriefingHtml(dashboard, project)).join('')}</div></section>` : '';\n}"
+          if old not in text:
+              raise SystemExit('projectBriefingsHtml target missing')
+          write(path, text.replace(old, new, 1))
+
+          # Sprint becomes top-level section 3.
+          path = 'public/sprint-overview.js'
+          text = read(path)
+          if '<h3 id="sprint-overview-title">4. 스프린트별 업무 현황</h3>' not in text:
+              raise SystemExit('sprint overview heading target missing')
+          write(path, text.replace('<h3 id="sprint-overview-title">4. 스프린트별 업무 현황</h3>', '<h3 id="sprint-overview-title">3. 스프린트별 업무 현황</h3>', 1))
+
+          # Integrated bento spacing.
+          path = 'public/project-briefing.css'
+          text = read(path)
+          css = '''\n\n/* AI integrated briefing: project cards are a subsection, not a separate top-level section. */\n.ai-integrated-briefing-card { overflow: visible; }\n.ai-integrated-briefing-card > .project-briefings-integrated { margin-top:18px; padding-top:18px; border-top:1px solid var(--line-soft); }\n.ai-integrated-briefing-card .project-briefings-head { margin-bottom:10px; }\n.ai-integrated-briefing-card .project-briefings-title { margin:2px 0 3px; font-size:18px; letter-spacing:-.02em; }\n.ai-integrated-briefing-card .project-operations-bento { margin-top:10px; }\n.analysis-decisions { margin-top:10px; }\n'''
+          if 'AI integrated briefing: project cards are a subsection' not in text:
+              text += css
+          write(path, text)
+
+          # Browser smoke: three top-level headings; project briefing lives inside section 1.
+          path = 'tools/sprint-browser-smoke.py'
+          text = read(path)
+          old = "check('Analysis changes project briefing and sprint overview are ordered', len(headings) >= 4 and headings[0].startswith('1.') and headings[1].startswith('2.') and headings[2].startswith('3.') and '프로젝트 현황' in headings[2] and headings[3].startswith('4.'), headings)"
+          new = "check('AI briefing contains projects and sprint overview is third', len(headings) >= 3 and headings[0].startswith('1. AI 통합 브리핑') and headings[1].startswith('2.') and headings[2].startswith('3. 스프린트별 업무 현황') and page.locator('.ai-integrated-briefing-card .project-briefings-integrated').count() == 1, headings)"
+          if old not in text:
+              raise SystemExit('browser heading assertion target missing')
+          write(path, text.replace(old, new, 1))
+
+          # Presenter tests: no project/spec raw risk promotion into executive summary, and unified hierarchy.
+          path = 'test/dashboard-presenters.test.mjs'
+          text = read(path)
+          pattern = r" test\('Given several source-backed risks, When executive briefing renders, Then one latest risk per project prevents one project from crowding out another', \(\) => \{.*?\n\}\);"
+          replacement = ''' test('Given project or spec source-backed risks, When executive briefing renders, Then they are not promoted above the project briefing unless Agent overall marks them as top risks', () => {
+  const evidence = (excerpt, timestamp) => ({ source: 'meeting', attention: true, excerpt, timestamp });
+  const dashboard = {
+    metrics: {}, validationIssues: [], deltas: [], git: { repositories: [] },
+    ai: { analysisStatus: 'stale', overall: { topRisks: [] }, projects: [] },
+    projects: [
+      { name: '포지 앤 포춘', specInsights: [
+        { title: '특수상인', evidence: [evidence('오래된 위험', '2026-07-01')] },
+        { title: '가이드퀘스트', evidence: [evidence('최신 포지 위험', '2026-07-30')] },
+      ] },
+      { name: '피자레디', specInsights: [
+        { title: '라이브 이벤트 - 숨겨진 사원', evidence: [evidence('디자인 협업 지연', '2026-07-24')] },
+      ] },
+    ],
+  };
+
+  const html = briefingHtml(dashboard, null, () => '');
+  const beforeProjects = html.split('프로젝트별 현황')[0];
+  assert.doesNotMatch(beforeProjects, /최신 포지 위험|오래된 위험|디자인 협업 지연/);
+});'''
+          text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('dashboard source risk test target missing')
+          add_test = '''\n\n test('Given project briefings, When briefing renders, Then overall and projects share one AI integrated section and sprint overview is third', () => {
+  const dashboard = {
+    generatedAt: '2026-09-09T01:00:00Z', agentHandoff: { generatedAt: '2026-09-09T01:00:00Z', runId: '2026-09-09-morning' },
+    metrics: {}, validationIssues: [], deltas: [], git: { repositories: [] },
+    ai: { analysisStatus: 'success', runId: '2026-09-09-morning', generatedAt: '2026-09-09T02:00:00Z', sourceComparison: { status: 'complete' }, sourceStatus: {}, overall: { summary: '전체 상황 요약', topRisks: [] }, projects: [{ name: '포지 앤 포춘', summary: '프로젝트 요약', blockers: [], specSummaries: [], confidenceLimits: [], projectBriefing: { currentProgress: '핵심 기능을 구현하고 현재 QA 준비 단계다.', buildRelease: null, data: null, confirmationRequired: [], nextActions: [], evidence: [], confidenceLimits: [] } }] },
+    projects: [{ name: '포지 앤 포춘', stats: {}, specs: [], projectOperations: {} }],
+  };
+  const html = briefingHtml(dashboard, null, () => '');
+  assert.match(html, /1\. AI 통합 브리핑/);
+  assert.match(html, /프로젝트별 현황/);
+  assert.ok(html.indexOf('프로젝트별 현황') < html.indexOf('2. 어제와 달라진 것'));
+  assert.match(html, /3\. 스프린트별 업무 현황/);
+  assert.doesNotMatch(html, /3\. 프로젝트 현황|4\. 스프린트별 업무 현황/);
+});\n'''
+          if 'overall and projects share one AI integrated section' not in text:
+              text += add_test
+          write(path, text)
+
+          # Prompt contract tests ensure project narrative quality stays enforced.
+          path = 'test/agent-instruction-contract.test.mjs'
+          text = read(path)
+          add_test = '''\n\ntest('Given a project briefing, When the agent writes currentProgress, Then narrative quality is enforced above numeric status reporting', () => {
+  const documents = [
+    read('../agent-package/01_AGENT_INSTRUCTIONS.md'),
+    read('../agent-package/02_DAILY_RUN_PROMPT.md'),
+    read('../prompts/업무대시보드_에이전트_실행지시.md'),
+  ];
+  for (const document of documents) {
+    assert.match(document, /projectBriefing|currentProgress/);
+    assert.match(document, /무엇을.*하고.*어디까지|무엇을 목표로|현재 상황/);
+    assert.match(document, /숫자.*현황표|숫자.*상태|완료율.*보조/);
+    assert.match(document, /project.*summary|projects\[\]\.summary/);
+    assert.match(document, /overall.*summary/);
+    assert.match(document, /다시 작성|저장하지 말고/);
+  }
+});\n'''
+          if 'narrative quality is enforced above numeric status reporting' not in text:
+              text += add_test
+          write(path, text)
+          PY
+      - name: Unit tests
+        run: npm test
+      - name: Build and syntax checks
+        run: |
+          npm run build
+          node --check public/dashboard-presenters-base.js
+          node --check public/dashboard-presenters.js
+          node --check public/project-briefing.js
+          node --check public/sprint-overview.js
+          node --check lib/agent-project-operations.mjs
+      - name: Commit tested patch
+        run: |
+          git config user.name 'MOLIP dashboard bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm .github/workflows/patch-unified-ai-briefing-temp.yml
+          git add agent-package/01_AGENT_INSTRUCTIONS.md agent-package/02_DAILY_RUN_PROMPT.md prompts/업무대시보드_에이전트_실행지시.md lib/agent-project-operations.mjs public/dashboard-presenters-base.js public/dashboard-presenters.js public/project-briefing.js public/project-briefing.css public/sprint-overview.js tools/sprint-browser-smoke.py test/dashboard-presenters.test.mjs test/agent-instruction-contract.test.mjs
+          git commit -m 'feat: unify AI and project briefings'
+          git push origin HEAD:feat/unified-ai-briefing-20260909-2
