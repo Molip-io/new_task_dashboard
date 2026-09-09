@@ -24,6 +24,7 @@ jobs:
           cp api/app.mjs deploy-src/api/app.mjs
           cp collect.mjs deploy-src/collect.mjs
           cp -R lib deploy-src/lib
+          cp -R public deploy-src/public
           python - <<'PY'
           from pathlib import Path
           p=Path('deploy-src/lib/env.mjs')
