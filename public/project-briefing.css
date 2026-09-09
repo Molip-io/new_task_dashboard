@@ -29,3 +29,27 @@
 .project-briefing-evidence-item p { margin: 6px 0; color: var(--text-soft); white-space: pre-line; line-height: 1.65; overflow-wrap: anywhere; }
 .project-briefing-evidence-item a { overflow-wrap: anywhere; font-size: 12px; }
 @media (max-width: 720px) { .project-briefing-grid { grid-template-columns: 1fr; gap: 0; } .project-briefing-body { padding: 14px; } .project-briefing-card > summary { align-items: flex-start; } }
+
+
+/* Bento-bold refinement: narrative remains primary, evidence remains secondary. */
+.project-briefings-head { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; margin-bottom:12px; }
+.project-briefings-kicker, .project-briefing-kicker { display:block; font-size:9px; font-weight:800; letter-spacing:.17em; color:var(--accent); }
+.project-briefings-title { font-size:23px; letter-spacing:-.03em; }
+.project-briefing-card { padding:0; overflow:hidden; }
+.project-briefing-card > summary { padding:18px 20px; gap:16px; align-items:center; }
+.project-briefing-summary-content { display:grid; gap:9px; min-width:0; flex:1; }
+.project-briefing-summary-top { display:flex; flex-wrap:wrap; align-items:center; gap:7px 10px; min-width:0; }
+.project-briefing-summary-top > strong { font-size:16px; letter-spacing:-.02em; }
+.project-briefing-summary-meta { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; color:var(--muted); font-size:10px; }
+.project-briefing-summary-meta .project-briefing-status { padding:3px 6px; }
+.project-briefing-body { background:var(--panel-3); }
+.project-briefing-hero { margin-bottom:12px; }
+.project-briefing-axis { padding:15px 16px; border-radius:var(--radius-well,14px); background:var(--well,var(--panel)); box-shadow:inset 0 0 0 1px var(--line-soft); }
+.project-briefing-axis-primary { padding:18px; background:linear-gradient(135deg,var(--accent-bg),var(--panel-3)); box-shadow:inset 0 0 0 1px var(--line-strong); }
+.project-briefing-axis-primary h4 { color:var(--accent); font-size:11px; letter-spacing:.08em; }
+.project-briefing-grid-axes { gap:10px; margin-bottom:10px; }
+.project-briefing-tri-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.project-briefing-axis-compact p { font-size:12px; line-height:1.7; }
+.project-briefing-evidence { margin-top:14px; }
+@media (max-width:900px) { .project-briefing-tri-grid { grid-template-columns:1fr; } }
+@media (max-width:720px) { .project-briefing-card > summary { padding:15px; } .project-briefing-summary-top { align-items:flex-start; } .project-briefing-summary-meta { width:100%; } }

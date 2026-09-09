@@ -37,7 +37,8 @@ for project in projects:
     project['specs'] = [{'id': project['notionId'] + '-spec', 'title': 'Test Spec', 'status': '진행 중', 'sprint': next(iter(project['currentSprints']), None), 'tasks': [t for t in tasks if t['project'] == project['name']], 'owners': ['Test Owner']}]
 setting = {'kind':'MOLIP_GLOBAL_SPRINT_SETTINGS_V2','mode':'selected','input':'3','sprints':['Sprint3'],'changedAt':'2026-09-07T10:00:00+09:00','revision':'initial'}
 scope = {'mode':'selected','input':'3','sprints':['Sprint3'],'configured':True,'source':'dashboard'}
-fixture = {'sample': False, 'generatedAt': '2026-09-07T10:00:00+09:00', 'projects': projects, 'workItems': tasks, 'validationIssues': [i for t in tasks for i in t['issues']], 'metrics': {}, 'deltas': [], 'workload': [], 'notionSetup': {'ready': True, 'databases': []}, 'git': {'repositories': [], 'commits': [], 'errors': []}, 'errors': [], 'sourceHealth': {'sources': [{'id': 'notion', 'status': 'ok'}, {'id': 'agent-analysis', 'status': 'ok', 'analysisStatus': 'success'}]}, 'ai': {'analysisStatus': 'success', 'generatedAt': '2026-09-07T10:05:00+09:00', 'overall': {'summary': 'Synthetic fixture: not production company data.', 'topRisks': []}, 'projects': []}, 'sprintScope': {**scope, 'revision':'initial','signature':'[selected,sprint3]'}, 'sprintSettings': {'writable': True, 'setting': setting, 'scope': scope, 'history': [], 'revision': 'initial', 'pendingInput': False, 'pendingAnalysis': False}}
+parent_guide = {'id': 'parent-guide', 'type': 'MISSING_REQUIRED_OWNERS', 'severity': 'error', 'message': 'Parent owners required', 'specId': 'a-spec', 'project': 'Project A'}
+fixture = {'sample': False, 'generatedAt': '2026-09-07T10:00:00+09:00', 'projects': projects, 'workItems': tasks, 'validationIssues': [parent_guide] + [i for t in tasks for i in t['issues']], 'metrics': {}, 'deltas': [], 'workload': [], 'notionSetup': {'ready': True, 'databases': []}, 'git': {'repositories': [], 'commits': [], 'errors': []}, 'errors': [], 'sourceHealth': {'sources': [{'id': 'notion', 'status': 'ok'}, {'id': 'agent-analysis', 'status': 'ok', 'analysisStatus': 'success'}]}, 'ai': {'analysisStatus': 'success', 'generatedAt': '2026-09-07T10:05:00+09:00', 'overall': {'summary': 'Synthetic fixture: not production company data.', 'topRisks': []}, 'projects': []}, 'sprintScope': {**scope, 'revision':'initial','signature':'[selected,sprint3]'}, 'sprintSettings': {'writable': True, 'setting': setting, 'scope': scope, 'history': [], 'revision': 'initial', 'pendingInput': False, 'pendingAnalysis': False}}
 checks, errors, writes = [], [], []
 def check(name, condition, detail=None):
     checks.append({'name': name, 'passed': bool(condition), 'detail': detail})
@@ -83,15 +84,15 @@ try:
         def values():
             return [int(x) for x in page.locator('sprint-work-overview .kpi .value').all_text_contents()]
         sprint = page.locator('[data-scope-sprint]')
-        check('Baseline five scoped KPIs', values() == [3, 3, 1, 2, 1], values())
+        check('Baseline five scoped KPIs', values() == [3, 3, 1, 4, 1], values())
         headings = page.locator('#tab-briefing h3').all_text_contents()
-        check('Analysis changes project briefing and sprint overview are ordered', len(headings) >= 4 and headings[0].startswith('1.') and headings[1].startswith('2.') and '프로젝트 현황' in headings[2] and headings[3].startswith('3.'), headings)
+        check('Analysis changes project briefing and sprint overview are ordered', len(headings) >= 4 and headings[0].startswith('1.') and headings[1].startswith('2.') and headings[2].startswith('3.') and '프로젝트 현황' in headings[2] and headings[3].startswith('4.'), headings)
         sprint.fill('3,4'); sprint.press('Enter')
-        check('Global multi-sprint input recomputes five KPIs', values() == [3, 4, 1, 4, 2], values())
+        check('Global multi-sprint input recomputes five KPIs', values() == [3, 4, 1, 6, 2], values())
         check('Preview does not write shared settings', not writes)
         page.locator('button[data-scope-detail="guide"]').click()
         titles = page.locator('.scope-table tbody td:first-child a').all_text_contents()
-        check('Guide list matches KPI without overdue duplicate', len(titles) == 4 and 'overdue-and-guide' not in titles, titles)
+        check('Guide list matches KPI with parent and overdue overlap visible', len(titles) == 6 and 'overdue-and-guide' in titles and 'Test Spec' in titles, titles)
         sprint = page.locator('[data-scope-sprint]'); sprint.fill(''); sprint.press('Enter')
         check('Blank input is explicitly unconfigured', '미계산' in page.locator('sprint-work-overview').inner_text())
         sprint = page.locator('[data-scope-sprint]'); sprint.fill('전체'); sprint.press('Enter')
@@ -117,12 +118,12 @@ try:
         page.wait_for_timeout(100)
         copied = page.evaluate('navigator.clipboard.readText()')
         link = copied.splitlines()[-1].split(': ', 1)[-1]
-        check('Copy shares global scope and URL', 'sprintView=3%2C4' in link and 'overdue-and-guide' not in copied)
+        check('Copy shares global scope and URL', 'sprintView=3%2C4' in link and 'overdue-and-guide' in copied and 'Test Spec' in copied)
         second = context.new_page()
         second.on('pageerror', lambda e: errors.append(str(e)))
         second.goto(link)
         second.locator('sprint-work-overview .kpi').first.wait_for()
-        check('Shared URL restores global input and detail', second.locator('[data-scope-sprint]').input_value() == '3,4' and second.locator('.scope-table tbody tr').count() == 4)
+        check('Shared URL restores global input and detail', second.locator('[data-scope-sprint]').input_value() == '3,4' and second.locator('.scope-table tbody tr').count() == 6)
         second.close()
         page.screenshot(path=str(OUT / 'desktop.png'), full_page=True)
         page.set_viewport_size({'width': 390, 'height': 844})

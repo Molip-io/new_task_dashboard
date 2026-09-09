@@ -1,5 +1,7 @@
+import { issueMatchesCategory } from './dashboard-management.js';
+
 // Shared by the browser and Node. No source fetches or source-record mutations.
-export const SPRINT_POLICY_VERSION = '2026-09-07.2';
+export const SPRINT_POLICY_VERSION = '2026-09-09.1';
 export const GLOBAL_SPRINT_ALL = '전체';
 const CLOSED = new Set(['완료', '일시 정지', '정지', '중단']);
 
@@ -156,12 +158,20 @@ export function buildSprintOverview(dashboard, scopeOverride = null, filters = {
   if (scope.mode === 'all' && !(scope.sprints || []).length) scope = { ...scope, sprints: allKnownSprints(dashboard) };
   const projects = applyGlobalSprintScope(dashboard.projects || [], scope);
   const byName = new Map(projects.map(project => [project.name, project]));
-  const specs = new Map(projects.flatMap(project => (project.specs || []).map(spec => [spec.id, spec])));
+  const parentRecords = new Map();
+  for (const project of projects) {
+    for (const spec of project.specs || []) parentRecords.set(spec.id, { ...spec, project: project.name, itemLevel: 'parent' });
+  }
   const raw = dashboard.workItems || [];
+  for (const item of raw) {
+    if (item.itemLevel !== 'parent') continue;
+    const known = parentRecords.get(item.id) || {};
+    parentRecords.set(item.id, { ...item, ...known, id: item.id, project: known.project || item.project, itemLevel: 'parent' });
+  }
   const allIssues = dashboard.validationIssues || [];
   const unique = new Map();
   for (const original of raw) {
-    if (original.itemLevel === 'parent' || CLOSED.has(original.status) || CLOSED.has(specs.get(original.specId)?.status)) continue;
+    if (original.itemLevel === 'parent' || CLOSED.has(original.status) || CLOSED.has(parentRecords.get(original.specId)?.status)) continue;
     const issues = new Map([...(original.issues || []), ...allIssues.filter(issue => issue.workItemId === original.id)]
       .map(issue => [issue.id || `${issue.type}:${issue.message || ''}`, issue]));
     const item = { ...original, issues: sortIssuesOverdueFirst([...issues.values()]) };
@@ -173,27 +183,75 @@ export function buildSprintOverview(dashboard, scopeOverride = null, filters = {
     (!filters.assignee || (item.assignees || []).includes(filters.assignee)));
 
   const selectedKeys = new Set(uniqueSprints(scope.sprints || []).map(normalizeSprint));
-  const relation = item => {
-    const project = byName.get(item.project);
+  const relationFor = (projectName, sprint) => {
+    const project = byName.get(projectName);
     if (!project) return 'unknown';
     if (!usesSprints(project)) return 'not-applicable';
-    if (scope.mode === 'all') return item.sprint ? 'current' : 'unknown';
-    if (scope.mode === 'selected') return classifySprint(item.sprint, scope.sprints || []);
+    if (scope.mode === 'all') return sprint ? 'current' : 'unknown';
+    if (scope.mode === 'selected') return classifySprint(sprint, scope.sprints || []);
     return 'unknown';
   };
-  const inScope = item => {
+  const inScopeEntity = (projectName, sprint) => {
     if (!scope.configured && scope.mode === 'unset') return false;
-    const project = byName.get(item.project);
+    const project = byName.get(projectName);
     if (project && !usesSprints(project)) return true;
-    if (scope.mode === 'all') return Boolean(item.sprint);
-    return selectedKeys.has(normalizeSprint(item.sprint));
+    if (scope.mode === 'all') return Boolean(sprint);
+    return selectedKeys.has(normalizeSprint(sprint));
   };
+  const inScope = item => inScopeEntity(item.project, item.sprint);
 
-  const selected = active.filter(inScope).map(item => ({ ...item, sprintRelation: relation(item) }));
+  const selected = active.filter(inScope).map(item => ({ ...item, sprintRelation: relationFor(item.project, item.sprint) }));
   const overdue = selected.filter(isOverdue);
-  const guide = selected.filter(item => !isOverdue(item) && item.issues.some(issue => issue.category === 'guide'));
+  const guideChildren = selected.filter(item => item.issues.some(issue => issueMatchesCategory(issue, 'guide')));
   const setup = selected.filter(item => item.sprintRelation === 'current' && item.status === '시작 전' && !isOverdue(item));
   const running = selected.filter(item => item.status === '진행 중');
+
+  const parentIssues = new Map();
+  const addParentIssues = (id, values = []) => {
+    if (!id) return;
+    const target = parentIssues.get(id) || new Map();
+    for (const issue of values) target.set(issue.id || `${issue.type}:${issue.message || ''}`, issue);
+    parentIssues.set(id, target);
+  };
+  for (const [id, parent] of parentRecords) addParentIssues(id, parent.issues || []);
+  for (const issue of allIssues) if (issue.specId && !issue.workItemId) addParentIssues(issue.specId, [issue]);
+
+  const parentGuideCandidates = [];
+  for (const [id, issueMap] of parentIssues) {
+    const parent = parentRecords.get(id);
+    if (!parent || CLOSED.has(parent.status)) continue;
+    const issues = sortIssuesOverdueFirst([...issueMap.values()]);
+    if (!issues.some(issue => issueMatchesCategory(issue, 'guide'))) continue;
+    const assignees = parent.owners || parent.assignees || [];
+    if (filters.project && parent.project !== filters.project) continue;
+    if (filters.team) continue;
+    if (filters.assignee && !assignees.includes(filters.assignee)) continue;
+    parentGuideCandidates.push({
+      id: parent.id,
+      title: parent.title || '상위 작업',
+      project: parent.project,
+      sprint: parent.sprint || null,
+      status: parent.status || parent.parentStatus || null,
+      itemLevel: 'parent',
+      team: '상위 작업',
+      assignees,
+      start: parent.start || null,
+      due: parent.due || null,
+      overdueDays: 0,
+      url: parent.url || null,
+      issues,
+      sprintRelation: relationFor(parent.project, parent.sprint),
+    });
+  }
+  const guideParents = parentGuideCandidates.filter(inScope);
+  const guide = [...guideParents, ...guideChildren];
+  const activeGuideChildren = active.filter(item => item.issues.some(issue => issueMatchesCategory(issue, 'guide')))
+    .map(item => ({ ...item, sprintRelation: relationFor(item.project, item.sprint) }));
+  const allGuide = [...parentGuideCandidates, ...activeGuideChildren];
+  const unknownGuideViolationItems = allGuide.filter(item => usesSprints(byName.get(item.project) || {}) && relationFor(item.project, item.sprint) === 'unknown');
+  const outsideGuideViolationItems = allGuide.filter(item => !inScope(item) && relationFor(item.project, item.sprint) !== 'unknown');
+  const overdueGuideOverlapItems = guideChildren.filter(isOverdue);
+
   const selectedProjects = projects.filter(project => selected.some(item => item.project === project.name))
     .map(project => {
       const items = selected.filter(item => item.project === project.name);
@@ -212,12 +270,26 @@ export function buildSprintOverview(dashboard, scopeOverride = null, filters = {
     runningItems: running,
     overdueItems: overdue,
     guideViolationItems: guide,
+    guideChildViolationItems: guideChildren,
+    guideParentViolationItems: guideParents,
+    overdueGuideOverlapItems,
+    outsideGuideViolationItems,
+    unknownGuideViolationItems,
     progressSetupItems: setup,
     outsideOverdueItems,
-    unknownSprintItems: active.filter(item => usesSprints(byName.get(item.project) || {}) && relation(item) === 'unknown'),
-    pastNotStartedItems: active.filter(item => relation(item) === 'past' && item.status === '시작 전'),
+    unknownSprintItems: active.filter(item => usesSprints(byName.get(item.project) || {}) && relationFor(item.project, item.sprint) === 'unknown'),
+    pastNotStartedItems: active.filter(item => relationFor(item.project, item.sprint) === 'past' && item.status === '시작 전'),
     parentIssueCount: parentIds.size,
     unconfiguredProjects: scope.mode === 'unset' ? projects.filter(usesSprints).map(project => project.name) : [],
+    guideBreakdown: {
+      total: guide.length,
+      parent: guideParents.length,
+      child: guideChildren.length,
+      overdueOverlap: overdueGuideOverlapItems.length,
+      outside: outsideGuideViolationItems.length,
+      unknown: unknownGuideViolationItems.length,
+      parentTeamFilterLimited: Boolean(filters.team),
+    },
     metrics: {
       activeProjects: selectedProjects.length,
       inProgressWorkItems: running.length,

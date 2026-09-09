@@ -1,8 +1,9 @@
 import { buildSprintOverview, parseSprintInput, resolveSprintScope, sortIssuesOverdueFirst } from './sprint-policy.js';
+import { issuePresentation } from './dashboard-management.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const safeUrl = value => /^https?:\/\//.test(String(value || '')) ? value : '#';
-const labels = { projects: '진행 중 프로젝트', 'work-items': '진행 중 작업항목', overdue: '기한 초과 작업항목', guide: '가이드 위반 작업항목', setup: '진행 준비 필요 항목', outside: '선택 밖 기한 초과', unknown: '스프린트 분류 확인 필요' };
+const labels = { projects: '진행 중 프로젝트', 'work-items': '진행 중 작업항목', overdue: '기한 초과 작업항목', guide: '가이드 위반 항목', setup: '진행 준비 필요 항목', outside: '선택 밖 기한 초과', unknown: '스프린트 분류 확인 필요', 'outside-guide': '선택 밖 가이드 위반', 'unknown-guide': '스프린트 분류 확인 가이드' };
 const bindings = new Map();
 let sequence = 0;
 const state = { sprintInput: null, filters: {}, detail: null, message: '', saving: false };
@@ -29,24 +30,33 @@ function isDirty(dashboard) { return normalizedInput(previewInput(dashboard)) !=
 
 function itemRows(items) {
   if (!items.length) return '<p class="scope-empty">선택한 범위에 해당하는 항목이 없습니다.</p>';
-  return `<div class="scope-table-scroll"><table class="scope-table"><thead><tr><th>작업항목</th><th>상태</th><th>담당자</th><th>기간</th><th>확인사항</th></tr></thead><tbody>${items.map(item => {
-    const issues = sortIssuesOverdueFirst(item.issues);
+  return `<div class="scope-table-scroll"><table class="scope-table"><thead><tr><th>항목</th><th>상태</th><th>담당자</th><th>기간</th><th>확인사항</th></tr></thead><tbody>${items.map(item => {
+    const issues = sortIssuesOverdueFirst(item.issues || []);
     const primary = issues[0];
-    const label = primary?.type === 'OVERDUE' ? '기한 초과' : primary?.label || primary?.message || (item.status === '시작 전' ? '착수 준비 확인' : '확인된 관리 문제 없음');
-    return `<tr><td><a href="${esc(safeUrl(item.url))}" target="_blank" rel="noreferrer">${esc(item.title)}</a><small>${esc(item.project)} · ${esc(item.sprint || '스프린트 미사용/미지정')} · ${esc(item.team || '-')}</small></td>
+    const primaryView = primary ? issuePresentation(primary) : null;
+    const label = primary?.type === 'OVERDUE' ? '기한 초과' : primaryView?.label || (item.status === '시작 전' ? '착수 준비 확인' : '확인된 관리 문제 없음');
+    const level = item.itemLevel === 'parent' ? '상위 작업' : '하위 작업';
+    return `<tr data-scope-item-level="${item.itemLevel === 'parent' ? 'parent' : 'child'}"><td><a href="${esc(safeUrl(item.url))}" target="_blank" rel="noreferrer">${esc(item.title)}</a><small>${esc(item.project)} · ${esc(item.sprint || '스프린트 미사용/미지정')} · ${esc(level)}${item.itemLevel === 'parent' ? '' : ` · ${esc(item.team || '-')}`}</small></td>
       <td>${esc(item.status || '미정')}</td><td>${esc((item.assignees || []).join(', ') || '미지정')}</td>
       <td>${esc(item.start || '-')}<br>→ ${esc(item.due || '-')}${item.overdueDays > 0 ? `<small class="scope-danger">${esc(item.overdueDays)}일 초과</small>` : ''}</td>
-      <td>${issues.length ? `<details class="scope-issues"><summary>${esc(label)}${issues.length > 1 ? ` 외 ${issues.length-1}건` : ''}</summary>${issues.map(issue => `<div><strong>${esc(issue.type === 'OVERDUE' ? '기한 초과' : issue.label || issue.type)}</strong><p>${esc(issue.message)}</p>${issue.recommendedAction ? `<p>${esc(issue.recommendedAction)}</p>` : ''}</div>`).join('')}</details>` : esc(label)}</td></tr>`;
+      <td>${issues.length ? `<details class="scope-issues"><summary>${esc(label)}${issues.length > 1 ? ` 외 ${issues.length-1}건` : ''}</summary>${issues.map(issue => { const view = issuePresentation(issue); return `<div><strong>${esc(issue.type === 'OVERDUE' ? '기한 초과' : view.label)}</strong><p>${esc(issue.message || view.label)}</p>${view.recommendedAction ? `<p>${esc(view.recommendedAction)}</p>` : ''}</div>`; }).join('')}</details>` : esc(label)}</td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 function detailItems(view, detail) {
-  return ({ 'work-items': view.runningItems, overdue: view.overdueItems, guide: view.guideViolationItems, setup: view.progressSetupItems, outside: view.outsideOverdueItems, unknown: view.unknownSprintItems })[detail] || [];
+  return ({ 'work-items': view.runningItems, overdue: view.overdueItems, guide: view.guideViolationItems, setup: view.progressSetupItems, outside: view.outsideOverdueItems, unknown: view.unknownSprintItems, 'outside-guide': view.outsideGuideViolationItems, 'unknown-guide': view.unknownGuideViolationItems })[detail] || [];
 }
 function detailHtml(view, detail) {
   if (!detail || !labels[detail]) return '';
   if (detail === 'projects') return `<section class="scope-detail"><h4>${labels.projects} ${view.projects.length}개</h4>${view.projects.map(project => `<p><strong>${esc(project.name)}</strong> · 활성 작업 ${project.stats.total}개 · 진행 중 ${project.stats.inProgress}개 · 기한 초과 ${project.stats.overdue}개</p>`).join('') || '<p>선택 범위에 활성 작업이 없습니다.</p>'}</section>`;
   const items = detailItems(view, detail);
   return `<section class="scope-detail" aria-live="polite"><div class="scope-detail-heading"><h4>${esc(labels[detail])} ${items.length}개</h4><button type="button" data-scope-copy ${items.length ? '' : 'disabled'}>목록 복사</button></div>${itemRows(items)}</section>`;
+}
+
+
+function guideCoverageHtml(view) {
+  if (!view.scopeConfigured) return '';
+  const breakdown = view.guideBreakdown || {};
+  return `<div class="scope-guide-coverage"><div class="scope-guide-main"><span class="scope-guide-eyebrow">GUIDE COVERAGE</span><strong>현재 범위 가이드 위반 ${breakdown.total || 0}개</strong><small>상위 ${breakdown.parent || 0} · 하위 ${breakdown.child || 0}${breakdown.overdueOverlap ? ` · 기한 초과 중복 ${breakdown.overdueOverlap}` : ''}</small></div><div class="scope-guide-context"><span>선택 밖 ${breakdown.outside || 0}</span><span>스프린트 분류 확인 ${breakdown.unknown || 0}</span></div></div>${breakdown.parentTeamFilterLimited ? '<p class="scope-help">팀 필터 사용 중에는 단일 팀 귀속을 확인할 수 없는 상위 작업 가이드 위반을 범위 수치에서 제외합니다.</p>' : ''}<p class="scope-help">‘확인필요’ 탭은 전체 활성 범위와 다른 문제 분류까지 포함합니다. 여기서는 현재 스프린트의 가이드 위반을 상위·하위 모두 보여주며, 기한 초과와 가이드 위반은 동시에 집계될 수 있습니다.</p>`;
 }
 
 export function renderSprintOverview(dashboard, viewState, kpisHtml) {
@@ -65,7 +75,7 @@ export function renderSprintOverview(dashboard, viewState, kpisHtml) {
   const history = dashboard.sprintSettings?.history || [];
 
   return `<section class="sprint-overview" aria-labelledby="sprint-overview-title">
-    <div class="scope-title"><div><p class="scope-eyebrow">SPRINT WORK OVERVIEW</p><h3 id="sprint-overview-title">3. 스프린트별 업무 현황</h3><p>공용 스프린트 범위와 프로젝트·팀·담당자 필터를 같은 업무 지표에 적용합니다.</p></div><span class="scope-mode">${esc(modeLabel)}</span></div>
+    <div class="scope-title"><div><p class="scope-eyebrow">SPRINT WORK OVERVIEW</p><h3 id="sprint-overview-title">4. 스프린트별 업무 현황</h3><p>공용 스프린트 범위와 프로젝트·팀·담당자 필터를 같은 업무 지표에 적용합니다.</p></div><span class="scope-mode">${esc(modeLabel)}</span></div>
     ${dirty ? '<p class="scope-notice">현재 입력은 조회 미리보기입니다. 저장해야 팀 공통 기준과 다음 규칙 입력에 반영됩니다.</p>' : ''}
     ${pending ? '<p class="scope-notice">현재 스프린트가 변경됐습니다. 기존 통합 분석은 이전 기준이며 새 규칙 입력·분석이 필요합니다.</p>' : ''}
     ${!pending && dashboard.sprintSettings?.pendingAnalysis ? '<p class="scope-notice">새 기준의 규칙 입력은 생성됐지만 통합 분석은 아직 이전 입력 기준입니다. GPT Agent 재실행이 필요합니다.</p>' : ''}
@@ -83,8 +93,9 @@ export function renderSprintOverview(dashboard, viewState, kpisHtml) {
     ${parsed.error ? `<p class="scope-notice scope-error">${esc(parsed.error)}</p>` : ''}
     ${!configured ? '<p class="scope-help">현재 스프린트가 미입력 상태입니다. 3 또는 3,4,5처럼 입력하거나 전체를 입력하세요. 미입력 상태는 0건이 아니라 미계산입니다.</p>' : ''}
     ${kpisHtml(metrics, viewState.detail).replaceAll('data-briefing-detail', 'data-scope-detail')}
-    <p class="scope-help">작업 지표는 하위 작업항목 기준입니다. 진행 중은 상태 지표이므로 기한 초과와 겹칠 수 있습니다. 기한 초과는 가이드 위반·진행 준비보다 대표 표시가 우선합니다.</p>
-    <div class="scope-exceptions">${view.outsideOverdueItems.length ? `<button type="button" data-scope-detail="outside">선택 밖 기한 초과 <b>${view.outsideOverdueItems.length}</b>개 확인</button>` : ''}${view.unknownSprintItems.length ? `<button type="button" data-scope-detail="unknown">스프린트 분류 확인 <b>${view.unknownSprintItems.length}</b>개</button>` : ''}${view.parentIssueCount ? `<span>상위 작업 관리 문제 ${view.parentIssueCount}개는 ‘확인필요’에서 유지</span>` : ''}</div>
+    ${configured ? guideCoverageHtml(view) : ''}
+    <p class="scope-help">진행 중·기한 초과·진행 준비는 하위 작업 기준입니다. 가이드 위반은 선택 스프린트의 상위 작업과 하위 작업을 함께 집계하며 다른 상태 지표와 중복될 수 있습니다.</p>
+    <div class="scope-exceptions">${view.outsideOverdueItems.length ? `<button type="button" data-scope-detail="outside">선택 밖 기한 초과 <b>${view.outsideOverdueItems.length}</b>개 확인</button>` : ''}${view.outsideGuideViolationItems.length ? `<button type="button" data-scope-detail="outside-guide">선택 밖 가이드 <b>${view.outsideGuideViolationItems.length}</b>개</button>` : ''}${view.unknownGuideViolationItems.length ? `<button type="button" data-scope-detail="unknown-guide">스프린트 분류 확인 가이드 <b>${view.unknownGuideViolationItems.length}</b>개</button>` : ''}${view.unknownSprintItems.length ? `<button type="button" data-scope-detail="unknown">스프린트 분류 확인 <b>${view.unknownSprintItems.length}</b>개</button>` : ''}</div>
     <p class="scope-feedback" role="status">${esc(viewState.message || '')}</p>${configured ? detailHtml(view, viewState.detail) : ''}
     <details class="scope-history"><summary>현재 스프린트 변경 이력</summary>${history.slice(0, 10).map(record => `<p><strong>전체 프로젝트</strong> · ${esc(record.previousInput || '미입력')} → ${esc(record.input || '미입력')}<small>${esc(new Date(record.changedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }))}</small></p>`).join('') || '<p>대시보드에서 저장한 변경 이력이 없습니다.</p>'}</details>
     <dialog class="scope-auth"><form method="dialog"><h4>현재 스프린트 저장</h4><p>모든 프로젝트에 적용되는 공용 기준을 변경합니다. 관리자 키는 저장하거나 공유 링크에 포함하지 않습니다.</p><label>운영 설정 관리자 키<input type="password" name="adminKey" autocomplete="off" required minlength="24"></label><div><button type="button" data-scope-cancel>취소</button><button type="submit">저장 및 분석 입력 갱신</button></div></form></dialog>
@@ -178,7 +189,7 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
       url.searchParams.set('sprintView', previewInput(this.binding.dashboard));
       for (const key of ['project', 'team', 'assignee']) { url.searchParams.delete(`scopeFilter_${key}`); if (state.filters[key]) url.searchParams.set(`scopeFilter_${key}`, state.filters[key]); }
       const lines = [`${labels[state.detail]} · ${items.length}개`, `스프린트: ${previewInput(this.binding.dashboard) || '미입력'} · 업무 원본 변경 없음`];
-      for (const item of items) lines.push('', `${item.project} / ${item.title}`, `상태: ${item.status} · 담당: ${(item.assignees || []).join(', ') || '미지정'}`, `기간: ${item.start || '-'} → ${item.due || '-'}`, ...sortIssuesOverdueFirst(item.issues).map(issue => `확인: ${issue.type === 'OVERDUE' ? '기한 초과' : issue.label || issue.message || issue.type}`), safeUrl(item.url));
+      for (const item of items) lines.push('', `${item.project} / ${item.title}`, `상태: ${item.status} · 담당: ${(item.assignees || []).join(', ') || '미지정'}`, `기간: ${item.start || '-'} → ${item.due || '-'}`, ...sortIssuesOverdueFirst(item.issues || []).map(issue => `확인: ${issue.type === 'OVERDUE' ? '기한 초과' : issuePresentation(issue).label}`), safeUrl(item.url));
       lines.push('', `대시보드: ${url}`);
       try { await navigator.clipboard.writeText(lines.join('\n')); state.message = `${items.length}개 복사 완료`; }
       catch { state.message = '복사하지 못했습니다. 브라우저 클립보드 권한을 확인하세요.'; } this.render();

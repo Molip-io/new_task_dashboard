@@ -38,3 +38,12 @@ test('project row selection cannot use substring names',()=>{const row={'프로�
 test('new rule packet publishes optional backwards-compatible briefing schema and synthesis contract',()=>{const d=fixture(),p=enrichAgentPacketWithProjectOperations(buildAgentInputPacket(d),d);assert.ok(p.outputSchema.properties.projects.items.properties.projectBriefing);assert.ok(!p.outputSchema.properties.projects.items.required.includes('projectBriefing'));assert.match(p.constraints.join('\n'),/projectBriefing/);assert.match(p.constraints.join('\n'),/meetingReferences/);});
 test('renderer separates source material from primary narrative',()=>{const d=fixture(),h=projectBriefingHtml(d,d.projects[0]);assert.ok(h.indexOf('SYNTHESIS:')<h.indexOf('근거 보기'));assert.ok(h.indexOf('RAW SLACK ONLY')>h.indexOf('원본 수집 근거'));assert.match(h,/project-briefing-evidence/);});
 test('actual schema limits field and action contracts',()=>{const s=JSON.parse(fs.readFileSync(new URL('../schemas/agent-analysis.schema.json',import.meta.url)));const b=s.properties.projects.items.properties.projectBriefing;assert.equal(b.additionalProperties,false);assert.deepEqual(b.properties.nextActions.items.properties.kind.enum,['agreed','suggested_check']);assert.ok(b.required.includes('currentProgress'));});
+
+
+test('project briefing uses bento narrative hierarchy without exposing raw evidence first',()=>{
+  const d=fixture(),h=projectBriefingHtml(d,d.projects[0]);
+  assert.match(h,/project-briefing-hero/);
+  assert.match(h,/project-briefing-grid-axes/);
+  assert.match(h,/project-briefing-tri-grid/);
+  assert.ok(h.indexOf('SYNTHESIS:')<h.indexOf('근거 보기'));
+});
