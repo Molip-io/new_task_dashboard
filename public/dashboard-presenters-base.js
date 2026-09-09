@@ -61,7 +61,7 @@ function briefingDetailHtml(dashboard, detail, taskRows, filters = {}) {
     projects: '진행 중 프로젝트',
     'work-items': '진행 중 작업항목',
     overdue: '기한 초과 작업항목',
-    guide: '가이드 위반 작업항목',
+    guide: '가이드 위반 항목',
     setup: '진행 준비 필요 항목',
   };
   const allItems = briefingDetailItems(dashboard, detail);
@@ -75,7 +75,7 @@ function briefingDetailHtml(dashboard, detail, taskRows, filters = {}) {
 }
 
 export function briefingHtml(dashboard, selectedDetail, taskRows, briefingFilters = {}) {
-  const scopedKpis = (metrics, selectedDetail) => `<div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', metrics.progressSetupRequiredItems ? 'warning' : '', selectedDetail)}</div>`;
+  const scopedKpis = (metrics, selectedDetail) => `<div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 항목', metrics.guideViolationWorkItems ? 'error' : '', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', metrics.progressSetupRequiredItems ? 'warning' : '', selectedDetail)}</div>`;
   const overallSummary = ['success', 'partial', 'stale'].includes(dashboard.ai?.analysisStatus)
     ? dashboard.ai?.overall?.summary
     : null;

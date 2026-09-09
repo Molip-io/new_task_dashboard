@@ -155,12 +155,17 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     const agentInputFile = path.join(dataDirectory, 'agent-input.json');
     let agentInput = writeAgentInputPacket(dashboard, agentInputFile);
     agentInput = enrichAgentPacketWithProjectOperations(agentInput, dashboard);
-    // Preserve raw rules.metrics; publish the dashboard-aligned, child-only briefing projection separately.
+    // Preserve raw rules.metrics; publish the dashboard-aligned scoped briefing projection separately.
     agentInput.rules.briefingMetrics = workOverview.metrics;
     agentInput.rules.briefingScope = {
       ...dashboard.sprintScope,
-      unit: 'child-work-items',
+      unit: 'mixed-by-metric',
+      executionUnit: 'child-work-items',
+      guideUnit: 'parent-and-child-items',
+      guideOverlapAllowed: true,
       outsideOverdueItems: workOverview.outsideOverdueItems.length,
+      outsideGuideViolationItems: workOverview.outsideGuideViolationItems.length,
+      unknownGuideViolationItems: workOverview.unknownGuideViolationItems.length,
       unknownSprintItems: workOverview.unknownSprintItems.length,
     };
     fs.writeFileSync(agentInputFile, JSON.stringify(agentInput, null, 2));

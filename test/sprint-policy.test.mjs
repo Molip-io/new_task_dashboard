@@ -64,9 +64,9 @@ for(const [value,selected,expected] of [
   [null,['Sprint3'],'unknown'],
 ]) test(`Relation ${value}/${selected}->${expected}`,()=>assert.equal(classifySprint(value,selected),expected));
 
-test('Five metrics share one global sprint scope and child-only unit',()=>{
+test('Scoped guide KPI keeps overlapping guide issues visible',()=>{
   assert.deepEqual(buildSprintOverview(fixture()).metrics,{
-    activeProjects:3,inProgressWorkItems:4,overdueWorkItems:1,guideViolationWorkItems:2,progressSetupRequiredItems:1,
+    activeProjects:3,inProgressWorkItems:4,overdueWorkItems:1,guideViolationWorkItems:3,progressSetupRequiredItems:1,
   });
 });
 
@@ -74,7 +74,7 @@ test('One global selection applies to every sprint-enabled project',()=>{
   const v=buildSprintOverview(fixture(),parseSprintInput('3,4'));
   assert.ok(v.workItems.some(i=>i.id==='a4'));
   assert.ok(v.workItems.some(i=>i.id==='b4'));
-  assert.equal(v.metrics.guideViolationWorkItems,4);
+  assert.equal(v.metrics.guideViolationWorkItems,5);
 });
 
 test('Empty input is unset, not ALL',()=>{
@@ -92,17 +92,18 @@ test('ALL includes every assigned sprint but not missing sprint values',()=>{
   assert.ok(v.unknownSprintItems.some(i=>i.id==='a-none'));
 });
 
-test('Overdue wins while raw data and counts remain immutable',()=>{
+test('Overdue and guide remain independently discoverable while source data stays immutable',()=>{
   const d=fixture(); const original=JSON.stringify(d); const v=buildSprintOverview(d);
   assert.ok(v.overdueItems.some(i=>i.id==='a3-late'));
-  assert.ok(!v.guideViolationItems.some(i=>i.id==='a3-late'));
+  assert.ok(v.guideViolationItems.some(i=>i.id==='a3-late'));
+  assert.equal(v.overdueGuideOverlapItems.length,1);
   assert.equal(v.overdueItems[0].issues.length,2);
   assert.equal(JSON.stringify(d),original);
 });
 
 test('Guide count counts tasks rather than failed rules',()=>{
   const d=fixture(); d.workItems.find(i=>i.id==='b3').issues.push({...guide,type:'MISSING_PRIORITY'});
-  assert.equal(buildSprintOverview(d).metrics.guideViolationWorkItems,2);
+  assert.equal(buildSprintOverview(d).metrics.guideViolationWorkItems,3);
 });
 
 test('Outside overdue and missing sprint remain discoverable',()=>{
@@ -123,14 +124,18 @@ test('Closed tasks and children of closed parents are excluded',()=>{
   assert.ok(!buildSprintOverview(d).workItems.some(i=>['closed','pause','hidden-child'].includes(i.id)));
 });
 
-test('Parent issues do not inflate child task KPIs',()=>{
-  const d=fixture(); d.workItems.push({id:'parent',itemLevel:'parent',project:'A',sprint:'Sprint3',status:'진행 중',issues:[guide]});
-  assert.equal(buildSprintOverview(d).metrics.guideViolationWorkItems,2);
+test('Parent guide issues are visible without changing child-only execution KPIs',()=>{
+  const d=fixture(); d.workItems.push({id:'parent',title:'Parent',itemLevel:'parent',project:'A',sprint:'Sprint3',status:'진행 중',issues:[guide]});
+  const v=buildSprintOverview(d);
+  assert.equal(v.metrics.guideViolationWorkItems,4);
+  assert.equal(v.guideBreakdown.parent,1);
+  assert.equal(v.guideBreakdown.child,3);
+  assert.equal(v.metrics.inProgressWorkItems,4);
 });
 
 test('Compact snapshot issue links are restored',()=>{
   const d=fixture(); d.workItems.find(i=>i.id==='b3').issues=[]; d.validationIssues=[{...guide,workItemId:'b3'}];
-  assert.equal(buildSprintOverview(d).metrics.guideViolationWorkItems,2);
+  assert.equal(buildSprintOverview(d).metrics.guideViolationWorkItems,3);
 });
 
 test('Filters affect lists and counters consistently',()=>{
@@ -156,4 +161,16 @@ test('Overdue issue is primary despite guide error severity',()=>assert.equal(so
 
 test('No tasks has zero counts without invented scope',()=>{
   assert.deepEqual(Object.values(buildSprintOverview({projects:[],workItems:[]}).metrics),[0,0,0,0,0]);
+});
+
+
+test('Guide taxonomy matches 확인필요 even when raw category is missing',()=>{
+  const d=fixture(); d.workItems.find(i=>i.id==='b3').issues=[{type:'MISSING_BRANCH',severity:'error',message:'missing'}];
+  assert.equal(buildSprintOverview(d).metrics.guideViolationWorkItems,3);
+});
+
+test('Selected scope explains guide items outside and without a classifiable sprint',()=>{
+  const v=buildSprintOverview(fixture());
+  assert.equal(v.outsideGuideViolationItems.length,3);
+  assert.ok(v.unknownGuideViolationItems.some(i=>i.id==='a-none'));
 });

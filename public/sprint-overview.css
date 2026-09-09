@@ -65,3 +65,15 @@ sprint-work-overview { display:block; margin-top:20px; }
   .scope-filters select { min-width:100%; max-width:none; }
   .scope-table-scroll::before { content:'표를 좌우로 이동해 상세 내용을 확인하세요.'; display:block; color:var(--muted,#65718a); font-size:11px; margin-bottom:8px; }
 }
+
+
+.scope-guide-coverage { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:center; margin:12px 0 4px; padding:15px 17px; border-radius:var(--radius-well,14px); background:var(--well,var(--panel-3)); box-shadow:inset 0 0 0 1px var(--line-soft); }
+.scope-guide-main { display:grid; gap:4px; min-width:0; }
+.scope-guide-main strong { font-size:15px; letter-spacing:-.01em; }
+.scope-guide-main small { color:var(--muted); font-size:11px; }
+.scope-guide-eyebrow { font-size:9px; font-weight:800; letter-spacing:.16em; color:var(--accent); }
+.scope-guide-context { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:7px; }
+.scope-guide-context span { border:1px solid var(--line-soft); border-radius:999px; padding:5px 8px; color:var(--muted); font-size:11px; background:var(--panel-3); }
+.scope-table tr[data-scope-item-level="parent"] td:first-child a { color:var(--text); font-weight:760; }
+.scope-table tr[data-scope-item-level="parent"] td:first-child small { color:var(--accent); }
+@media(max-width:780px) { .scope-guide-coverage { grid-template-columns:1fr; } .scope-guide-context { justify-content:flex-start; } }
