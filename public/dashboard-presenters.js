@@ -44,7 +44,6 @@ export function briefingHtml(dashboard, selectedDetail, taskRows, briefingFilter
   html = html
     .replace('통합 분석 → 어제와 달라진 것 → 스프린트별 업무 현황', 'AI 통합 브리핑 → 어제와 달라진 것 → 스프린트별 업무 현황')
     .replace('<h3>1. 에이전트 통합 분석', '<h3>1. AI 통합 브리핑')
-    .replace('<h3 id="sprint-overview-title">4. 스프린트별 업무 현황</h3>', '<h3 id="sprint-overview-title">3. 스프린트별 업무 현황</h3>')
     .replace('<div class="card span-6"><h3>1. AI 통합 브리핑', '<div class="card span-12 ai-integrated-briefing-card"><h3>1. AI 통합 브리핑')
     .replace('<div class="card span-6"><h3>2. 어제와 달라진 것', '<div class="card span-12"><h3>2. 어제와 달라진 것');
 
