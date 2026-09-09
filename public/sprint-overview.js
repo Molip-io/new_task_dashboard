@@ -81,8 +81,8 @@ export function renderSprintOverview(dashboard, viewState, kpisHtml) {
     ${!pending && dashboard.sprintSettings?.pendingAnalysis ? '<p class="scope-notice">새 기준의 규칙 입력은 생성됐지만 통합 분석은 아직 이전 입력 기준입니다. GPT Agent 재실행이 필요합니다.</p>' : ''}
     <div class="scope-filters scope-global-filters">
       <label class="scope-sprint-input">현재 스프린트
-        <span class="scope-input-row"><input type="text" inputmode="text" autocomplete="off" data-scope-sprint value="${esc(previewInput(dashboard))}" placeholder="3,4,5"><button type="button" data-scope-save ${canSave ? '' : 'disabled'}>저장</button></span>
-        <small>예: 3,4,5 · 전체</small>
+        <span class="scope-input-row"><input type="text" inputmode="text" autocomplete="off" data-scope-sprint value="${esc(previewInput(dashboard))}"><button type="button" data-scope-save ${canSave ? '' : 'disabled'}>저장</button></span>
+        <small>여러 스프린트는 쉼표로 구분 · 전체 프로젝트에 공통 적용</small>
       </label>
       <label>프로젝트<select data-scope-filter="project">${optionHtml((dashboard.projects || []).map(p => p.name), viewState.filters.project)}</select></label>
       <label>팀<select data-scope-filter="team">${optionHtml(work.map(item => item.team), viewState.filters.team)}</select></label>
@@ -91,7 +91,7 @@ export function renderSprintOverview(dashboard, viewState, kpisHtml) {
       ${dirty ? '<button type="button" data-scope-reset>저장값으로 되돌리기</button>' : ''}
     </div>
     ${parsed.error ? `<p class="scope-notice scope-error">${esc(parsed.error)}</p>` : ''}
-    ${!configured ? '<p class="scope-help">현재 스프린트가 미입력 상태입니다. 3 또는 3,4,5처럼 입력하거나 전체를 입력하세요. 미입력 상태는 0건이 아니라 미계산입니다.</p>' : ''}
+    ${!configured ? '<p class="scope-help">현재 스프린트가 미입력 상태입니다. 상단 입력칸에 스프린트 번호를 입력하고 저장하세요. 여러 스프린트는 쉼표로 구분할 수 있습니다. 미입력 상태는 0건이 아니라 미계산입니다.</p>' : ''}
     ${kpisHtml(metrics, viewState.detail).replaceAll('data-briefing-detail', 'data-scope-detail')}
     ${configured ? guideCoverageHtml(view) : ''}
     <p class="scope-help">진행 중·기한 초과·진행 준비는 하위 작업 기준입니다. 가이드 위반은 선택 스프린트의 상위 작업과 하위 작업을 함께 집계하며 다른 상태 지표와 중복될 수 있습니다.</p>

@@ -12,11 +12,13 @@ const data={
 };
 const state={sprintInput:null,filters:{},detail:null,message:'',saving:false};
 
-test('Section uses one shared sprint text input with gray usage guide',()=>{
+test('Section uses one shared sprint text input without example numbers',()=>{
   const html=renderSprintOverview(data,state,kpis);
   assert.ok(html.includes('4. 스프린트별 업무 현황'));
   assert.equal((html.match(/data-scope-sprint/g)||[]).length,1);
-  assert.ok(html.includes('예: 3,4,5 · 전체'));
+  assert.ok(html.includes('여러 스프린트는 쉼표로 구분'));
+  assert.ok(!html.includes('placeholder="3,4,5"'));
+  assert.ok(!html.includes('예: 3,4,5'));
   assert.ok(!html.includes('type="checkbox"'));
 });
 
