@@ -45,3 +45,21 @@ test('Given the daily agent run, When its prompt is executed, Then input, analys
     assert.match(dailyPrompt, new RegExp(`<${block}>[\\s\\S]*<\\/${block}>`));
   }
 });
+
+
+test('Given the scoped briefing, When guide metrics are interpreted, Then mixed units and guide overlap are explicit contracts', () => {
+  const documents = [
+    read('../agent-package/01_AGENT_INSTRUCTIONS.md'),
+    read('../agent-package/02_DAILY_RUN_PROMPT.md'),
+    read('../prompts/업무대시보드_에이전트_실행지시.md'),
+  ];
+  for (const document of documents) {
+    assert.match(document, /rules\.briefingScope/);
+    assert.match(document, /briefingMetrics/);
+    assert.match(document, /상위 작업.*하위 작업|상위 작업 \+ 하위 작업/);
+    assert.match(document, /기한 초과.*가이드 위반.*동시|동시에 포함/);
+    assert.match(document, /outsideGuideViolationItems/);
+    assert.match(document, /unknownGuideViolationItems/);
+    assert.match(document, /확인필요/);
+  }
+});
