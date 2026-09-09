@@ -75,7 +75,7 @@ export function renderSprintOverview(dashboard, viewState, kpisHtml) {
   const history = dashboard.sprintSettings?.history || [];
 
   return `<section class="sprint-overview" aria-labelledby="sprint-overview-title">
-    <div class="scope-title"><div><p class="scope-eyebrow">SPRINT WORK OVERVIEW</p><h3 id="sprint-overview-title">4. 스프린트별 업무 현황</h3><p>공용 스프린트 범위와 프로젝트·팀·담당자 필터를 같은 업무 지표에 적용합니다.</p></div><span class="scope-mode">${esc(modeLabel)}</span></div>
+    <div class="scope-title"><div><p class="scope-eyebrow">SPRINT WORK OVERVIEW</p><h3 id="sprint-overview-title">3. 스프린트별 업무 현황</h3><p>공용 스프린트 범위와 프로젝트·팀·담당자 필터를 같은 업무 지표에 적용합니다.</p></div><span class="scope-mode">${esc(modeLabel)}</span></div>
     ${dirty ? '<p class="scope-notice">현재 입력은 조회 미리보기입니다. 저장해야 팀 공통 기준과 다음 규칙 입력에 반영됩니다.</p>' : ''}
     ${pending ? '<p class="scope-notice">현재 스프린트가 변경됐습니다. 기존 통합 분석은 이전 기준이며 새 규칙 입력·분석이 필요합니다.</p>' : ''}
     ${!pending && dashboard.sprintSettings?.pendingAnalysis ? '<p class="scope-notice">새 기준의 규칙 입력은 생성됐지만 통합 분석은 아직 이전 입력 기준입니다. GPT Agent 재실행이 필요합니다.</p>' : ''}
