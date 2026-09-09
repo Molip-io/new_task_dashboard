@@ -1,0 +1,34 @@
+name: Patch agent guide metric contract
+
+on:
+  push:
+    branches: [fix/agent-guide-metric-contract-20260909]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    if: ${{ !contains(github.event.head_commit.message, '[agent-contract-patched]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/agent-guide-metric-contract-20260909
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply contract patch
+        run: python .github/scripts/patch_agent_guide_contract.py
+      - name: Test
+        run: npm test
+      - name: Commit validated contract
+        run: |
+          git config user.name 'MOLIP dashboard bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm .github/workflows/patch-agent-guide-contract-temp.yml .github/scripts/patch_agent_guide_contract.py
+          git add agent-package/01_AGENT_INSTRUCTIONS.md agent-package/02_DAILY_RUN_PROMPT.md prompts/업무대시보드_에이전트_실행지시.md test/agent-instruction-contract.test.mjs
+          git commit -m 'docs: [agent-contract-patched] align guide metric scope'
+          git push origin HEAD:fix/agent-guide-metric-contract-20260909
