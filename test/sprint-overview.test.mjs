@@ -14,7 +14,7 @@ const state={sprintInput:null,filters:{},detail:null,message:'',saving:false};
 
 test('Section uses one shared sprint text input with gray usage guide',()=>{
   const html=renderSprintOverview(data,state,kpis);
-  assert.ok(html.includes('3. 스프린트별 업무 현황'));
+  assert.ok(html.includes('4. 스프린트별 업무 현황'));
   assert.equal((html.match(/data-scope-sprint/g)||[]).length,1);
   assert.ok(html.includes('예: 3,4,5 · 전체'));
   assert.ok(!html.includes('type="checkbox"'));
@@ -57,13 +57,10 @@ test('Admin key is masked and never persisted',()=>{
   assert.doesNotMatch(code,/localStorage|sessionStorage/);
 });
 
-test('All metrics remain after unified AI briefing and daily changes',()=>{
-  const presenter=fs.readFileSync(new URL('../public/dashboard-presenters.js',import.meta.url),'utf8');
-  const sprint=fs.readFileSync(new URL('../public/sprint-overview.js',import.meta.url),'utf8');
-  assert.match(presenter,/1\. AI 통합 브리핑/);
-  assert.match(presenter,/프로젝트별 현황/);
-  assert.match(presenter,/2\. 어제와 달라진 것/);
-  assert.match(sprint,/3\. 스프린트별 업무 현황/);
+test('All metrics grouped after analysis and changes',()=>{
+  const code=fs.readFileSync(new URL('../public/dashboard-presenters.js',import.meta.url),'utf8');
+  const a=code.lastIndexOf('1. 에이전트 통합 분석'),b=code.lastIndexOf('2. 어제와 달라진 것'),c=code.lastIndexOf('${sprintOverviewHtml');
+  assert.ok(a>=0&&a<b&&b<c);
 });
 
 test('Backend connects shared settings without changing raw metrics',()=>{

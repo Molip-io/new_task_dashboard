@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 
 import { briefingHtml } from '../public/dashboard-presenters.js';
@@ -70,7 +71,7 @@ import { briefingHtml } from '../public/dashboard-presenters.js';
   };
 
   const html = briefingHtml(dashboard, null, () => '');
-  const beforeProjects = html.split('프로젝트별 현황')[0];
+  const beforeProjects = html.split('<section class="project-briefings"')[0];
 
   assert.doesNotMatch(beforeProjects, /최신 포지 위험|오래된 위험|디자인 협업 지연/);
 });
@@ -109,7 +110,7 @@ import { briefingHtml } from '../public/dashboard-presenters.js';
   assert.doesNotMatch(html, /운영 근거를 찾지 못했습니다/);
 });
 
- test('Given project briefings, When briefing renders, Then overall and projects share one AI integrated section and sprint overview is third', () => {
+ test('Given project briefings, When briefing renders, Then project status is a separate third section before sprint overview', () => {
   const dashboard = {
     generatedAt: '2026-09-09T01:00:00Z',
     agentHandoff: { generatedAt: '2026-09-09T01:00:00Z', runId: '2026-09-09-morning' },
@@ -130,10 +131,18 @@ import { briefingHtml } from '../public/dashboard-presenters.js';
   };
 
   const html = briefingHtml(dashboard, null, () => '');
+  const aiStart = html.indexOf('1. AI 통합 브리핑');
+  const changes = html.indexOf('2. 어제와 달라진 것');
+  const projects = html.indexOf('3. 프로젝트 현황');
+  const sprint = html.indexOf('4. 스프린트별 업무 현황');
 
-  assert.match(html, /1\. AI 통합 브리핑/);
-  assert.match(html, /프로젝트별 현황/);
-  assert.ok(html.indexOf('프로젝트별 현황') < html.indexOf('2. 어제와 달라진 것'));
-  assert.match(html, /3\. 스프린트별 업무 현황/);
-  assert.doesNotMatch(html, /3\. 프로젝트 현황|4\. 스프린트별 업무 현황/);
+  assert.ok(aiStart >= 0 && aiStart < changes && changes < projects && projects < sprint);
+  assert.doesNotMatch(html.slice(aiStart, changes), /project-briefings/);
+  assert.match(html, /<section class="project-briefings"/);
+});
+
+ test('Project briefing grid is two columns on desktop and collapses below 1000px', () => {
+  const css = fs.readFileSync(new URL('../public/project-briefing.css', import.meta.url), 'utf8');
+  assert.match(css, /\.project-operations-bento \{ grid-template-columns:repeat\(12/);
+  assert.match(css, /@media \(max-width:1000px\).*\.project-operations-bento \{ grid-template-columns:repeat\(6/s);
 });

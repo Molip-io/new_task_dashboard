@@ -30,7 +30,6 @@
 .project-briefing-evidence-item a { overflow-wrap: anywhere; font-size: 12px; }
 @media (max-width: 720px) { .project-briefing-grid { grid-template-columns: 1fr; gap: 0; } .project-briefing-body { padding: 14px; } .project-briefing-card > summary { align-items: flex-start; } }
 
-
 /* Bento-bold refinement: narrative remains primary, evidence remains secondary. */
 .project-briefings-head { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; margin-bottom:12px; }
 .project-briefings-kicker, .project-briefing-kicker { display:block; font-size:9px; font-weight:800; letter-spacing:.17em; color:var(--accent); }
@@ -51,5 +50,8 @@
 .project-briefing-tri-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
 .project-briefing-axis-compact p { font-size:12px; line-height:1.7; }
 .project-briefing-evidence { margin-top:14px; }
-@media (max-width:900px) { .project-briefing-tri-grid { grid-template-columns:1fr; } }
+
+/* Project cards are independent from the executive card and use two columns on desktop. */
+.project-operations-bento { grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; }
+@media (max-width:1000px) { .project-operations-bento { grid-template-columns:repeat(6,minmax(0,1fr)); } .project-briefing-tri-grid { grid-template-columns:1fr; } }
 @media (max-width:720px) { .project-briefing-card > summary { padding:15px; } .project-briefing-summary-top { align-items:flex-start; } .project-briefing-summary-meta { width:100%; } }
