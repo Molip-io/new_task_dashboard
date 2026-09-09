@@ -58,11 +58,12 @@ test('Admin key is masked and never persisted',()=>{
 });
 
 test('All metrics remain after unified AI briefing and daily changes',()=>{
-  const code=fs.readFileSync(new URL('../public/dashboard-presenters.js',import.meta.url),'utf8');
-  assert.match(code,/1\. AI 통합 브리핑/);
-  assert.match(code,/프로젝트별 현황/);
-  assert.match(code,/2\. 어제와 달라진 것/);
-  assert.match(code,/3\. 스프린트별 업무 현황/);
+  const presenter=fs.readFileSync(new URL('../public/dashboard-presenters.js',import.meta.url),'utf8');
+  const sprint=fs.readFileSync(new URL('../public/sprint-overview.js',import.meta.url),'utf8');
+  assert.match(presenter,/1\. AI 통합 브리핑/);
+  assert.match(presenter,/프로젝트별 현황/);
+  assert.match(presenter,/2\. 어제와 달라진 것/);
+  assert.match(sprint,/3\. 스프린트별 업무 현황/);
 });
 
 test('Backend connects shared settings without changing raw metrics',()=>{
