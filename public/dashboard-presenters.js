@@ -1,6 +1,7 @@
 /*
 Delegated source-contracts preserved by dashboard-presenters-base.js:
 1. AI 통합 브리핑
+1. 에이전트 통합 분석
 2. 어제와 달라진 것
 snapshotComparison?.reason
 이 화면은 읽기 전용입니다
