@@ -80,18 +80,22 @@ async function storedDashboard() {
 }
 
 async function collectForWeb() {
-  let previous = null;
-  try {
-    const latest = await readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId });
-    const currentDay = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    if (latest && latest.runId < `dashboard-snapshot:${currentDay}`) previous = comparableSnapshot(latest.dashboard);
-  } catch (error) {
-    console.error('[dashboard] previous snapshot unavailable:', error.message);
-  }
+  const previousSnapshot = (async () => {
+    try {
+      const latest = await readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId });
+      const currentDay = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      return latest && latest.runId < `dashboard-snapshot:${currentDay}`
+        ? comparableSnapshot(latest.dashboard)
+        : null;
+    } catch (error) {
+      console.error('[dashboard] previous snapshot unavailable:', error.message);
+      return null;
+    }
+  })();
   const result = await runCollection({
     dataDirectory: TEMP_DATA,
     noAi: true,
-    previousSnapshot: previous,
+    previousSnapshot,
     notionOptions: {
       hydrateBodies: false,
       checkComments: true,
@@ -99,7 +103,8 @@ async function collectForWeb() {
       hydrateSummaryBodies: false,
     },
   });
-  const settings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+  const settings = result.sprintSettings
+    || await readSprintSettings({ databaseId: config.notion.summaryDbId });
   return decorateSprintDashboard(compactDashboard(result.dashboard), settings, { writable: (process.env.SPRINT_SETTINGS_TOKEN || '').length >= 24 });
 }
 
