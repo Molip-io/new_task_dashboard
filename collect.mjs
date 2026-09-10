@@ -72,27 +72,42 @@ async function collectSlack(projects, errors) {
 export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAULT_NO_AI, previousSnapshot = undefined, notionOptions = {} } = {}) {
   writeStatus(dataDirectory, 'running');
   const errors = [];
+  const collectionStartedAt = Date.now();
   try {
     if (!process.env.NOTION_TOKEN) throw new Error('NOTION_TOKEN 없음 — .env 파일을 설정하세요.');
     console.log('▶ Notion 프로젝트·작업항목·회의록 수집...');
-    const notion = await collectNotionData(config, errors, notionOptions);
-    const sprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+    const notionStartedAt = Date.now();
+    const [notion, sprintSettings] = await Promise.all([
+      collectNotionData(config, errors, notionOptions),
+      readSprintSettings({ databaseId: config.notion.summaryDbId }),
+    ]);
+    console.log(`  Notion 수집 ${Date.now() - notionStartedAt}ms`);
     const appliedSprint = applySavedSprintSettings(notion.projects, sprintSettings, { workItems: notion.tasks });
     notion.projects = appliedSprint.projects;
     notion.summaryRows = notion.summaryRows.filter(row => !String(row.run_id || '').startsWith(SETTINGS_PREFIX));
     const tasks = selectProjectTasks(notion.tasks, notion.projects);
     console.log(`  프로젝트 ${notion.projects.length}, 작업 ${tasks.length}, 회의록 ${notion.meetings.length}`);
 
-    console.log('▶ Slack 대화 수집...');
-    const slack = await collectSlack(notion.projects, errors);
-    console.log('▶ Git 활동 수집...');
     const repositorySources = resolveGitRepositories({
       projects: notion.projects,
       configured: config.git?.repositories || [],
       root: ROOT,
     });
+    console.log('▶ Slack 대화 + Git 활동 병렬 수집...');
+    const externalStartedAt = Date.now();
+    const slackStartedAt = Date.now();
+    const gitStartedAt = Date.now();
+    const slackPromise = collectSlack(notion.projects, errors).then(result => {
+      console.log(`  Slack 수집 ${Date.now() - slackStartedAt}ms`);
+      return result;
+    });
+    const remoteGitPromise = collectGitHubActivity({ repositories: repositorySources.remote, tasks, sinceDays: config.git?.sinceDays || 30 }).then(result => {
+      console.log(`  Git 원격 수집 ${Date.now() - gitStartedAt}ms`);
+      return result;
+    });
     const localGit = collectGitActivity({ repositories: repositorySources.local, tasks, sinceDays: config.git?.sinceDays || 30 });
-    const remoteGit = await collectGitHubActivity({ repositories: repositorySources.remote, tasks, sinceDays: config.git?.sinceDays || 30 });
+    const [slack, remoteGit] = await Promise.all([slackPromise, remoteGitPromise]);
+    console.log(`  Slack+Git 병렬 구간 ${Date.now() - externalStartedAt}ms`);
     const git = {
       repositories: [...localGit.repositories, ...remoteGit.repositories],
       commits: [...localGit.commits, ...remoteGit.commits].sort((left, right) => (right.committedAt || '').localeCompare(left.committedAt || '')),
@@ -103,7 +118,7 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     const now = new Date().toISOString();
     const comparisonSnapshot = previousSnapshot === undefined
       ? loadPreviousSnapshot(dataDirectory, kstDate(now))
-      : previousSnapshot;
+      : await previousSnapshot;
     const validation = enrichParentChildCompletion(validateWorkManagement({
       tasks,
       projects: notion.projects,
@@ -211,8 +226,8 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     fs.writeFileSync(path.join(dataDirectory, 'sync-event.json'), JSON.stringify(buildDashboardSyncCompleted(dashboard), null, 2));
     saveDailySnapshot(dashboard, dataDirectory);
     writeStatus(dataDirectory, 'done', { errors, slackNotificationSent: false, remoteSnapshot });
-    console.log(`✔ 대시보드 생성 완료 · 에이전트 원격 입력 ${remoteHandoff.status} · 웹 스냅샷 ${remoteSnapshot.status} (확인 ${validation.issues.length}건, 경고 ${errors.length}건)`);
-    return { dashboard, remoteHandoff, remoteSnapshot, validation };
+    console.log(`✔ 대시보드 생성 완료 · 에이전트 원격 입력 ${remoteHandoff.status} · 웹 스냅샷 ${remoteSnapshot.status} (확인 ${validation.issues.length}건, 경고 ${errors.length}건) · 총 ${Date.now() - collectionStartedAt}ms`);
+    return { dashboard, remoteHandoff, remoteSnapshot, validation, sprintSettings };
   } catch (error) {
     writeStatus(dataDirectory, 'error', { error: error.message, errors });
     throw error;
