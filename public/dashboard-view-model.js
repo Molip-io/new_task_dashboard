@@ -42,17 +42,8 @@ function evidenceKey(item) {
   return [item?.source, item?.url, item?.timestamp, item?.excerpt].map(value => String(value || '')).join('|');
 }
 
-function isManagementMetadataText(value) {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  if (!text) return false;
-  if (/(필수 진행 정보|관리 정보|필수 속성).*(누락|미입력)/.test(text)) return true;
-  const metadataFields = ['우선순위', '기간', '브랜치', '담당자', '날짜', '시작일', '마감일'];
-  const mentionedFields = metadataFields.filter(field => text.includes(field)).length;
-  return mentionedFields > 0 && /(누락|미입력|보완|입력)/.test(text);
-}
-
 function sourceStatusIsLimited(status) {
-  return ['failed', 'not_available', 'unavailable', 'partial', 'stale', 'not_run'].includes(String(status || '').toLowerCase());
+  return ['failed', 'not_available', 'unavailable', 'partial', 'stale', 'not_run', 'unknown'].includes(String(status || '').toLowerCase());
 }
 
 function localSpecFallback(spec) {
@@ -101,8 +92,8 @@ export function resolveSpecInsight(project, spec, agentProject = null, analysisM
     .filter((item, index, rows) => rows.findIndex(candidate => evidenceKey(candidate) === evidenceKey(item)) === index)
     .sort((left, right) => String(right.timestamp || '').localeCompare(String(left.timestamp || '')))
     .slice(0, 6);
-  const agentBlockers = (agent?.blockers || []).filter(item => !isManagementMetadataText(item));
-  const agentNextAction = isManagementMetadataText(agent?.nextAction) ? null : agent?.nextAction;
+  const agentBlockers = agent?.blockers || [];
+  const agentNextAction = agent?.nextAction;
   const confidenceLimits = agent ? agent.confidenceLimits || [] : [];
   const sourceStatuses = Object.values(analysisMeta.sourceStatus || {});
   const hasAnalysisLimit = Boolean(agent && (confidenceLimits.length

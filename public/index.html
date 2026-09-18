@@ -8,9 +8,10 @@
     document.documentElement.dataset.theme = localStorage.getItem('dashboard-theme')
       || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   </script>
-  <link rel="stylesheet" href="style.css?v=20260903-1">
+  <link rel="stylesheet" href="style.css?v=20260907-1">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">본문으로 건너뛰기</a>
   <header class="topbar">
     <div>
       <p class="eyebrow">MOLIP · WORK MANAGEMENT</p>
@@ -25,7 +26,7 @@
     </div>
   </header>
 
-  <div id="errors" class="notice error hidden"></div>
+  <details id="errors" class="notice error hidden"><summary id="errorSummary"></summary><pre id="errorDetails"></pre></details>
   <div id="trustLine" class="trust-line"></div>
 
   <nav id="tabs" aria-label="대시보드 메뉴">
@@ -35,7 +36,7 @@
     <button data-tab="checks">확인필요 <span id="checkCount" class="nav-count">0</span></button>
   </nav>
 
-  <main>
+  <main id="main-content" tabindex="-1">
     <section id="tab-briefing" class="tab"></section>
     <section id="tab-projects" class="tab hidden"></section>
     <section id="tab-people" class="tab hidden"></section>
@@ -50,6 +51,6 @@
     <h2>아직 수집된 데이터가 없습니다</h2>
     <p><code>.env</code>를 설정한 뒤 데이터 다시 수집을 누르세요.</p>
   </div>
-  <script type="module" src="app.js?v=20260903-1"></script>
+  <script type="module" src="app.js?v=20260907-1"></script>
 </body>
 </html>

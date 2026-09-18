@@ -216,7 +216,7 @@ test('Given an older snapshot without spec insights, When a spec briefing is res
   assert.match(result.nextAction, /다음 완료 지점/);
 });
 
-test('Given agent wording that mistakes missing management fields for a blocker, When a briefing is resolved, Then it falls back to the actual work state', () => {
+test('Given agent wording containing missing management fields, When a briefing is resolved, Then narrative fields are preserved without keyword-based judgments', () => {
   const project = { specInsights: [{
     specId: 'spec-1', title: '익스프레스', summary: '활성 작업 1건은 진행 중입니다.', blockers: [],
     nextAction: '진행 중 작업의 다음 완료 지점과 필요한 지원을 확인합니다.', evidence: [],
@@ -231,11 +231,12 @@ test('Given agent wording that mistakes missing management fields for a blocker,
 
   const result = resolveSpecInsight(project, spec, agentProject);
 
-  assert.deepEqual(result.blockers, []);
-  assert.equal(result.nextAction, null);
+  assert.deepEqual(result.blockers, ['우선 대조 작업의 필수 진행 정보가 누락됨']);
+  assert.equal(result.nextAction, '누락된 우선순위·기간·브랜치를 보완하고 다음 상태를 확인');
+  assert.equal(result.hasAgentAnalysis, true);
 });
 
-test('Given an agent action that asks to enter readiness metadata, When a briefing is resolved, Then that management action is not shown as the work action', () => {
+test('Given an agent action that asks to enter readiness metadata, When a briefing is resolved, Then the original action remains available for the reader to assess', () => {
   const project = { specInsights: [{
     specId: 'spec-1', title: '익스프레스', summary: '진행 예정입니다.', blockers: [],
     nextAction: '시작 전·진행 예정 작업의 착수 조건과 담당 일정을 확인합니다.', evidence: [],
@@ -249,7 +250,9 @@ test('Given an agent action that asks to enter readiness metadata, When a briefi
 
   const result = resolveSpecInsight(project, spec, agentProject);
 
-  assert.equal(result.nextAction, null);
+  assert.equal(result.nextAction, '담당자·우선순위·기간·브랜치를 입력하고 빠른 시일 내 진행 예정으로 변경');
+  assert.deepEqual(result.blockers, []);
+  assert.equal(result.hasAgentAnalysis, true);
 });
 
 test('Given an explicitly stale agent summary, When a briefing is resolved, Then the last integrated narrative remains visible with a freshness limit', () => {
@@ -501,4 +504,31 @@ test('Given Git repository states, When trust summaries are selected, Then missi
   assert.equal(gitRepositoryStatus({ status: 'not-accessible' }), 'Git 권한 또는 URL 확인');
   assert.equal(gitTrustSummary({ repositories: [{ status: 'partial' }], errors: ['partial activity data'] }, [{ name: 'A', gitUrl: 'https://github.com/a/a' }]).label, 'Git 부분 수집');
   assert.equal(gitRepositoryStatus({ status: 'no-activity', commitCount: 0 }), '연결됨 · 최근 활동 없음');
+});
+
+test('Given a real execution blocker using owner and input keywords, When resolving Agent insight, Then the blocker and next action remain intact', () => {
+  const result = resolveSpecInsight({}, { id: 'release', tasks: [] }, {
+    specSummaries: [{
+      specId: 'release', summary: '승인이 없어 배포가 중단되었습니다.',
+      blockers: ['담당자 승인 입력이 없어 배포가 중단됨'],
+      nextAction: '담당자 승인 입력 후 배포를 재개한다.',
+      evidence: [{ source: 'slack', excerpt: '승인 대기로 배포 중단' }],
+    }],
+  }, { analysisStatus: 'success' });
+
+  assert.deepEqual(result.blockers, ['담당자 승인 입력이 없어 배포가 중단됨']);
+  assert.equal(result.nextAction, '담당자 승인 입력 후 배포를 재개한다.');
+  assert.equal(result.hasAgentAnalysis, true);
+});
+
+test('Given a usable Agent narrative with unknown freshness, When resolving insight, Then the narrative remains with an analysis limit', () => {
+  const result = resolveSpecInsight({}, { id: 'release', tasks: [] }, {
+    specSummaries: [{ specId: 'release', summary: '배포 승인 대기', blockers: ['승인 대기'], nextAction: '승인 여부 확인' }],
+  }, { analysisStatus: 'unknown' });
+
+  assert.equal(result.summary, '배포 승인 대기');
+  assert.deepEqual(result.blockers, ['승인 대기']);
+  assert.equal(result.nextAction, '승인 여부 확인');
+  assert.equal(result.hasAgentAnalysis, true);
+  assert.equal(result.hasAnalysisLimit, true);
 });
