@@ -28,6 +28,7 @@ import {
 } from './dashboard-management.js';
 import { briefingHtml, issueGroupRowHtml, managementActionHtml } from './dashboard-presenters.js';
 import { deriveSpecStatus } from './spec-state.js';
+import { demoDashboard } from './dashboard-demo.js';
 
 let D = null;
 const $ = selector => document.querySelector(selector);
@@ -39,6 +40,7 @@ const TONES = new Set(['error', 'warning', 'check', 'info', 'normal', 'gray', 'd
 const saved = JSON.parse(localStorage.getItem('dashboard-preferences') || '{}');
 const query = new URLSearchParams(location.search);
 const queryTab = query.get('tab');
+const demoMode = query.get('demo') === '1';
 const queryDetail = query.get('detail');
 const queryBriefingFilters = {
   project: query.get('briefingProject') || '',
@@ -65,7 +67,9 @@ const state = {
 
 function persist() {
   localStorage.setItem('dashboard-preferences', JSON.stringify(state));
-  history.replaceState(null, '', dashboardShareUrl(location.href, state));
+  const shareUrl = new URL(dashboardShareUrl(location.href, state));
+  if (demoMode) shareUrl.searchParams.set('demo', '1');
+  history.replaceState(null, '', shareUrl.toString());
 }
 
 function badge(value, severity = value) {
@@ -534,17 +538,56 @@ $('#refreshBtn').onclick = async () => {
 let pollTimer;
 async function pollStatus() {
   clearInterval(pollTimer);
+  if (demoMode) {
+    $('#refreshBtn').disabled = false;
+    $('#collectState').textContent = '샘플 데이터 표시 중';
+    return;
+  }
   const update = async () => {
-    const status = await (await fetch('/api/status')).json();
-    $('#refreshBtn').disabled = status.collecting; $('#collectState').textContent = status.collecting ? '수집 중…' : status.last?.state === 'error' ? `수집 실패: ${status.last.error || ''}` : '';
-    if (!status.collecting) { clearInterval(pollTimer); return false; }
-    return true;
+    try {
+      const response = await fetch('/api/status', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`status_${response.status}`);
+      const status = await response.json();
+      $('#refreshBtn').disabled = status.collecting; $('#collectState').textContent = status.collecting ? '수집 중…' : status.last?.state === 'error' ? `수집 실패: ${status.last.error || ''}` : '';
+      if (!status.collecting) { clearInterval(pollTimer); return false; }
+      return true;
+    } catch {
+      $('#refreshBtn').disabled = false;
+      if (D?.sample) $('#collectState').textContent = '샘플 데이터 표시 중';
+      clearInterval(pollTimer);
+      return false;
+    }
   };
   if (await update()) pollTimer = setInterval(async () => { if (!await update()) await load(); }, 2000);
 }
+const sampleDashboardPaths = ['../data/dashboard.sample.json', '/data/dashboard.sample.json', 'data/dashboard.sample.json'];
+async function loadSampleDashboard() {
+  for (const path of sampleDashboardPaths) {
+    try {
+      const response = await fetch(path, { cache: 'no-store' });
+      if (!response.ok) continue;
+      const sample = await readJsonResponse(response);
+      return { ...sample, sample: true };
+    } catch {}
+  }
+  return { ...JSON.parse(JSON.stringify(demoDashboard)), sample: true };
+}
 async function load() {
-  const response = await fetch('/api/dashboard');
-  if (!response.ok) { $('#loading').classList.add('hidden'); $('#empty').classList.remove('hidden'); return; }
-  D = normalize(await response.json()); $('#empty').classList.add('hidden'); render();
+  let dashboard = demoMode ? { ...JSON.parse(JSON.stringify(demoDashboard)), sample: true } : null;
+  if (!demoMode) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1200);
+      try {
+        const response = await fetch('/api/dashboard', { signal: controller.signal, cache: 'no-store' });
+        if (response.ok) dashboard = await readJsonResponse(response);
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch {}
+  }
+  dashboard ||= await loadSampleDashboard();
+  if (!dashboard) { $('#loading').classList.add('hidden'); $('#empty').classList.remove('hidden'); return; }
+  D = normalize(dashboard); $('#empty').classList.add('hidden'); render();
 }
 load(); pollStatus();
