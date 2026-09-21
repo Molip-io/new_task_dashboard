@@ -88,6 +88,93 @@
         "properties": {
           "name": { "type": "string" },
           "summary": { "type": "string", "maxLength": 1200 },
+          "projectBriefing": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "프로젝트별 통합 브리핑. 새 분석에서는 Notion·전체 활성 스펙·Slack·회의록·Git의 관련 직접 근거를 종합해 작성한다. 기존 저장 결과와 호환하기 위해 필드는 선택형이나 새 실행은 작성한다. Slack 발췌 복사나 KPI 나열로 대체하지 않는다.",
+            "required": [
+              "currentProgress",
+              "buildRelease",
+              "data",
+              "confirmationRequired",
+              "nextActions",
+              "evidence",
+              "confidenceLimits"
+            ],
+            "properties": {
+              "currentProgress": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000,
+                "description": "프로젝트 목표·핵심 산출물·확인된 현재 단계·남은 범위를 종합한 진행 요약. 특정 스펙의 완료를 전체 완료로 확대하지 않는다."
+              },
+              "buildRelease": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 800,
+                "description": "빌드·QA·심사·출시의 확인된 상황. 버전과 플랫폼을 구분한다. 직접 근거가 없으면 null이며 제한을 남긴다."
+              },
+              "data": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 800,
+                "description": "배포·테스트 이후 확인된 결과와 관찰 상태. 버전·기간·국가·비교군을 혼합하지 않는다. 직접 근거가 없으면 null."
+              },
+              "confirmationRequired": {
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                  "type": "string",
+                  "maxLength": 350
+                }
+              },
+              "nextActions": {
+                "type": "array",
+                "maxItems": 4,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "text",
+                    "kind"
+                  ],
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 400
+                    },
+                    "kind": {
+                      "enum": [
+                        "agreed",
+                        "suggested_check"
+                      ],
+                      "description": "agreed는 원문에 합의된 행동, suggested_check는 AI가 제안하는 확인 행동이다. 제안을 합의로 표시하지 않는다."
+                    }
+                  }
+                }
+              },
+              "evidence": {
+                "type": "array",
+                "maxItems": 12,
+                "items": {
+                  "$ref": "#/$defs/evidenceItem"
+                }
+              },
+              "confidenceLimits": {
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                  "type": "string",
+                  "maxLength": 400
+                }
+              }
+            }
+          },
           "sprintSummaries": {
             "type": "array",
             "items": {

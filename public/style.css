@@ -431,3 +431,16 @@ body { font-variant-numeric: tabular-nums; }
   .sprint-options { position: static; width: 100%; margin-top: 6px; box-shadow: none; }
   .sprint-filters > label { flex: 1 1 120px; min-width: 0; }
 }
+/* 프로젝트 운영 현황 — 기본 접힘, 클릭 시 운영 근거 상세 노출 */
+.project-operations-bento { margin: 10px 0; }
+.project-operations-card > summary { justify-content: space-between; }
+.project-operations-summary { flex: 1; min-width: 0; }
+.project-operations-summary strong, .project-operations-summary small { display: block; }
+.project-operations-summary strong { font-size: 15px; }
+.project-operations-summary small { margin-top: 5px; color: var(--muted); font-size: 11px; }
+.project-operations-toggle { flex: none; padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.project-operations-card[open] .project-operations-toggle { border-color: var(--accent); color: var(--accent); }
+.project-operations-toggle .toggle-close, .project-operations-card[open] .project-operations-toggle .toggle-open { display: none; }
+.project-operations-card[open] .project-operations-toggle .toggle-close { display: inline; }
+.project-operations-body { padding: 4px 18px 16px; border-top: 1px solid var(--line); background: var(--panel-3); }
+.project-operations-empty { margin: 12px 0 4px; color: var(--muted); }

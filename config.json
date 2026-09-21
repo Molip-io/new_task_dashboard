@@ -19,6 +19,17 @@
   "ignoredNotionUserIds": [
     "341d872b-594c-81d0-81be-0002dd479324"
   ],
+  "slack": {
+    "operationDays": 14,
+    "projectChannels": {
+      "피자레디": [
+        "s2_pizzaready"
+      ],
+      "포지 앤 포춘": [
+        "s2_forge_and_fortune"
+      ]
+    }
+  },
   "git": {
     "sinceDays": 30,
     "repositories": [

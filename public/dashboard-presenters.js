@@ -120,6 +120,9 @@ function buildReleaseRows(dashboard) {
         }
       }
     }
+    for (const item of project.projectOperations?.evidence || []) {
+      rows.push({ project: project.name, ...item });
+    }
   }
   rows.sort((left, right) => String(right.timestamp || '').localeCompare(String(left.timestamp || '')));
   const seen = new Set();
@@ -129,6 +132,13 @@ function buildReleaseRows(dashboard) {
     seen.add(key);
     return true;
   }).slice(0, 4);
+}
+
+function projectOperationRows(dashboard) {
+  return (dashboard.projects || []).flatMap(project => (project.projectOperations?.evidence || []).map(item => ({
+    project: project.name,
+    ...item,
+  }))).sort((left, right) => String(right.timestamp || '').localeCompare(String(left.timestamp || ''))).slice(0, 6);
 }
 
 function sourceStatusRows(dashboard, analysis) {
@@ -168,6 +178,8 @@ function integratedAnalysisFactsHtml(dashboard, analysis) {
   const progress = disclosureRows(projectProgressRows(dashboard, analysis), row => `<div class="analysis-fact-row"><strong>${esc(row.project.name)}</strong><span>${esc(row.text)}</span></div>`, 4);
   const buildRows = buildReleaseRows(dashboard);
   const build = buildRows.map(row => `<div class="analysis-fact-row"><strong>${esc(row.project)}</strong><span>${esc(row.excerpt)} · ${esc(row.source || '출처')} ${fmt(row.timestamp)}</span></div>`).join('');
+  const operationRows = projectOperationRows(dashboard);
+  const operations = operationRows.map(row => `<div class="analysis-fact-row"><strong>${esc(row.project)}</strong><span>${esc(row.title || row.source || '원본')} · ${esc(row.excerpt)} · ${fmt(row.timestamp)}</span></div>`).join('');
   const data = sourceStatusRows(dashboard, analysis).map(row => `<div class="analysis-fact-row"><span>${esc(row)}</span></div>`).join('');
   const blockers = executionBlockers(dashboard, analysis).map(row => `<div class="analysis-fact-row"><span>${esc(row)}</span></div>`).join('');
   const metrics = dashboard.metrics || {};
@@ -178,7 +190,7 @@ function integratedAnalysisFactsHtml(dashboard, analysis) {
     `확인 필요 프로젝트 ${metrics.needsCheckProjects ?? 0}개`,
   ].map(row => `<div class="analysis-fact-row"><span>${esc(row)}</span></div>`).join('');
   const actions = nextMajorActions(dashboard, analysis).map(row => `<div class="analysis-fact-row"><strong>${esc(row.project)}</strong><span>${esc(row.action)}</span></div>`).join('');
-  return `<div class="project-primary">${analysisFactHtml('현재 진행 요약', progress)}${analysisFactHtml('다음 주요 행동', actions, '확인된 다음 행동이 없습니다.')}</div><details class="project-more"><summary>프로젝트 상세 · 빌드·출시 / 데이터 / 병목 / 확인 필요</summary><div class="analysis-facts">${analysisFactHtml('빌드·출시 현황', build, '직접 연결된 빌드·출시 근거가 없습니다.')}${analysisFactHtml('데이터 현황', data)}${analysisFactHtml('실행 병목', blockers, analysis.canShowNarrative ? '통합 분석에 기록된 실행 병목이 없습니다.' : '분석 결과를 확인할 수 없어 실행 병목을 판단할 수 없습니다.')}${analysisFactHtml('확인 필요', checks)}</div></details>`;
+  return `<div class="project-primary">${analysisFactHtml('현재 진행 요약', progress)}${analysisFactHtml('다음 주요 행동', actions, '확인된 다음 행동이 없습니다.')}</div><details class="project-more"><summary>프로젝트 상세 · 빌드·출시 / 데이터 / 병목 / 확인 필요</summary><div class="analysis-facts">${analysisFactHtml('빌드·출시 현황', build, '직접 연결된 빌드·출시 근거가 없습니다.')}${analysisFactHtml('데이터 현황', data)}${analysisFactHtml('실행 병목', blockers, analysis.canShowNarrative ? '통합 분석에 기록된 실행 병목이 없습니다.' : '분석 결과를 확인할 수 없어 실행 병목을 판단할 수 없습니다.')}${analysisFactHtml('확인 필요', checks)}${analysisFactHtml('원본 수집 근거', operations, '프로젝트 운영 원본 근거가 없습니다.')}</div></details>`;
 }
 
 function trustBriefingHtml(dashboard, analysis) {

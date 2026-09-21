@@ -1,25 +1,30 @@
-/* Delegated exact-ID linking contract in dashboard-view-model-base.js:
-item.specId && item.specId === spec.id
-*/
-export * from './dashboard-view-model-base.js';
-
 const severityOrder = { error: 0, warning: 1, check: 2, info: 3 };
 const issueTypeOrder = { MISSING_PROJECT: 0, INVALID_HIERARCHY: 1, MISSING_START_DATE: 2, MISSING_DUE_DATE: 2, OVERDUE: 3, GIT_NOTION_ACTIVITY_MISMATCH: 4, UNMAPPED_GIT_ACTIVITY: 5 };
 const closedStatuses = new Set(['완료', '일시 정지', '정지', '중단']);
-const isClosedWorkItem = item => closedStatuses.has(item?.status);
 
-const CLOSED_SPEC_STATUSES = new Set(['완료', '일시 정지', '정지', '중단']);
+export function isClosedWorkItem(item) {
+  return closedStatuses.has(item?.status);
+}
 
-// Keep an active parent spec visible even when every registered child is complete.
-// This is a management consistency signal: either the parent should be completed,
-// or additional child work may still need to be registered. We do not infer which.
+// Notion 상태 색과 1:1로 맞춘다. 여기 없는 상태는 중립 회색.
+const statusTones = {
+  '시작 전': 'gray',
+  '진행 예정': 'info',
+  '일시 정지': 'error',
+  '검토중': 'gray',
+  '추가 진행': 'warning',
+  '진행 중': 'check',
+  '확인 요청': 'review',
+  '완료': 'done',
+  '중단': 'gray',
+};
+
+export function workStatusTone(item) {
+  return statusTones[item?.status] || 'gray';
+}
+
 export function filterSpecsWithWorkItems(specs) {
-  return specs.filter(spec => {
-    const tasks = spec.tasks || [];
-    if (!spec.status) return tasks.some(item => !CLOSED_SPEC_STATUSES.has(item?.status));
-    return !CLOSED_SPEC_STATUSES.has(spec.status)
-      || tasks.some(item => !CLOSED_SPEC_STATUSES.has(item?.status));
-  });
+  return specs.filter(spec => (spec.tasks || []).length > 0 && (spec.tasks || []).some(item => !isClosedWorkItem(item)));
 }
 
 export function projectShouldBeOpen(project, openProject) {
@@ -37,8 +42,17 @@ function evidenceKey(item) {
   return [item?.source, item?.url, item?.timestamp, item?.excerpt].map(value => String(value || '')).join('|');
 }
 
+function isManagementMetadataText(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return false;
+  if (/(필수 진행 정보|관리 정보|필수 속성).*(누락|미입력)/.test(text)) return true;
+  const metadataFields = ['우선순위', '기간', '브랜치', '담당자', '날짜', '시작일', '마감일'];
+  const mentionedFields = metadataFields.filter(field => text.includes(field)).length;
+  return mentionedFields > 0 && /(누락|미입력|보완|입력)/.test(text);
+}
+
 function sourceStatusIsLimited(status) {
-  return ['failed', 'not_available', 'unavailable', 'partial', 'stale', 'not_run', 'unknown'].includes(String(status || '').toLowerCase());
+  return ['failed', 'not_available', 'unavailable', 'partial', 'stale', 'not_run'].includes(String(status || '').toLowerCase());
 }
 
 function localSpecFallback(spec) {
@@ -87,8 +101,8 @@ export function resolveSpecInsight(project, spec, agentProject = null, analysisM
     .filter((item, index, rows) => rows.findIndex(candidate => evidenceKey(candidate) === evidenceKey(item)) === index)
     .sort((left, right) => String(right.timestamp || '').localeCompare(String(left.timestamp || '')))
     .slice(0, 6);
-  const agentBlockers = agent?.blockers || [];
-  const agentNextAction = agent?.nextAction;
+  const agentBlockers = (agent?.blockers || []).filter(item => !isManagementMetadataText(item));
+  const agentNextAction = isManagementMetadataText(agent?.nextAction) ? null : agent?.nextAction;
   const confidenceLimits = agent ? agent.confidenceLimits || [] : [];
   const sourceStatuses = Object.values(analysisMeta.sourceStatus || {});
   const hasAnalysisLimit = Boolean(agent && (confidenceLimits.length

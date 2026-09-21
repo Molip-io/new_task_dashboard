@@ -1,0 +1,57 @@
+/* Agent project briefing: narrative first, source excerpts behind disclosure. */
+.project-briefings { margin: 22px 0 18px; }
+.project-briefings-title { font-size: 19px; margin: 0 0 6px; }
+.project-briefing-muted { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.project-briefing-card { min-width: 0; }
+.project-briefing-card .project-operations-summary { flex: 1; min-width: 0; }
+.project-briefing-preview { overflow: hidden; display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.6; color: var(--text-soft) !important; overflow-wrap: anywhere; }
+.project-briefing-body { padding: 18px; }
+.project-briefing-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; margin-bottom: 16px; }
+.project-briefing-status, .project-briefing-source, .project-briefing-action-kind { border: 1px solid var(--line-soft); border-radius: 6px; padding: 4px 7px; font-size: 11px; }
+.project-briefing-status { color: var(--accent); background: var(--accent-bg); }
+.project-briefing-status.stale, .project-briefing-status.partial { color: var(--yellow); background: var(--yellow-bg); }
+.project-briefing-status.not_run { color: var(--muted); background: var(--panel); }
+.project-briefing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.project-briefing-axis { min-width: 0; padding: 0 0 16px; }
+.project-briefing-axis h4, .project-briefing-limits h4 { font-size: 13px; color: var(--text); margin: 0 0 7px; }
+.project-briefing-axis p { line-height: 1.85; margin: 0 0 9px; color: var(--text-soft); white-space: pre-line; overflow-wrap: anywhere; }
+.project-briefing-axis .project-briefing-muted { color: var(--muted); font-size: 12px; }
+.project-briefing-action-kind { display: inline-block; margin-right: 8px; color: var(--muted); line-height: 1.3; }
+.project-briefing-warning, .project-briefing-empty { line-height: 1.7; padding: 12px; border-left: 3px solid var(--yellow); background: var(--yellow-bg); margin: 0 0 16px; }
+.project-briefing-limits { border-top: 1px solid var(--line-soft); padding-top: 12px; margin-bottom: 12px; color: var(--muted); font-size: 12px; }
+.project-briefing-limits p { line-height: 1.6; margin: 4px 0; }
+.project-briefing-evidence { border-top: 1px solid var(--line); margin-top: 8px; }
+.project-briefing-evidence > summary, .project-briefing-raw > summary { cursor: pointer; color: var(--accent); padding: 12px 0; font-size: 12px; }
+.project-briefing-evidence-body { padding: 0 8px; }
+.project-briefing-evidence-body h5 { margin: 12px 0 6px; font-size: 12px; }
+.project-briefing-evidence-item { padding: 10px 0; border-bottom: 1px solid var(--line-soft); min-width: 0; }
+.project-briefing-evidence-item small { display: block; color: var(--muted); margin-top: 5px; }
+.project-briefing-evidence-item p { margin: 6px 0; color: var(--text-soft); white-space: pre-line; line-height: 1.65; overflow-wrap: anywhere; }
+.project-briefing-evidence-item a { overflow-wrap: anywhere; font-size: 12px; }
+@media (max-width: 720px) { .project-briefing-grid { grid-template-columns: 1fr; gap: 0; } .project-briefing-body { padding: 14px; } .project-briefing-card > summary { align-items: flex-start; } }
+
+/* Bento-bold refinement: narrative remains primary, evidence remains secondary. */
+.project-briefings-head { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; margin-bottom:12px; }
+.project-briefings-kicker, .project-briefing-kicker { display:block; font-size:9px; font-weight:800; letter-spacing:.17em; color:var(--accent); }
+.project-briefings-title { font-size:23px; letter-spacing:-.03em; }
+.project-briefing-card { padding:0; overflow:hidden; }
+.project-briefing-card > summary { padding:18px 20px; gap:16px; align-items:center; }
+.project-briefing-summary-content { display:grid; gap:9px; min-width:0; flex:1; }
+.project-briefing-summary-top { display:flex; flex-wrap:wrap; align-items:center; gap:7px 10px; min-width:0; }
+.project-briefing-summary-top > strong { font-size:16px; letter-spacing:-.02em; }
+.project-briefing-summary-meta { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; color:var(--muted); font-size:10px; }
+.project-briefing-summary-meta .project-briefing-status { padding:3px 6px; }
+.project-briefing-body { background:var(--panel-3); }
+.project-briefing-hero { margin-bottom:12px; }
+.project-briefing-axis { padding:15px 16px; border-radius:var(--radius-well,14px); background:var(--well,var(--panel)); box-shadow:inset 0 0 0 1px var(--line-soft); }
+.project-briefing-axis-primary { padding:18px; background:linear-gradient(135deg,var(--accent-bg),var(--panel-3)); box-shadow:inset 0 0 0 1px var(--line-strong); }
+.project-briefing-axis-primary h4 { color:var(--accent); font-size:11px; letter-spacing:.08em; }
+.project-briefing-grid-axes { gap:10px; margin-bottom:10px; }
+.project-briefing-tri-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.project-briefing-axis-compact p { font-size:12px; line-height:1.7; }
+.project-briefing-evidence { margin-top:14px; }
+
+/* Project cards are independent from the executive card and use two columns on desktop. */
+.project-operations-bento { grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; }
+@media (max-width:1000px) { .project-operations-bento { grid-template-columns:repeat(6,minmax(0,1fr)); } .project-briefing-tri-grid { grid-template-columns:1fr; } }
+@media (max-width:720px) { .project-briefing-card > summary { padding:15px; } .project-briefing-summary-top { align-items:flex-start; } .project-briefing-summary-meta { width:100%; } }
