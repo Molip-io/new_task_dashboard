@@ -91,7 +91,7 @@ function briefingDashboard(status = 'success') {
   };
 }
 
-test('Given project status data, When the executive briefing renders, Then a visible project status briefing summarizes each project and links to its details', () => {
+test('Given project status data, When the executive briefing renders, Then the selected project summary and detail link remain available', () => {
   const dashboard = briefingDashboard();
   dashboard.projects = [{
     name: '피자레디',
@@ -102,15 +102,15 @@ test('Given project status data, When the executive briefing renders, Then a vis
 
   const html = briefingHtml(dashboard, null, () => '');
 
-  assert.match(html, /<h4 id="project-status-title">프로젝트 현황 브리핑 <span class="section-count">1개<\/span>/);
+  assert.match(html, /<h3 id="project-status-title">2\. 프로젝트 브리핑<\/h3>/);
   assert.match(html, /피자레디/);
   assert.match(html, /이벤트 QA와 다음 스프린트 범위를 확인해야 합니다\./);
   assert.match(html, /완료 1\/4 · 진행 2 · 예정 1 · 검토 0/);
-  assert.match(html, /기한 초과 1 · 관리 확인 3/);
+  assert.match(html, /현재 진행 요약/);
   assert.match(html, /data-project-jump="피자레디"/);
 });
 
-test('Given an executive briefing with project evidence, When rendered, Then project status contains the integrated analysis and keeps its six decision lenses visible', () => {
+test('Given an executive briefing with project evidence, When rendered, Then the selected project contains progress and actions with additional evidence collapsed', () => {
   const dashboard = briefingDashboard();
   dashboard.metrics = {
     overdueWorkItems: 2,
@@ -133,8 +133,9 @@ test('Given an executive briefing with project evidence, When rendered, Then pro
   const projectStatus = html.indexOf('id="project-status-title"');
   const risk = html.indexOf('id="risk-title"');
 
-  const blockers = html.indexOf('id="blockers-title"');
-  assert.ok(analysis >= 0 && projectStatus > analysis && risk > projectStatus && blockers > risk);
+  assert.ok(analysis >= 0 && projectStatus > analysis);
+  assert.match(html, /<details class="project-more">/);
+  assert.doesNotMatch(html, /<details class="project-more" open/);
   assert.ok(html.indexOf('현재 진행', projectStatus) > projectStatus);
   for (const label of ['현재 진행', '빌드·출시 현황', '데이터 현황', '실행 병목', '확인 필요', '다음 주요 행동']) {
     assert.match(html, new RegExp(label));
@@ -176,8 +177,7 @@ test('Given a setup deep link, When briefing renders, Then decisions and analysi
   const analysis = html.indexOf('대표 승인 대기 중입니다.');
   const detail = html.indexOf('id="briefing-detail"');
 
-  assert.ok(decision >= 0 && analysis > decision && detail > analysis);
-  assert.ok(html.indexOf('id="risk-title"') < detail);
+  assert.ok(analysis >= 0 && decision > analysis && detail > decision);
   assert.ok(html.indexOf('id="management-title"') < detail);
   assert.ok(html.indexOf('착수 목록 업무') > detail);
   assert.match(html, /현재 스프린트에서 아직 시작 전인 항목입니다. 실행 병목·가이드 위반과는 별도 분류입니다./);
@@ -281,6 +281,28 @@ test('Given structured decisions and project-prefixed risks, When briefing rende
 
   assert.match(html, /data-project-jump="피자레디"/);
   assert.match(html, /data-project-jump="포지 앤 포춘"/);
-  assert.equal(html.match(/data-project-jump=/g)?.length, 4);
+  assert.equal(html.match(/data-project-jump=/g)?.length, 3);
   assert.match(html, /관련 프로젝트·근거 보기/);
+});
+
+
+test('project selection limits the narrative to one project and does not mutate the dashboard', () => {
+  const dashboard = briefingDashboard();
+  dashboard.projects = [{ name: 'A', stats: {}, notionSummary: { summary: 'A 진행 요약' } }, { name: 'B', stats: {}, notionSummary: { summary: 'B 진행 요약' } }];
+  const before = JSON.stringify(dashboard);
+  const html = briefingHtml(dashboard, null, () => '', {}, { project: 'B' });
+  assert.match(html, /B 진행 요약/);
+  assert.doesNotMatch(html, /A 진행 요약/);
+  assert.equal(JSON.stringify(dashboard), before);
+  assert.deepEqual([...html.matchAll(/<h3 id="(?:analysis|project-status|management)-title">([^<]+)<\/h3>/g)].map(match => match[1]), ['1. AI 통합브리핑', '2. 프로젝트 브리핑', '3. 스프린트별 업무현황']);
+});
+
+test('sprint KPI and detail use the same selected scope', () => {
+  const dashboard = briefingDashboard();
+  dashboard.projects = [{ name: 'A', stats: {} }];
+  dashboard.workItems = [{ id: '1', title: '선택한 작업', project: 'A', status: '진행 중', sprint: '스프린트3.5' }, { id: '2', title: '다른 작업', project: 'A', status: '진행 중', sprint: '크리에이티브' }];
+  const html = briefingHtml(dashboard, 'work-items', items => items.map(item => item.title).join(','), {}, { scope: { sprints: ['sprint3.5'] } });
+  assert.match(html, /data-briefing-detail="work-items" aria-expanded="true"><span class="value">1<\/span>/);
+  assert.match(html, /선택한 작업/);
+  assert.doesNotMatch(html, /다른 작업/);
 });

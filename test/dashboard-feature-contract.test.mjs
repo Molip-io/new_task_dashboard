@@ -26,26 +26,16 @@ const design = fs.readFileSync(designPath, 'utf8');
 const meetingSkill = fs.readFileSync(meetingSkillPath, 'utf8');
 const specInsights = fs.readFileSync(new URL('../lib/spec-insights.mjs', import.meta.url), 'utf8');
 
-test('Given the executive briefing, When reading its sections, Then the four briefing areas stay classified before evidence and management details', () => {
+test('Given the simplified briefing, only three primary sections appear in the requested order', () => {
   const briefing = presenters.slice(presenters.indexOf('export function briefingHtml'));
-  const decision = briefing.indexOf('id="decision-title"');
-  const trust = briefing.indexOf('trustBriefingHtml');
-  const projectStatus = briefing.indexOf('projectStatusBriefingHtml');
-  const blockers = briefing.indexOf('managementBlockersHtml');
-  const changed = briefing.indexOf('id="changes-title"');
-  const candidates = briefing.indexOf('<details class="candidate-section"');
-  const management = briefing.indexOf('id="management-title"');
-
-  assert.ok(decision >= 0 && projectStatus >= 0 && trust > decision && blockers > trust && changed > blockers);
-  assert.ok(candidates > changed && management > candidates);
-  for (const label of ['1. 대표가 확인할 판단', '2. 데이터 신뢰 확인', '3. 현재 관리상 막힌 것', '4. 어제와 달라진 것']) {
-    assert.match(presenters, new RegExp(label));
-  }
-  assert.match(presenters, /프로젝트 현황 브리핑/);
-  assert.match(presenters, /<h4 id="analysis-title">에이전트 통합 분석/);
-  assert.match(presenters, /decisionsForCEO/);
-  assert.doesNotMatch(presenters, /1\. 에이전트 통합 분석|2\. 어제와 달라진 것/);
-  assert.doesNotMatch(presenters, /notionSummary\?\.decision/);
+  assert.match(briefing, /1\. AI 통합브리핑/);
+  assert.match(presenters, /2\. 프로젝트 브리핑/);
+  assert.match(briefing, /3\. 스프린트별 업무현황/);
+  assert.ok(briefing.indexOf('id="analysis-title"') < briefing.indexOf('projectStatusBriefingHtml'));
+  assert.ok(briefing.indexOf('projectStatusBriefingHtml') < briefing.indexOf('id="management-title"'));
+  assert.doesNotMatch(presenters, /2\. 데이터 신뢰 확인|3\. 현재 관리상 막힌 것|4\. 어제와 달라진 것|프로젝트별 최신 상태/);
+  assert.match(presenters, /data-briefing-project/);
+  assert.match(presenters, /data-briefing-sprint/);
 });
 
 test('Given a deployed UI bundle, When the browser requests the shell, Then the bundle is cache-busted and local responses are not reusable', () => {

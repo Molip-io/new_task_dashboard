@@ -29,6 +29,7 @@ import {
 import { briefingHtml, issueGroupRowHtml, managementActionHtml } from './dashboard-presenters.js';
 import { deriveSpecStatus } from './spec-state.js';
 import { demoDashboard } from './dashboard-demo.js';
+import { scopeBriefing } from './briefing-scope.js';
 
 let D = null;
 const $ = selector => document.querySelector(selector);
@@ -237,21 +238,59 @@ function bindCopyActions(container, shareContext = null) {
   });
 }
 
+const briefingView = { project: null, scope: {} };
+
 function renderBriefing() {
   const filters = state.briefingFilters?.[state.briefingDetail] || {};
-  $('#tab-briefing').innerHTML = briefingHtml(D, state.briefingDetail, taskRows, filters);
+  $('#tab-briefing').innerHTML = briefingHtml(D, state.briefingDetail, taskRows, filters, briefingView);
   document.querySelectorAll('#tab-briefing [data-briefing-detail]').forEach(button => button.onclick = () => openBriefingDetail(button.dataset.briefingDetail));
-  document.querySelectorAll('#tab-briefing [data-briefing-filter]').forEach(control => control.onchange = event => {
-    const detail = state.briefingDetail;
-    state.briefingFilters[detail] = { ...(state.briefingFilters[detail] || {}), [event.target.dataset.briefingFilter]: event.target.value || '' };
-    const filter = event.target.dataset.briefingFilter;
-    persist(); renderBriefing();
-    document.querySelector(`[data-briefing-filter="${filter}"]`)?.focus();
+  const projectSelect = $('[data-briefing-project]');
+  projectSelect.onchange = () => {
+    briefingView.project = projectSelect.value;
+    renderBriefing();
+    $('[data-briefing-project]')?.focus();
+  };
+  document.querySelectorAll('[data-scope-filter]').forEach(control => control.onchange = () => {
+    const key = control.dataset.scopeFilter;
+    briefingView.scope[key] = control.value;
+    renderBriefing();
+    document.querySelector(`[data-scope-filter="${key}"]`)?.focus();
   });
-  const resetBriefing = $('#tab-briefing [data-action="reset-briefing-filters"]');
-  if (resetBriefing) resetBriefing.onclick = () => {
-    state.briefingFilters[state.briefingDetail] = {}; persist(); renderBriefing();
-    document.querySelector('[data-action="reset-briefing-filters"]')?.focus();
+  $('[data-scope-reset]').onclick = () => {
+    briefingView.scope = {};
+    state.briefingFilters = {};
+    renderBriefing();
+    $('[data-scope-reset]')?.focus();
+  };
+  const search = $('[data-sprint-search]');
+  const filterSprintOptions = () => {
+    const value = search.value.toLowerCase().replace(/\s+/g, '');
+    document.querySelectorAll('.sprint-choice').forEach(row => {
+      row.hidden = !row.textContent.toLowerCase().replace(/\s+/g, '').includes(value) && !row.querySelector('input').value.includes(value);
+    });
+  };
+  search.oninput = filterSprintOptions;
+  document.querySelectorAll('[data-briefing-sprint]').forEach(control => control.onchange = () => {
+    const selected = new Set(briefingView.scope.sprints || []);
+    if (control.checked) selected.add(control.value); else selected.delete(control.value);
+    briefingView.scope.sprints = [...selected];
+    const searchValue = search.value;
+    const value = control.value;
+    renderBriefing();
+    $('.sprint-picker').open = true;
+    $('[data-sprint-search]').value = searchValue;
+    $('[data-sprint-search]').dispatchEvent(new Event('input'));
+    [...document.querySelectorAll('[data-briefing-sprint]')].find(item => item.value === value)?.focus();
+  });
+  $('[data-clear-sprints]').onclick = () => {
+    briefingView.scope.sprints = [];
+    renderBriefing();
+    $('.sprint-picker > summary')?.focus();
+  };
+  $('.sprint-picker').onkeydown = event => {
+    if (event.key !== 'Escape') return;
+    $('.sprint-picker').open = false;
+    $('.sprint-picker > summary')?.focus();
   };
   document.querySelectorAll('#tab-briefing [data-project-jump]').forEach(button => button.onclick = () => {
     const projectName = button.dataset.projectJump;
@@ -267,7 +306,7 @@ function renderBriefing() {
   });
   const shareDetail = state.briefingDetail;
   const shareContext = ['overdue', 'guide', 'setup'].includes(shareDetail) ? {
-    items: briefingDetailItems(D, shareDetail, filters),
+    items: briefingDetailItems(scopeBriefing(D, { ...filters, ...briefingView.scope }), shareDetail),
     title: shareDetail === 'overdue' ? '기한 초과 작업항목'
       : shareDetail === 'guide' ? '가이드 위반 작업항목'
         : '진행 준비 필요 항목',
@@ -513,6 +552,7 @@ $('#themeToggle').onclick = () => {
 };
 syncThemeToggle();
 $('#refreshBtn').onclick = async () => {
+  if (demoMode) { await load(); return; }
   const button = $('#refreshBtn');
   const stateLabel = $('#collectState');
   button.disabled = true;
@@ -541,6 +581,7 @@ async function pollStatus() {
   if (demoMode) {
     $('#refreshBtn').disabled = false;
     $('#collectState').textContent = '샘플 데이터 표시 중';
+    $('#refreshBtn').textContent = '샘플 다시 보기';
     return;
   }
   const update = async () => {
