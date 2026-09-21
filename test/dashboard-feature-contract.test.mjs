@@ -26,19 +26,21 @@ const design = fs.readFileSync(designPath, 'utf8');
 const meetingSkill = fs.readFileSync(meetingSkillPath, 'utf8');
 const specInsights = fs.readFileSync(new URL('../lib/spec-insights.mjs', import.meta.url), 'utf8');
 
-test('Given the executive briefing, When reading its sections, Then one integrated analysis and the daily delta remain without duplicate issue lists', () => {
-  const analysis = presenters.indexOf('1. 에이전트 통합 분석');
-  const changed = presenters.indexOf('2. 어제와 달라진 것');
-
-  assert.ok(analysis >= 0);
-  assert.ok(changed > analysis);
-  assert.doesNotMatch(presenters, /현재 관리상 막힌 것|대표가 확인할 판단/);
-  assert.doesNotMatch(presenters, /decisionsForCEO|notionSummary\?\.decision/);
+test('Given the simplified briefing, only three primary sections appear in the requested order', () => {
+  const briefing = presenters.slice(presenters.indexOf('export function briefingHtml'));
+  assert.match(briefing, /1\. AI 통합브리핑/);
+  assert.match(presenters, /2\. 프로젝트 브리핑/);
+  assert.match(briefing, /3\. 스프린트별 업무현황/);
+  assert.ok(briefing.indexOf('id="analysis-title"') < briefing.indexOf('projectStatusBriefingHtml'));
+  assert.ok(briefing.indexOf('projectStatusBriefingHtml') < briefing.indexOf('id="management-title"'));
+  assert.doesNotMatch(presenters, /2\. 데이터 신뢰 확인|3\. 현재 관리상 막힌 것|4\. 어제와 달라진 것|프로젝트별 최신 상태/);
+  assert.match(presenters, /data-briefing-project/);
+  assert.match(presenters, /data-briefing-sprint/);
 });
 
 test('Given a deployed UI bundle, When the browser requests the shell, Then the bundle is cache-busted and local responses are not reusable', () => {
-  assert.match(prototype, /style\.css\?v=20260903-1/);
-  assert.match(prototype, /app\.js\?v=20260903-1/);
+  assert.match(prototype, /style\.css\?v=20260907-1/);
+  assert.match(prototype, /app\.js\?v=20260907-1/);
   const server = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
   assert.match(server, /Cache-Control': 'no-store, max-age=0'/);
 });
@@ -76,7 +78,7 @@ test('Given the accepted review, When reading the design, Then all P0 requiremen
 });
 
 test('Given Agent spec summaries, When reading the project-card contract, Then Agent narrative is preferred and exact IDs define the link', () => {
-  assert.match(app, /analysisStatus: D\.ai\?\.analysisStatus/);
+  assert.match(app, /analysisStatus: analysis\.status/);
   assert.match(app, /sourceComparisonStatus: D\.ai\?\.sourceComparison\?\.status/);
   assert.match(app, /현재 확인된 실행 blocker 없음/);
   assert.match(app, /근거에서 다음 완료 지점을 특정할 수 없음/);
@@ -157,6 +159,24 @@ test('Given an expanded work-item management check, When its actions render, The
   assert.match(style, /\.management-check \{ display: contents; \}/);
   assert.match(style, /\.management-check \.management-actions \{ grid-column: 1 \/ -1;/);
   assert.doesNotMatch(style, /\.management-check \.management-actions[^}]*margin-left:\s*-/);
+});
+
+test('Given a tablet or mobile task list, When responsive styles apply, Then status, assignee, period, and management remain visible', () => {
+  assert.match(app, /data-label="상태"/);
+  assert.match(app, /data-label="담당자"/);
+  assert.match(app, /data-label="기간"/);
+  assert.match(app, /data-label="관리 확인"/);
+  assert.doesNotMatch(style, /\.task-row > :nth-child\(4\)[^}]*display\s*:\s*none/);
+  assert.match(style, /\.task-row \[data-label\]::before/);
+});
+
+test('Given a decision or risk with a known project, When its context action is selected, Then the project card opens and receives focus', () => {
+  assert.match(presenters, /data-project-jump/);
+  assert.match(app, /\[data-project-jump\]/);
+  assert.match(app, /state\.openProject = projectName/);
+  assert.match(app, /activateTab\('projects'\)/);
+  assert.match(app, /scrollIntoView/);
+  assert.match(app, /focus\(\)/);
 });
 
 test('Given a work-item risk list, When sharing it with Slack, Then one concise bulk-copy control and item links are available', () => {

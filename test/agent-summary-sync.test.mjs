@@ -27,3 +27,36 @@ test('Given a same-day agent result older than the latest rule input, When summa
   assert.equal(merged.analysis.analysisStatus, 'stale');
   assert.equal(merged.dashboard.ai.overall.summary, '이전 요약');
 });
+
+test('Given a failed agent result, When summaries merge, Then failure is preserved and source health agrees', () => {
+  const dashboard = {
+    generatedAt: '2026-08-06T09:29:05.790Z',
+    agentHandoff: { generatedAt: '2026-08-06T09:29:05.790Z' },
+    projects: [{ name: 'UI 자동화' }],
+    sourceHealth: {
+      status: 'ok',
+      sources: [{ id: 'agent-analysis', status: 'ok', successful: 1, lastSuccessAt: '2026-08-05T00:00:00Z' }],
+    },
+  };
+  const rows = [{
+    프로젝트명: '전체',
+    run_id: '2026-08-06-morning',
+    '분석 상태': 'failed',
+    '분석 시각': '2026-08-06T18:30:00+09:00',
+    '분석 결과 JSON': JSON.stringify({
+      schemaVersion: '1.0', runId: '2026-08-06-morning', generatedAt: '2026-08-06T18:30:00+09:00',
+      analysisStatus: 'failed', overall: { summary: '실패 전 잔여 요약' }, projects: [],
+      sourceStatus: {}, sourceComparison: { status: 'not_run' }, ruleMetrics: {}, adjustments: [],
+    }),
+  }];
+
+  const merged = mergeAgentSummaryRows(dashboard, rows, '2026-08-06T09:30:00.000Z');
+
+  assert.equal(merged.current, false);
+  assert.equal(merged.analysis.analysisStatus, 'failed');
+  assert.equal(merged.dashboard.ai.analysisStatus, 'failed');
+  assert.equal(merged.dashboard.sourceHealth.status, 'limited');
+  assert.equal(merged.dashboard.sourceHealth.sources[0].status, 'unavailable');
+  assert.equal(merged.dashboard.sourceHealth.sources[0].analysisStatus, 'failed');
+  assert.equal(merged.dashboard.sourceHealth.sources[0].lastSuccessAt, '2026-08-05T00:00:00Z');
+});

@@ -79,7 +79,7 @@ function operations() {
     git: { repositories: [] },
   };
   const html = briefingHtml(dashboard, null, () => '');
-  assert.match(html, /프로젝트 현황/);
+  assert.match(html, /프로젝트 브리핑/);
   assert.match(html, /원본 수집 근거/);
   assert.match(html, /QA\/리뷰|QA 이후/);
   assert.match(html, /99.9% 릴리즈/);

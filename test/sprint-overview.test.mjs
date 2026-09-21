@@ -59,13 +59,12 @@ test('Admin key is masked and never persisted',()=>{
   assert.doesNotMatch(code,/localStorage|sessionStorage/);
 });
 
-test('Briefing source contract keeps AI, changes, project status, then sprint overview',()=>{
+test('Briefing source contract keeps the three requested decision surfaces',()=>{
   const presenter=fs.readFileSync(new URL('../public/dashboard-presenters.js',import.meta.url),'utf8');
-  const sprint=fs.readFileSync(new URL('../public/sprint-overview.js',import.meta.url),'utf8');
-  assert.match(presenter,/1\. AI 통합 브리핑/);
-  assert.match(presenter,/2\. 어제와 달라진 것/);
-  assert.match(presenter,/3\. 프로젝트 현황/);
-  assert.match(sprint,/4\. 스프린트별 업무 현황/);
+  assert.match(presenter,/1\. AI 통합브리핑/);
+  assert.match(presenter,/2\. 프로젝트 브리핑/);
+  assert.match(presenter,/3\. 스프린트별 업무현황/);
+  assert.doesNotMatch(presenter,/어제와 달라진 것/);
 });
 
 test('Backend connects shared settings without changing raw metrics',()=>{
