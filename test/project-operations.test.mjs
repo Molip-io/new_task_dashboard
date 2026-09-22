@@ -19,3 +19,54 @@ test('Given recent project Slack lifecycle messages, When operations are built, 
   assert.ok(operations.evidenceCount >= 4);
   assert.equal(operations.evidence.every(item => item.evidenceRole === 'project_operation'), true);
 });
+
+test('a recent thread reply does not redate or prepend an old build plan', () => {
+  const ops = buildProjectOperations([{channel:'builds',messages:[
+    {time:'2026-09-03T00:00:00Z',text:'9/3 오늘 슈센에 빌드를 전달하기로 한 날입니다',url:'https://slack.test/parent'},
+    {time:'2026-09-21T00:00:00Z',text:'스프린트3.5 빌드 준비 중',parentText:'9/3 오늘 슈센에 빌드를 전달하기로 한 날입니다',threadTs:'1788393600',url:'https://slack.test/reply'},
+  ]}]);
+  assert.equal(ops.latestBuild.excerpt,'스프린트3.5 빌드 준비 중');
+  assert.equal(ops.latestBuild.parentContext.timestamp,'2026-09-03T00:00:00.000Z');
+  assert.equal(ops.events.find(e=>e.url.endsWith('/parent')).timestamp,'2026-09-03T00:00:00Z');
+});
+
+test('a generic reply to a build thread cannot become a new build event', () => {
+  const ops = buildProjectOperations([{channel:'builds',messages:[{time:'2026-09-21T00:00:00Z',text:'감사합니다',parentText:'9/3 빌드 전달 예정',threadTs:'1788393600'}]}]);
+  assert.equal(ops.latestBuild,null);
+});
+
+test('last release survives a busy newer QA window', () => {
+  const messages=[{time:'2026-09-03',text:'스프린트3 빌드 버전 3.5 출시 완료',url:'https://slack.test/release'},...Array.from({length:15},(_,i)=>({time:`2026-09-21T01:${String(i).padStart(2,'0')}:00Z`,text:'스프린트3.5 QA 준비',url:`https://slack.test/qa/${i}`}))];
+  const ops=buildProjectOperations([{channel:'builds',messages}]);
+  assert.equal(ops.latestRelease.url,'https://slack.test/release');
+  assert.ok(ops.evidence.some(e=>e.url==='https://slack.test/release'));
+});
+
+test('explicit later delivery keeps its own words and links the original plan as context', () => {
+  const ops=buildProjectOperations([{channel:'builds',messages:[{time:'2026-09-04T00:00:00Z',text:'전달 완료했습니다',parentText:'9/3 스프린트3 빌드 버전 3.5 전달 예정',threadTs:'1788393600',url:'https://slack.test/delivered'}]}]);
+  assert.equal(ops.latestBuild.excerpt,'전달 완료했습니다');
+  assert.equal(ops.latestBuild.timestamp,'2026-09-04T00:00:00Z');
+  assert.match(ops.latestBuild.parentContext.excerpt,/스프린트3 빌드 버전 3.5/);
+  assert.notEqual(ops.latestBuild.parentContext.timestamp,ops.latestBuild.timestamp);
+});
+
+
+test('RV, ARPDAU and A/B outcome messages survive collection without becoming release facts', () => {
+  for (const text of ['RV 4회/DAU', 'ARPDAU $0.12', 'A/B B그룹 잠정 우세', '보상형 광고 4회/인']) {
+    const ops = buildProjectOperations([{ channel: 'metrics', messages: [{ time: '2026-09-21', text }] }]);
+    assert.equal(ops.latestData.excerpt, text);
+    assert.equal(ops.latestRelease, null);
+    assert.equal(ops.latestBuild, null);
+  }
+});
+
+test('customer feedback reports never become build, release, or KPI events', () => {
+  const ops = buildProjectOperations([{ channel: 'pizza-ready', messages: [
+    { time: '2026-09-21T02:00:00Z', url: 'https://slack.test/feedback', text: 'Pizza Ready 일일 피드백 리포트 (9/20) Overall Summary 총 인입수: 158건 부정 감정 비율: 24.7% Critical 이슈 발생건수: 9건' },
+    { time: '2026-09-20T02:00:00Z', url: 'https://slack.test/release', text: 'AOS 60.1.0 배포 완료' },
+  ] }]);
+  assert.equal(ops.latestBuild.url, 'https://slack.test/release');
+  assert.equal(ops.latestRelease.url, 'https://slack.test/release');
+  assert.equal(ops.latestData, null);
+  assert.ok(!ops.evidence.some(item => item.url === 'https://slack.test/feedback'));
+});

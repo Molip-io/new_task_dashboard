@@ -96,7 +96,6 @@
               "currentProgress",
               "buildRelease",
               "data",
-              "confirmationRequired",
               "nextActions",
               "evidence",
               "confidenceLimits"
@@ -114,7 +113,7 @@
                   "null"
                 ],
                 "maxLength": 800,
-                "description": "빌드·QA·심사·출시의 확인된 상황. 버전과 플랫폼을 구분한다. 직접 근거가 없으면 null이며 제한을 남긴다."
+                "description": "원문 나열 없이 2~3문장으로 종합한다. 일반 작업 요청·아트 실험·고객 피드백 보고서는 빌드 전달 근거가 아니다. 기준일 현재 마지막 확인된 전달/배포 빌드 → 다음 준비 빌드 → 다음 단계·남은 검증 순서. 각 주장에 확인 날짜와 evidence 링크를 연결한다. 스프린트와 빌드 버전, 플랫폼, 전달 대상을 분리한다. 과거 예정일 경과를 완료/지연으로 추정하지 않는다. 오늘/내일은 원문 날짜의 절대 날짜로 변환하며 부모 글을 답글 시각으로 갱신하지 않는다. 오래된 전달 기록도 마지막 확인 상태로 유지한다. 근거가 없으면 null과 confidenceLimits."
               },
               "data": {
                 "type": [
@@ -122,9 +121,10 @@
                   "null"
                 ],
                 "maxLength": 800,
-                "description": "배포·테스트 이후 확인된 결과와 관찰 상태. 버전·기간·국가·비교군을 혼합하지 않는다. 직접 근거가 없으면 null."
+                "description": "현재 전달·배포 빌드의 성과 지표 및 A/B 결과. sourceHealth나 수집 상태를 넣지 않는다. 빌드·플랫폼·기간·국가·코호트/실험군, 수치·단위·분모·비교 기준을 구분한다. D1 관찰 완료 여부와 RV 집계 단위를 확인하고 A/B 단순 우세를 승리 확정으로 바꾸지 않는다. 확인된 부분만 요약하며 해당 빌드에 연결된 근거가 전혀 없으면 null, 제한은 confidenceLimits에 기록한다."
               },
               "confirmationRequired": {
+                "description": "레거시 호환용 선택 필드. 새 분석에서는 생성하지 않는다. 수집 제한은 confidenceLimits, 실행 차단은 blockers, 확인 제안은 nextActions.kind=suggested_check에 둔다.",
                 "type": "array",
                 "maxItems": 5,
                 "items": {

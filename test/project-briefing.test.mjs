@@ -12,7 +12,7 @@ function fixture() {
  const brief={currentProgress:'SYNTHESIS: scope and implementation are under review.',buildRelease:'Build 2 QA is planned; build 1 is released.',data:'Build 1 observations remain separate.',confirmationRequired:['Check approval record'],nextActions:[{text:'Review QA results',kind:'agreed'},{text:'Confirm rollout record',kind:'suggested_check'}],evidence:['notion','slack','meeting','git'].map(evidence),confidenceLimits:[]};
  return {generatedAt:'2026-09-08T01:00:00Z',agentHandoff:{generatedAt:'2026-09-08T01:00:00Z',runId:'2026-09-08-morning'},projects:[project],workItems:[],metrics:{},validationIssues:[],ai:{runId:'2026-09-08-morning',generatedAt:'2026-09-08T02:00:00Z',analysisStatus:'success',sourceComparison:{status:'complete'},sourceStatus:{notion:'success',slack:'success',meeting:'success',git:'success'},overall:{},projects:[{name:'Project A',summary:'LEGACY SYNTHESIS',blockers:['Explicit execution impact'],nextActions:['Legacy action'],confidenceLimits:[],specSummaries:[],projectBriefing:brief}]}};
 }
-const view=d=>resolveProjectBriefing(d,d.projects[0]);
+const view=d=>resolveProjectBriefing(d,d.projects[0],{now:new Date('2026-09-08T03:00:00Z')});
 test('structured Agent synthesis owns narrative instead of raw Slack',()=>{const d=fixture(),v=view(d);assert.match(v.currentProgress,/SYNTHESIS:/);assert.doesNotMatch(v.currentProgress,/RAW SLACK/);assert.equal(v.structured,true);assert.equal(v.status,'success');});
 test('all three narrative axes survive independently',()=>{const v=view(fixture());assert.match(v.buildRelease,/Build 2/);assert.match(v.data,/Build 1/);});
 test('all supplied source types remain attributable',()=>assert.deepEqual(new Set(view(fixture()).sources),new Set(['notion','slack','meeting','git'])));
@@ -38,12 +38,37 @@ test('project row selection cannot use substring names',()=>{const row={'프로�
 test('new rule packet publishes optional backwards-compatible briefing schema and synthesis contract',()=>{const d=fixture(),p=enrichAgentPacketWithProjectOperations(buildAgentInputPacket(d),d);assert.ok(p.outputSchema.properties.projects.items.properties.projectBriefing);assert.ok(!p.outputSchema.properties.projects.items.required.includes('projectBriefing'));assert.match(p.constraints.join('\n'),/projectBriefing/);assert.match(p.constraints.join('\n'),/meetingReferences/);});
 test('renderer separates source material from primary narrative',()=>{const d=fixture(),h=projectBriefingHtml(d,d.projects[0]);assert.ok(h.indexOf('SYNTHESIS:')<h.indexOf('근거 보기'));assert.ok(h.indexOf('RAW SLACK ONLY')>h.indexOf('원본 수집 근거'));assert.match(h,/project-briefing-evidence/);});
 test('actual schema limits field and action contracts',()=>{const s=JSON.parse(fs.readFileSync(new URL('../schemas/agent-analysis.schema.json',import.meta.url)));const b=s.properties.projects.items.properties.projectBriefing;assert.equal(b.additionalProperties,false);assert.deepEqual(b.properties.nextActions.items.properties.kind.enum,['agreed','suggested_check']);assert.ok(b.required.includes('currentProgress'));});
+test('project confirmation checks are no longer required by the output contract',()=>{const s=JSON.parse(fs.readFileSync(new URL('../schemas/agent-analysis.schema.json',import.meta.url)));const b=s.properties.projects.items.properties.projectBriefing;assert.ok(!b.required.includes('confirmationRequired'));assert.match(b.properties.confirmationRequired.description,/레거시 호환/);});
 
 
 test('project briefing uses bento narrative hierarchy without exposing raw evidence first',()=>{
   const d=fixture(),h=projectBriefingHtml(d,d.projects[0]);
   assert.match(h,/project-briefing-hero/);
   assert.match(h,/project-briefing-grid-axes/);
-  assert.match(h,/project-briefing-tri-grid/);
+  assert.match(h,/project-briefing-duo-grid/);
   assert.ok(h.indexOf('SYNTHESIS:')<h.indexOf('근거 보기'));
+});
+
+test('a frozen previous-day snapshot cannot claim current analysis',()=>{
+ const d=fixture();
+ assert.equal(resolveProjectBriefing(d,d.projects[0],{now:new Date('2026-09-21T01:00:00Z')}).status,'stale');
+});
+test('newer operational evidence makes the earlier synthesis stale',()=>{
+ const d=fixture(); d.projects[0].projectOperations.latestBuild.timestamp='2026-09-08T02:30:00Z';
+ assert.equal(view(d).status,'stale');
+});
+
+
+test('project detail omits the removed decision-check section and keeps metric absence explicit', () => {
+  const d = fixture();
+  const brief = d.ai.projects[0].projectBriefing;
+  brief.confirmationRequired = [];
+  brief.data = null;
+  let html = projectBriefingHtml(d, d.projects[0]);
+  assert.match(html, /빌드 성과·실험 결과/);
+  assert.match(html, /현재 전달·배포 빌드에 연결된 성과 지표가 확인되지 않았습니다/);
+  assert.doesNotMatch(html, /<h4>판단 전 확인<\/h4>|<h4>확인 필요<\/h4>/);
+  brief.confirmationRequired = ['전달 대상 기록이 상충하여 파트너 테스트 시작 여부 확인 필요'];
+  html = projectBriefingHtml(d, d.projects[0]);
+  assert.doesNotMatch(html, /<h4>판단 전 확인<\/h4>|파트너 테스트 시작 여부 확인 필요/);
 });

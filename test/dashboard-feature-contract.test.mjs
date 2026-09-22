@@ -40,7 +40,7 @@ test('Given the simplified briefing, only three primary sections appear in the r
 
 test('Given a deployed UI bundle, When the browser requests the shell, Then the bundle is cache-busted and local responses are not reusable', () => {
   assert.match(prototype, /style\.css\?v=20260907-1/);
-  assert.match(prototype, /app\.js\?v=20260907-1/);
+  assert.match(prototype, /app\.js\?v=20260922-1/);
   const server = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
   assert.match(server, /Cache-Control': 'no-store, max-age=0'/);
 });
@@ -217,4 +217,10 @@ test('Given an existing remote dashboard snapshot, When the website opens, Then 
   assert.match(api, /Promise\.all\(\[/);
   assert.match(api, /if \(!dashboard\) dashboard = dashboardCache\.set\(await collectForWeb\(\)\)/);
   assert.doesNotMatch(api, /snapshotIsStale/);
+});
+
+test('Given a failed live dashboard request, When the website opens, Then it shows a retry state instead of silently using sample data', () => {
+  assert.match(app, /실데이터를 불러오지 못했습니다/);
+  assert.match(app, /실데이터 대기 중/);
+  assert.doesNotMatch(app, /dashboard \|\|= await loadSampleDashboard/);
 });

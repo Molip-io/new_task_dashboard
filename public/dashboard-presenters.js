@@ -1,3 +1,4 @@
+import { resolveProjectBriefing, briefingTime } from './project-briefing.js';
 import { analysisPresentation, formatKst as fmt } from './dashboard-analysis.js';
 import { briefingDetailItems, gitRepositoryStatus, gitTrustSummary, issuePresentation, primaryActionSummary } from './dashboard-management.js';
 import { scopeBriefing, sprintOptions } from './briefing-scope.js';
@@ -110,37 +111,6 @@ function projectProgressRows(dashboard, analysis) {
     });
 }
 
-function buildReleaseRows(dashboard) {
-  const rows = [];
-  for (const project of dashboard.projects || []) {
-    for (const insight of project.specInsights || []) {
-      for (const item of insight.evidence || []) {
-        if (/빌드|출시|배포|릴리즈|릴리스|핫픽스|롤백|QA/i.test(`${insight.title || ''} ${item.excerpt || ''}`)) {
-          rows.push({ project: project.name, ...item });
-        }
-      }
-    }
-    for (const item of project.projectOperations?.evidence || []) {
-      rows.push({ project: project.name, ...item });
-    }
-  }
-  rows.sort((left, right) => String(right.timestamp || '').localeCompare(String(left.timestamp || '')));
-  const seen = new Set();
-  return rows.filter(row => {
-    const key = `${row.project}:${row.excerpt}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 4);
-}
-
-function projectOperationRows(dashboard) {
-  return (dashboard.projects || []).flatMap(project => (project.projectOperations?.evidence || []).map(item => ({
-    project: project.name,
-    ...item,
-  }))).sort((left, right) => String(right.timestamp || '').localeCompare(String(left.timestamp || ''))).slice(0, 6);
-}
-
 function sourceStatusRows(dashboard, analysis) {
   const labels = { notion: 'Notion', slack: 'Slack', meetings: '회의록', 'agent-analysis': '통합 분석', 'rule-input': '규칙 입력' };
   const sources = (dashboard.sourceHealth?.sources || []).map(source => {
@@ -175,22 +145,14 @@ function analysisFactHtml(title, content, empty = '현재 스냅샷에 표시할
 }
 
 function integratedAnalysisFactsHtml(dashboard, analysis) {
-  const progress = disclosureRows(projectProgressRows(dashboard, analysis), row => `<div class="analysis-fact-row"><strong>${esc(row.project.name)}</strong><span>${esc(row.text)}</span></div>`, 4);
-  const buildRows = buildReleaseRows(dashboard);
-  const build = buildRows.map(row => `<div class="analysis-fact-row"><strong>${esc(row.project)}</strong><span>${esc(row.excerpt)} · ${esc(row.source || '출처')} ${fmt(row.timestamp)}</span></div>`).join('');
-  const operationRows = projectOperationRows(dashboard);
-  const operations = operationRows.map(row => `<div class="analysis-fact-row"><strong>${esc(row.project)}</strong><span>${esc(row.title || row.source || '원본')} · ${esc(row.excerpt)} · ${fmt(row.timestamp)}</span></div>`).join('');
-  const data = sourceStatusRows(dashboard, analysis).map(row => `<div class="analysis-fact-row"><span>${esc(row)}</span></div>`).join('');
-  const blockers = executionBlockers(dashboard, analysis).map(row => `<div class="analysis-fact-row"><span>${esc(row)}</span></div>`).join('');
-  const metrics = dashboard.metrics || {};
-  const checks = [
-    `기한 초과 ${metrics.overdueWorkItems ?? 0}건`,
-    `가이드 위반 ${metrics.guideViolationWorkItems ?? 0}건`,
-    `진행 준비 ${metrics.progressSetupRequiredItems ?? 0}건`,
-    `확인 필요 프로젝트 ${metrics.needsCheckProjects ?? 0}개`,
-  ].map(row => `<div class="analysis-fact-row"><span>${esc(row)}</span></div>`).join('');
-  const actions = nextMajorActions(dashboard, analysis).map(row => `<div class="analysis-fact-row"><strong>${esc(row.project)}</strong><span>${esc(row.action)}</span></div>`).join('');
-  return `<div class="project-primary">${analysisFactHtml('현재 진행 요약', progress)}${analysisFactHtml('다음 주요 행동', actions, '확인된 다음 행동이 없습니다.')}</div><details class="project-more"><summary>프로젝트 상세 · 빌드·출시 / 데이터 / 병목 / 확인 필요</summary><div class="analysis-facts">${analysisFactHtml('빌드·출시 현황', build, '직접 연결된 빌드·출시 근거가 없습니다.')}${analysisFactHtml('데이터 현황', data)}${analysisFactHtml('실행 병목', blockers, analysis.canShowNarrative ? '통합 분석에 기록된 실행 병목이 없습니다.' : '분석 결과를 확인할 수 없어 실행 병목을 판단할 수 없습니다.')}${analysisFactHtml('확인 필요', checks)}${analysisFactHtml('원본 수집 근거', operations, '프로젝트 운영 원본 근거가 없습니다.')}</div></details>`;
+  const project = dashboard.projects[0];
+  const view = resolveProjectBriefing(dashboard, project);
+  const paragraph = value => value ? `<p>${esc(value)}</p>` : '';
+  const progress = view.currentProgress || compactText(project.notionSummary?.summary);
+  const actions = view.nextActions.map(action => `<p><small>${action.kind === 'agreed' ? '합의된 행동' : action.kind === 'suggested_check' ? '확인 제안' : '이전 분석 행동'}</small> ${esc(action.text)}</p>`).join('');
+  const references = values => values.map(row => `<div class="analysis-fact-row"><strong>${esc(row.source)} · ${esc(briefingTime(row.timestamp))}</strong><span>${esc(row.excerpt)}</span>${row.url ? `<a href="${esc(safeUrl(row.url))}" target="_blank" rel="noreferrer">원문 보기</a>` : ''}</div>`).join('');
+  const freshness = view.status === 'stale' ? '이전 분석 · 갱신 필요. 아래 내용은 마지막 확인 기록이며 현재 상태 확정이 아닙니다.' : view.status === 'not_run' ? '프로젝트 통합 분석이 아직 없습니다.' : view.status === 'partial' || view.status === 'legacy' ? '분석 확인 제한 · 근거와 확인 시점을 함께 보세요.' : '프로젝트 통합 분석';
+  return `<p class="project-briefing-meta">${esc(freshness)} · 분석 ${esc(briefingTime(view.generatedAt))} · 데이터 ${esc(briefingTime(view.inputAt))}</p><div class="project-primary">${analysisFactHtml('현재 진행 요약', paragraph(progress))}${analysisFactHtml('다음 주요 행동', actions, '확인된 다음 행동이 없습니다.')}</div><details class="project-more"><summary>프로젝트 상세 · 빌드·출시 / 성과·실험 / 병목</summary><div class="analysis-facts">${analysisFactHtml('빌드·출시 현황', paragraph(view.buildRelease), '빌드·출시 통합 분석 미확인 · 원문만으로 현재 상태를 확정하지 않습니다.')}${analysisFactHtml('빌드 성과·실험 결과', paragraph(view.data), '현재 전달·배포 빌드에 연결된 성과 지표가 확인되지 않았습니다.')}${analysisFactHtml('실행 병목', view.blockers.map(paragraph).join(''), '확인된 실행 병목이 제공되지 않았습니다.')}</div><details><summary>분석 근거 · ${view.evidence.length}건</summary>${references(view.evidence) || '<p>연결된 근거가 없습니다.</p>'}</details><details><summary>원본 수집 근거 · ${view.rawEvidence.length}건</summary><p>과거 계획과 원문 발췌입니다. 작성 날짜의 기록이며 현재 상태를 뜻하지 않습니다.</p>${references(view.rawEvidence)}</details>${view.limits.length ? `<details><summary>분석 범위·확인 제한</summary>${view.limits.map(paragraph).join('')}</details>` : ''}</details>`;
 }
 
 function trustBriefingHtml(dashboard, analysis) {

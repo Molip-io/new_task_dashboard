@@ -245,3 +245,12 @@ test('Given parent and child rule items, When an agent packet is built, Then ite
   assert.equal(packet.projects[0].analysisTargets[0].itemLevel, 'parent');
   assert.equal(packet.projects[0].analysisTargets[0].workItemId, null);
 });
+
+test('Agent input keeps deltas at the established rules path without duplicating the evidence budget', () => {
+  for (const deltas of [dashboard.deltas, []]) {
+    const packet = JSON.parse(JSON.stringify(buildAgentInputPacket({ ...dashboard, deltas })));
+    assert.deepEqual(packet.rules.deltas, deltas);
+    assert.equal(Object.hasOwn(packet, 'deltas'), false);
+  }
+  assert.deepEqual(buildAgentInputPacket({ ...dashboard, deltas: undefined }).rules.deltas, []);
+});

@@ -601,34 +601,34 @@ async function pollStatus() {
   };
   if (await update()) pollTimer = setInterval(async () => { if (!await update()) await load(); }, 2000);
 }
-const sampleDashboardPaths = ['../data/dashboard.sample.json', '/data/dashboard.sample.json', 'data/dashboard.sample.json'];
-async function loadSampleDashboard() {
-  for (const path of sampleDashboardPaths) {
-    try {
-      const response = await fetch(path, { cache: 'no-store' });
-      if (!response.ok) continue;
-      const sample = await readJsonResponse(response);
-      return { ...sample, sample: true };
-    } catch {}
-  }
-  return { ...JSON.parse(JSON.stringify(demoDashboard)), sample: true };
-}
 async function load() {
   let dashboard = demoMode ? { ...JSON.parse(JSON.stringify(demoDashboard)), sample: true } : null;
+  let loadError = '';
   if (!demoMode) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1200);
+      const timeout = setTimeout(() => controller.abort(), 8000);
       try {
         const response = await fetch('/api/dashboard', { signal: controller.signal, cache: 'no-store' });
-        if (response.ok) dashboard = await readJsonResponse(response);
+        if (!response.ok) throw new Error(`대시보드 응답 ${response.status}`);
+        const candidate = await readJsonResponse(response);
+        if (!candidate || typeof candidate !== 'object' || !Array.isArray(candidate.projects)) throw new Error('대시보드 데이터 형식이 올바르지 않습니다.');
+        dashboard = candidate;
       } finally {
         clearTimeout(timeout);
       }
-    } catch {}
+    } catch (error) {
+      loadError = error?.name === 'AbortError' ? '실데이터 응답이 8초 안에 도착하지 않았습니다.' : error.message || '실데이터를 불러오지 못했습니다.';
+    }
   }
-  dashboard ||= await loadSampleDashboard();
-  if (!dashboard) { $('#loading').classList.add('hidden'); $('#empty').classList.remove('hidden'); return; }
+  if (!dashboard) {
+    $('#loading').classList.add('hidden');
+    $('#empty').classList.remove('hidden');
+    $('#empty h2').textContent = '실데이터를 불러오지 못했습니다';
+    $('#empty p').textContent = `${loadError || '수집된 대시보드가 없습니다.'} 데이터 다시 수집을 눌러 재시도하세요.`;
+    $('#collectState').textContent = '실데이터 대기 중';
+    return;
+  }
   D = normalize(dashboard); $('#empty').classList.add('hidden'); render();
 }
 load(); pollStatus();

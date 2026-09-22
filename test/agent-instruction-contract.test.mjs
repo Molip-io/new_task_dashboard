@@ -46,6 +46,30 @@ test('Given the daily agent run, When its prompt is executed, Then input, analys
   }
 });
 
+test('Given the daily run input, When deltas are validated, Then the established rules path is accepted without reconstruction', () => {
+  const documents = [
+    read('../agent-package/02_DAILY_RUN_PROMPT.md'),
+    read('../docs/reviewed-daily-run.md'),
+    read('../prompts/업무대시보드_에이전트_실행지시.md'),
+  ];
+  for (const document of documents) {
+    assert.match(document, /rules\.deltas.*정식/);
+    assert.match(document, /최상위 `deltas`가 없어도/);
+    assert.match(document, /둘 다.*배열이 아니거나.*서로 다르면/);
+    assert.match(document, /다른 출처.*deltas.*재구성|다른 출처로 deltas를 재구성/);
+  }
+});
+
+test('Given the copy-ready agent prompt, When used alone, Then it includes the complete execution lifecycle', () => {
+  const prompt = read('../prompts/업무대시보드_에이전트_단일실행문.md');
+  for (const phrase of [
+    '오늘 입력 검증', '분석 대상', 'buildRelease', '빌드 성과·실험 결과',
+    '저장 전 검증', '저장·저장 후 검증', '완료 보고',
+  ]) assert.match(prompt, new RegExp(phrase.replace(/[·]/g, '·')));
+  assert.match(prompt, /`rules\.deltas`가 정식 경로/);
+  assert.match(prompt, /규칙 입력 페이지를 수정하지 않는다/);
+});
+
 
 test('Given the scoped briefing, When guide metrics are interpreted, Then mixed units and guide overlap are explicit contracts', () => {
   const documents = [

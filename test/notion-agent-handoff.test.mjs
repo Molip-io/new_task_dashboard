@@ -4,11 +4,13 @@ import {
   AGENT_INPUT_REMOTE_READABLE_LIMIT,
   publishAgentInputToNotion,
   remotePacketSize,
+  validateAgentInputDeltas,
 } from '../lib/notion-agent-handoff.mjs';
 
 const packet = {
   schemaVersion: '1.0', runId: '2026-07-21-morning', generatedAt: '2026-07-21T07:30:00+09:00',
   projects: [{ name: '피자레디', analysisTargets: [] }],
+  rules: { deltas: [] },
 };
 
 test('Given no remote rule snapshot, When the packet is published, Then one idempotent Notion input page is created', async () => {
@@ -73,4 +75,29 @@ test('Given a packet larger than the connector-readable budget, When published, 
     }),
     /원격 조회 안전 한도/,
   );
+});
+
+test('both existing rules.deltas and top-level deltas are accepted without mutating source input', () => {
+  const changes = [{ project: '피자레디', field: 'task.status', from: '시작 전', to: '진행 중' }];
+  for (const deltas of [changes, []]) {
+    for (const value of [{ rules: { deltas } }, { deltas }, { rules: { deltas }, deltas }]) {
+      const before = structuredClone(value);
+      assert.deepEqual(validateAgentInputDeltas(value), deltas);
+      assert.deepEqual(value, before);
+    }
+  }
+});
+
+test('missing, malformed or conflicting deltas fail before any Notion operation', async () => {
+  for (const invalid of [
+    { ...packet, rules: {} },
+    { ...packet, deltas: null },
+    { ...packet, rules: { deltas: {} } },
+    { ...packet, deltas: [{ field: 'task.status' }] },
+  ]) {
+    await assert.rejects(publishAgentInputToNotion({
+      databaseId: 'summary-db', packet: invalid,
+      query: async () => assert.fail('invalid input must not access Notion'),
+    }), /deltas/);
+  }
 });

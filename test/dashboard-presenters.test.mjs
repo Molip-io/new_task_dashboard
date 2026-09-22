@@ -78,7 +78,7 @@ test('Given several attention candidates, When executive briefing renders, Then 
   assert.match(candidates, /디자인 협업 지연/);
   assert.match(candidates, /분석상 위험으로 확정되지 않은 신호/);
   assert.doesNotMatch(html, /<details class="candidate-section" open/);
-  assert.doesNotMatch(html, /오래된 위험/);
+  assert.doesNotMatch(candidates, /오래된 위험/);
   assert.match(html, /디자인 협업 지연/);
 });
 
@@ -105,7 +105,7 @@ test('Given project status data, When the executive briefing renders, Then the s
   assert.match(html, /<h3 id="project-status-title">2\. 프로젝트 브리핑<\/h3>/);
   assert.match(html, /피자레디/);
   assert.match(html, /이벤트 QA와 다음 스프린트 범위를 확인해야 합니다\./);
-  assert.match(html, /완료 1\/4 · 진행 2 · 예정 1 · 검토 0/);
+  assert.doesNotMatch(html.slice(html.indexOf('id="project-status-title"'), html.indexOf('id="management-title"')), /완료 1\/4 · 진행 2 · 예정 1 · 검토 0/);
   assert.match(html, /현재 진행 요약/);
   assert.match(html, /data-project-jump="피자레디"/);
 });
@@ -137,7 +137,7 @@ test('Given an executive briefing with project evidence, When rendered, Then the
   assert.match(html, /<details class="project-more">/);
   assert.doesNotMatch(html, /<details class="project-more" open/);
   assert.ok(html.indexOf('현재 진행', projectStatus) > projectStatus);
-  for (const label of ['현재 진행', '빌드·출시 현황', '데이터 현황', '실행 병목', '확인 필요', '다음 주요 행동']) {
+  for (const label of ['현재 진행', '빌드·출시 현황', '빌드 성과·실험 결과', '실행 병목', '다음 주요 행동']) {
     assert.match(html, new RegExp(label));
   }
   assert.match(html, /빌드 QA 확인 필요/);
@@ -305,4 +305,45 @@ test('sprint KPI and detail use the same selected scope', () => {
   assert.match(html, /data-briefing-detail="work-items" aria-expanded="true"><span class="value">1<\/span>/);
   assert.match(html, /선택한 작업/);
   assert.doesNotMatch(html, /다른 작업/);
+});
+
+test('project briefing uses version-aware synthesis instead of old build excerpts', () => {
+  const d=briefingDashboard();
+  d.projects=[{name:'포지 앤 포춘',stats:{},projectOperations:{evidence:[{source:'slack',timestamp:'2026-09-03',excerpt:'9/3 오늘 슈센에 빌드를 전달하기로 한 날입니다',url:'https://slack.test/old'}]}}];
+  d.ai.projects=[{name:'포지 앤 포춘',projectBriefing:{currentProgress:'스프린트3.5 준비 중',buildRelease:'스프린트3의 빌드 버전 3.5는 전달됨. 스프린트3.5의 다음 빌드는 준비 중.',data:'기존 빌드 지표는 별도 관찰 중',confirmationRequired:[],nextActions:[],evidence:[],confidenceLimits:[]}}];
+  const html=briefingHtml(d,null,()=> '');
+  const narrative=html.slice(html.indexOf('id="project-status-title"'),html.indexOf('원본 수집 근거'));
+  assert.match(narrative,/스프린트3의 빌드 버전 3.5는 전달됨/);
+  assert.match(narrative,/스프린트3.5의 다음 빌드는 준비 중/);
+  assert.match(narrative,/기존 빌드 지표는 별도 관찰 중/);
+  assert.doesNotMatch(narrative,/9\/3 오늘 슈센/);
+  delete d.ai.projects[0].projectBriefing;
+  const empty=briefingHtml(d,null,()=> '');
+  assert.doesNotMatch(empty.slice(empty.indexOf('id="project-status-title"'),empty.indexOf('원본 수집 근거')),/9\/3 오늘 슈센/);
+});
+
+
+test('project performance displays build metrics and hides empty decision checks without moving source health into metrics', () => {
+  const d = briefingDashboard();
+  d.projects = [{ name: '피자레디', stats: {} }];
+  d.sourceHealth = { sources: [{ id: 'notion', status: 'ok', lastSuccessAt: '2026-09-21' }] };
+  d.ai.projects = [{ name: '피자레디', projectBriefing: {
+    currentProgress: '다음 실험 준비 중', buildRelease: '9/20 버전 T 전달 확인.',
+    data: '테스트용 버전 T · 9/20 Android 코호트 D1 30%. RV 4회/DAU. A/B는 표본 부족으로 승리 미확정.',
+    confirmationRequired: [], nextActions: [], evidence: [], confidenceLimits: [],
+  } }];
+  const render = () => {
+    const html = briefingHtml(d, null, () => '');
+    return html.slice(html.indexOf('id="project-status-title"'), html.indexOf('원본 수집 근거'));
+  };
+  const html = render();
+  assert.match(html, /빌드 성과·실험 결과/);
+  assert.match(html, /D1 30%/);
+  assert.match(html, /RV 4회\/DAU/);
+  assert.match(html, /승리 미확정/);
+  assert.doesNotMatch(html, /Notion 정상|<h4>판단 전 확인<\/h4>|분석에서 제공한 확인 항목/);
+  d.ai.projects[0].projectBriefing.confirmationRequired = ['실험 판정이 서로 달라 전체 적용 전 결과 확인 필요'];
+  assert.doesNotMatch(render(), /판단 전 확인|전체 적용 전 결과 확인 필요/);
+  d.ai.projects[0].projectBriefing.data = null;
+  assert.match(render(), /현재 전달·배포 빌드에 연결된 성과 지표가 확인되지 않았습니다/);
 });
