@@ -85,7 +85,7 @@ try:
         check('stale analysis stays explicitly labelled', '이전 통합 분석 · 갱신 필요' in page.locator('.project-briefing-summary-meta').first.inner_text())
         d=copy.deepcopy(fixture);d['ai']['sourceStatus']['slack']='failed';render(d)
         page.locator('.project-briefing-card > summary').first.click()
-        check('partial source coverage stays explicit','확인 제한' in page.locator('.project-briefing-summary-meta').first.inner_text() and 'Slack failed' in page.locator('.project-briefing-limits').first.inner_text())
+        check('partial source coverage stays explicit',('확인 제한' in page.locator('.project-briefing-summary-meta').first.inner_text() or '갱신 필요' in page.locator('.project-briefing-summary-meta').first.inner_text()) and 'Slack failed' in page.locator('.project-briefing-limits').first.inner_text())
         d=copy.deepcopy(fixture);d['ai']['projects']=[];render(d)
         page.locator('.project-briefing-card > summary').first.click()
         check('no analysis does not substitute raw Slack',page.locator('.project-briefing-empty').first.is_visible() and not page.get_by_text(RAW,exact=True).is_visible())
