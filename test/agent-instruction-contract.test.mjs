@@ -20,6 +20,9 @@ test('canonical documents match the actual indexed input and nested deltas contr
     assert.match(doc, /둘 다.*배열이 아니거나.*서로 다르면/);
     assert.match(doc, /재구성/);
   }
+  for (const doc of [instructions, daily]) {
+    for (const key of ['manifest-v1', 'MOLIP_AGENT_INPUT_PART_V1', 'sectionCounts', 'projectMeta', 'totalItems']) assert.ok(doc.includes(key), key);
+  }
 });
 
 test('semantic gates require every project briefing and prohibit metrics being replaced by collection health', () => {
