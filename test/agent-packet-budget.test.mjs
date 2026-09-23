@@ -23,6 +23,11 @@ test('irreducible mandatory facts fail instead of silently dropping task or chan
  const p=fixture();p.rules.deltas=[{fact:'x'.repeat(REMOTE_PACKET_LIMIT)}];const before=structuredClone(p.rules);
  assert.throws(()=>fitRemoteEvidenceBudget(p),/원격 규칙 입력 예산 초과/);assert.deepEqual(p.rules,before);
 });
+test('non-strict collection preserves irreducible input and marks it for multipart publication',()=>{
+ const p=fixture();p.rules.deltas=[{fact:'x'.repeat(REMOTE_PACKET_LIMIT)}];const before=structuredClone(p.rules);
+ fitRemoteEvidenceBudget(p,{strict:false});
+ assert.equal(p.packetBudget.status,'requires_sharding');assert.ok(JSON.stringify(p).length>REMOTE_PACKET_LIMIT);assert.deepEqual(p.rules,before);
+});
 test('schema compaction preserves a field named description and all validation constraints',()=>{
  const p=fixture();p.outputSchema.properties.description={type:'string',minLength:1,description:'field help'};
  p.outputSchema.required.push('description');fitRemoteEvidenceBudget(p);

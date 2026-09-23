@@ -185,7 +185,9 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       unknownSprintItems: workOverview.unknownSprintItems.length,
     };
     let packetBudgetError = null;
-    try { fitRemoteEvidenceBudget(agentInput); } catch (error) { packetBudgetError = error; }
+    // Preserve irreducible facts and let the Notion handoff publish an atomic
+    // manifest plus bounded project parts when one page would exceed 50k.
+    try { fitRemoteEvidenceBudget(agentInput, { strict: false }); } catch (error) { packetBudgetError = error; }
     fs.writeFileSync(agentInputFile, JSON.stringify(agentInput, null, 2));
     const latestSprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
     if (latestSprintSettings.revision !== sprintSettings.revision) throw new Error('수집 중 현재 스프린트 설정이 변경됐습니다. 이전 기준을 게시하지 않습니다.');
@@ -213,6 +215,8 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       generatedAt: agentInput.generatedAt,
       remoteRunId: remoteHandoff.runId,
       pageId: remoteHandoff.pageId || null,
+      generationId: remoteHandoff.generationId || null,
+      partCount: remoteHandoff.partCount || 0,
       error: remoteHandoff.error || null,
     };
     let remoteSnapshot = { status: 'failed', runId: `dashboard-snapshot:${kstDate(now)}` };

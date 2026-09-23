@@ -1,6 +1,6 @@
 # MOLIP 업무 대시보드 통합 분석 에이전트 지침
 
-버전: 2026-09-23. 공식 운영 문서는 이 지침과 「MOLIP 업무 대시보드 아침 정기 실행문」 두 개다. 별도 설계 문서·스킬·단일 실행문은 필요하지 않다. 아래 절차는 연결된 원격 도구로 수행하며 로컬 파일·터미널에 접근하지 않는다.
+버전: 2026-09-23 multipart 입력 규약. 공식 운영 문서는 이 지침과 「MOLIP 업무 대시보드 아침 정기 실행문」 두 개다. 별도 설계 문서·스킬·단일 실행문은 필요하지 않다. 아래 절차는 연결된 원격 도구로 수행하며 로컬 파일·터미널에 접근하지 않는다. manifest/조각 형식은 대시보드 수집기에도 구현·배포되어야 한다. 수집기가 아직 이를 게시하지 않으면 임의로 형식을 추정하지 말고 입력 누락으로 안전하게 실패한다.
 
 ## 1. 목적과 성공조건
 
@@ -32,17 +32,18 @@
 ## 3. 입력 읽기와 기준 고정
 
 1. `Asia/Seoul` 기준 오늘과 실행 ID `YYYY-MM-DD-morning`을 정한다.
-2. 요약 DB에서 `run_id = rule-input:YYYY-MM-DD-morning`인 `규칙 입력 / YYYY-MM-DD`를 찾는다.
-3. 페이지 속성 `payload`는 `{storage, format, marker, runId, bytes}` 위치 안내다. `storage=page_code_block`, `marker=MOLIP_AGENT_INPUT_V1`과 당일 `runId`를 확인한다.
-4. 본문을 페이지네이션 끝까지 읽는다. caption이 `MOLIP_AGENT_INPUT_V1`인 마지막 JSON 코드 블록의 모든 텍스트 조각을 순서대로 결합해 파싱한다. 화면 발췌나 검색 결과만 읽고 전체를 읽었다고 판단하지 않는다.
-5. 본문 `runId`가 당일 실행 ID와 같고 `outputSchema`, `rules.metrics`, `projects`, `sourceHealth`가 있는지 확인한다. 각 프로젝트의 `ruleAuditFormat`, `ruleAuditItems`, `analysisTargets`, `specCatalogFormat`, `specCatalog`도 확인한다. 빈 배열과 누락은 다르다. `sourceEvidence`·형식·`meetingReferences`·`gitEvidence` 등 보조 근거의 유무와 제한도 읽는다.
-6. 변경 이력은 `rules.deltas`가 정식 경로다. 최상위 `deltas`가 없어도 이 배열이면 유효하다. 최상위 배열만 있는 호환 입력도 허용한다. 둘 다 있으면 둘 다 배열이고 내용이 같아야 한다. 둘 다 누락되거나 제공된 값이 배열이 아니거나 서로 다르면 실패한다. `[]`는 변경 없음이다. 다른 출처로 deltas를 재구성하지 않는다.
+2. 요약 DB에서 정확히 `run_id = rule-input:YYYY-MM-DD-morning`인 기준 페이지를 찾는다. `dashboard-snapshot:` 페이지는 화면용이므로 절대 입력 대용으로 쓰지 않는다.
+3. 페이지 속성 `payload`의 위치 안내와 본문을 확인한다. 본문은 페이지네이션 끝까지 읽는다. 화면 발췌나 검색 결과만으로 완독했다고 판단하지 않는다. caption이 `MOLIP_AGENT_INPUT_V1`인 전체 JSON 코드 블록의 텍스트 조각을 순서대로 결합해 파싱한다.
+4. `packet.format=manifest-v1`이면 기준 JSON은 `runId`, `generatedAt`, `outputSchema`, `rules`, `projects`, `sourceHealth`, `packet`을 포함해야 한다. 변경 내역은 `rules.deltas`가 정식 경로이며 최상위 `deltas`는 선택형 호환 별칭이다. 둘 다 있으면 배열이 같아야 한다. 기준 페이지 `payload` 속성의 JSON 안내값과 본문은 marker·runId·generationId·상태가 서로 일치해야 한다. `packet`은 `format`, `status`, `generationId`, `partCount`, `parts`를 포함한다. `status=ready`만 허용한다. 각 `projects[]` 기준 항목은 `projectId`, `name`, `activeSpecIds`, `partIds`, `sectionCounts`를 선언한다. `sectionCounts`는 조각으로 분리된 각 프로젝트 배열의 전체 행 수다. `parts[]`는 조각마다 고유한 `partId`, 1부터 시작하는 `partIndex`, 고유한 `runId`, `projectId`, `pageUrl`을 선언한다. `runId`는 당일 실행 ID와 같고 `parts` 수는 `partCount`와 같아야 한다.
+5. 기준 페이지가 명시한 각 `partId`와 `pageUrl`만 사용해 조각을 연다. 각 조각의 본문을 끝까지 읽고 caption `MOLIP_AGENT_INPUT_PART_V1`인 JSON 블록 전체를 결합·파싱한다. 조각 JSON은 `format=project-part-v1`, `runId`, `generatedAt`, `generationId`, `partId`, 1부터 시작하는 `partIndex`, `partCount`, `projects`를 포함해야 한다. 조각 `payload` 속성의 JSON 안내값과 본문도 marker·runId·generationId·partId·상태가 서로 일치해야 한다. 모든 식별자·순번·개수·실행 시각이 기준 페이지와 일치해야 하며 누락·중복·불일치가 없어야 한다. 검색 결과에 보이는 일부 조각만으로 입력이 완전하다고 판단하지 않는다.
+6. manifest와 모든 조각을 검증한 뒤 하나의 논리 입력으로 재구성한다. 각 조각의 `projects[]` 항목은 `projectId`, `name`, `sections`와 첫 조각에만 있는 `projectMeta`로 구성된다. 프로젝트별 `projectMeta`는 정확히 한 번 있어야 한다. `sectionCounts`에 든 각 배열 필드는 `field`, `offset`, `totalItems`, `items`를 사용해 복원한다. 같은 `projectId`·`field`의 섹션을 `offset` 순으로 정렬해 0부터 간격·겹침·중복 없이 `sectionCounts[field]` 길이를 모두 덮는지 확인하고, 각 `totalItems`가 선언된 전체 길이와 같은지도 확인한다. 빈 배열은 `projectMeta`에 남는다. 복원 후 기준 페이지의 `activeSpecIds`와 `specCatalog`의 `specId`가 1:1인지 확인한다. 감사 행을 순서만으로 다른 목록의 작업과 결합하지 않는다. 조각의 근거나 프로젝트 설명을 자의적으로 생략하지 않는다. manifest가 `ready`가 아니거나 페이지를 읽을 수 없거나 조각·프로젝트 메타데이터·배열 행이 누락·중복·불일치·JSON 오류 상태면 분석과 저장을 중단한다.
+7. `packet.format`이 없는 기존 단일 페이지 형식은 직렬화 JSON 50,000자 이하이고 `MOLIP_AGENT_INPUT_V1` 블록이 정확히 하나일 때만 완독·파싱 후 호환 입력으로 허용한다. 50,000자를 넘는 단일 블록은 잘림 위험이 있으므로 거부한다. multipart manifest가 선언됐는데 조각이 불완전하면 단일 페이지 입력처럼 처리하지 않는다.
+8. 재구성된 논리 입력에 `runId`, `outputSchema`, `rules.metrics`, `projects`, `sourceHealth`가 있는지 확인한다. 각 프로젝트의 `ruleAuditFormat`, `ruleAuditItems`, `analysisTargets`, `specCatalogFormat`, `specCatalog`도 확인한다. 빈 배열과 누락은 다르다. `sourceEvidence`·형식·`meetingReferences`·`gitEvidence` 등 보조 근거의 유무와 제한도 읽는다.
+9. 변경 이력은 `rules.deltas`가 정식 경로다. 최상위 `deltas`가 없어도 이 배열이면 유효하다. 최상위 배열만 있는 호환 입력도 허용한다. 둘 다 있으면 둘 다 배열이고 내용이 같아야 한다. 둘 다 누락되거나 제공된 값이 배열이 아니거나 서로 다르면 실패한다. `[]`는 변경 없음이다. 다른 출처로 deltas를 재구성하지 않는다.
 
-규칙 입력 없음·완독 불가·JSON 파싱 실패·실행 ID 불일치·필수 입력 누락은 분석·저장을 중단하고 `failed`로 보고한다. 입력 없음은 `sourceStatus.ruleEngine=not_available`, 손상된 입력은 `failed`로 구분한다. 외부 출처만으로 대체 분석하지 않는다. `dashboard-snapshot:`의 gzip/base64는 웹 화면용이며 에이전트 입력이 아니다.
+규칙 입력 없음·완독 불가·JSON 파싱 실패·실행 ID 불일치·필수 입력 누락은 분석·저장을 중단하고 `failed`로 보고한다. 입력 없음은 `sourceStatus.ruleEngine=not_available`, 손상되거나 불완전한 입력은 `failed`로 구분한다. 외부 출처만으로 대체 분석하지 않는다. 조각이 없는 이전의 초과 입력을 다른 페이지나 원본 출처를 조합해 재구성하지 않는다.
 
-같은 `run_id`의 입력 페이지가 여러 개면 실제 본문·규칙·근거·범위와 `generatedAt`을 비교한다. 생성 시각만 다른 동일 입력은 최신 페이지를 쓴다. 내용이 다르고 정본을 확정할 수 없으면 입력 충돌로 실패하며 서로 합치지 않는다.
-
-분석 시작 시 입력 `pageId`, `runId`, `generatedAt`과 재확인 가능한 본문 식별 정보를 기록한다. 저장 직전 같은 페이지와 본문을 다시 확인한다. 도중 갱신됐으면 처음 입력 기준임을 `overall.confidenceLimits`와 관련 프로젝트 제한에 기록하고 `partial`로 처리한다. 새 입력을 반영했다고 주장하거나 더 최신 입력에 기반한 기존 결과를 덮어쓰지 않는다. 입력 시각을 분석 시각으로 바꾸지 않는다. 스키마에 없는 최상위 provenance 필드를 만들지 말고 허용된 제한 필드에 기준 정보를 남긴다.
+기준 페이지와 입력 조각은 같은 `generationId`의 한 묶음이어야 한다. 분석 시작 시 기준 페이지 `pageId`, 모든 조각 `pageId`·`partId`, `runId`, `generationId`, `generatedAt`을 기록한다. 저장 직전에 기준 페이지와 모든 조각을 다시 읽어 같은 세대·본문인지 확인한다. 분석 중 새 generation으로 교체됐거나 일부 조각이 달라졌으면 처음 입력으로 분석을 마무리해 저장하지 말고 `failed`로 보고한다. 입력 시각을 분석 시각으로 바꾸지 않는다. 스키마에 없는 최상위 provenance 필드를 만들지 말고 허용된 제한 필드에 기준 정보를 남긴다.
 
 ## 4. 정량 사실과 업무 범위
 
