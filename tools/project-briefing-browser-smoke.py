@@ -58,7 +58,7 @@ try:
         check('click expands only selected project', page.locator('.project-briefing-card[open]').count()==1)
         check('summary label becomes collapse', cards.first.locator('.toggle-close').is_visible() and not cards.first.locator('.toggle-open').is_visible())
         check('synthesis is visible in primary narrative', NARRATIVE in cards.first.locator('.project-briefing-axis').first.inner_text())
-        check('three narrative axes are visible', all(cards.first.get_by_role('heading', name=x, exact=True).is_visible() for x in ['현재 진행 요약','빌드·출시 현황','데이터 현황']))
+        check('three narrative axes are visible', all(cards.first.get_by_role('heading', name=x, exact=True).is_visible() for x in ['현재 진행 요약','빌드·출시 현황','빌드 성과·실험 결과']))
         check('only connected evidence source types shown', cards.first.locator('.project-briefing-source').all_text_contents()==['Notion','Slack','회의록','GitHub'])
         check('raw Slack is not visible initially', not cards.first.get_by_text(RAW, exact=True).is_visible())
         check('agreed and suggested actions are distinguished', cards.first.get_by_text('합의된 행동',exact=True).is_visible() and cards.first.get_by_text('AI 확인 제안',exact=True).is_visible())
