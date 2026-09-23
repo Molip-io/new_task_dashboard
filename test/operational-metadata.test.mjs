@@ -34,6 +34,27 @@ test('Given one missing Slack channel, When source health is built, Then the con
   assert.equal('dependencyCoverage' in health, false);
 });
 
+test('meeting body failures and skipped reads report partial collection rather than normal', () => {
+  for (const dashboard of [
+    { ...current, errors: ['회의록 본문 page-id: forbidden'] },
+    { ...current, meetings: [{ date: '2026-09-22', contentChecked: false, content: '요약만 수집됨' }] },
+  ]) {
+    const health = buildSourceHealth(dashboard);
+    const meetings = health.sources.find(source => source.id === 'meetings');
+    assert.equal(health.status, 'limited');
+    assert.equal(meetings.status, 'partial');
+    assert.equal(meetings.bodyReadIncomplete, true);
+    assert.equal(meetings.lastSuccessAt, null);
+  }
+});
+
+test('meeting database failure with no rows is unavailable, while successful body reads are normal', () => {
+  const missing = buildSourceHealth({ ...current, errors: ['회의록DB 회의록: forbidden'], meetings: [] });
+  assert.equal(missing.sources.find(source => source.id === 'meetings').status, 'unavailable');
+  const healthy = buildSourceHealth({ ...current, meetings: [{ date: '2026-09-22', contentChecked: true }] });
+  assert.equal(healthy.sources.find(source => source.id === 'meetings').status, 'ok');
+});
+
 test('Given matching project and task IDs, When snapshots are compared, Then changed status and due date are returned', () => {
   const previous = {
     generatedAt: '2026-07-14T07:30:00.000Z',

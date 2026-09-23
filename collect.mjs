@@ -16,6 +16,7 @@ import { attachOperationalMetadata, loadPreviousSnapshot, saveDailySnapshot } fr
 import { buildDashboardSyncCompleted } from './lib/sync-event.mjs';
 import { kstDate } from './lib/business-days.mjs';
 import { aiEnrich } from './lib/ai-summary.mjs';
+import { fitRemoteEvidenceBudget } from './lib/agent-packet-budget.mjs';
 import { writeAgentInputPacket } from './lib/agent-handoff.mjs';
 import { publishAgentInputToNotion } from './lib/notion-agent-handoff.mjs';
 import { publishDashboardSnapshotToNotion } from './lib/dashboard-snapshot.mjs';
@@ -183,12 +184,15 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       unknownGuideViolationItems: workOverview.unknownGuideViolationItems.length,
       unknownSprintItems: workOverview.unknownSprintItems.length,
     };
+    let packetBudgetError = null;
+    try { fitRemoteEvidenceBudget(agentInput); } catch (error) { packetBudgetError = error; }
     fs.writeFileSync(agentInputFile, JSON.stringify(agentInput, null, 2));
     const latestSprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
     if (latestSprintSettings.revision !== sprintSettings.revision) throw new Error('수집 중 현재 스프린트 설정이 변경됐습니다. 이전 기준을 게시하지 않습니다.');
     let remoteHandoff = { status: 'disabled', runId: `rule-input:${agentInput.runId}` };
     if (config.features?.publishAgentInputToNotion !== false) {
       try {
+        if (packetBudgetError) throw packetBudgetError;
         remoteHandoff = await publishAgentInputToNotion({ databaseId: config.notion.summaryDbId, packet: agentInput });
       } catch (error) {
         remoteHandoff = { status: 'failed', runId: `rule-input:${agentInput.runId}`, error: error.message };

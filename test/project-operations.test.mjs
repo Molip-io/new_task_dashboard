@@ -70,3 +70,34 @@ test('customer feedback reports never become build, release, or KPI events', () 
   assert.equal(ops.latestData, null);
   assert.ok(!ops.evidence.some(item => item.url === 'https://slack.test/feedback'));
 });
+
+test('qualified project meetings expose late build and metric decisions independently of spec names', () => {
+  const ops = buildProjectOperations([], [{
+    title: '포지앤포춘 주간 스크럼', date: '2026-09-22', url: 'https://notion.test/meeting', contentChecked: true,
+    content: `${'광맥 색상 방향을 논의했다. '.repeat(40)}\n스프린트 3.5 빌드 V3 제출 전 QA 필요.\n빌드 3.5 D1 32%, 설치 코호트 9/19 기준.`,
+  }]);
+  assert.equal(ops.source, 'meeting');
+  assert.equal(ops.latestBuild.timestamp, '2026-09-22');
+  assert.match(ops.latestBuild.excerpt, /V3 제출 전 QA 필요/);
+  assert.match(ops.latestData.excerpt, /D1 32%/);
+  assert.equal(ops.latestLifecycleSignal.source, 'meeting');
+  assert.ok(ops.evidence.every(item => item.source === 'meeting' && item.title === '포지앤포춘 주간 스크럼' && item.url === 'https://notion.test/meeting'));
+  assert.ok(ops.evidence.every(item => !item.excerpt.includes('광맥 색상')));
+});
+
+test('confirmed delivery wording survives newer build and release plans', () => {
+  const ops = buildProjectOperations([{ channel: 'builds', messages: [
+    { time: '2026-09-03', text: '스프린트 3 빌드 3.5 전달 완료', url: 'https://slack.test/delivery' },
+    ...Array.from({ length: 12 }, (_, index) => ({ time: `2026-09-22T12:${String(index).padStart(2, '0')}:00Z`, text: '스프린트 3.5 빌드 QA 후 출시 예정', url: `https://slack.test/plan/${index}` })),
+  ] }]);
+  assert.ok(ops.evidence.some(item => item.url === 'https://slack.test/delivery'));
+  assert.match(ops.latestBuild.excerpt, /출시 예정/);
+});
+
+test('a qualified meeting remains available when more recent Slack covers every lifecycle category', () => {
+  const messages = Array.from({ length: 15 }, (_, index) => ({ time: `2026-09-23T12:${String(index).padStart(2, '0')}:00Z`, text: '빌드 QA 출시 예정 및 D1 지표 수집 준비', url: `https://slack.test/recent/${index}` }));
+  const ops = buildProjectOperations([{ channel: 'builds', messages }], [{ title: '프로젝트 주간 회의', date: '2026-09-22', content: '빌드 QA 승인 대기', url: 'https://notion.test/meeting' }]);
+  assert.equal(ops.source, 'mixed');
+  assert.ok(ops.evidence.some(item => item.source === 'meeting' && item.url === 'https://notion.test/meeting'));
+  assert.equal(ops.latestBuild.source, 'slack');
+});

@@ -57,7 +57,9 @@ export function resolveProjectBriefing(dashboard, project, { now = new Date() } 
   const comparison = agent?.sourceComparison?.status || ai.sourceComparison?.status || 'not_run';
   if (hasNarrative && !['complete'].includes(comparison)) limits.push('일부 출처의 대조가 완료되지 않았거나 대조 상태가 제공되지 않았습니다.');
   const sourceStatus = agent?.sourceStatus || ai.sourceStatus || {};
-  const unavailable = Object.entries(sourceStatus).filter(([key, value]) => Object.hasOwn(SOURCES, key) && ['partial', 'failed', 'not_available'].includes(value));
+  const sourceAliases = { meetings: 'meeting', meetingNotes: 'meeting', GitHub: 'git', github: 'git' };
+  const unavailable = Object.entries(sourceStatus).map(([key, value]) => [sourceAliases[key] || key, value])
+    .filter(([key, value]) => Object.hasOwn(SOURCES, key) && ['partial', 'failed', 'not_available', 'unavailable'].includes(value));
   if (hasNarrative && unavailable.length) limits.push(`출처 확인 제한: ${unavailable.map(([key, value]) => `${SOURCES[key]} ${value}`).join(' · ')}`);
   const analysisEvidence = hasNarrative ? evidenceRows([...rows(brief?.evidence), ...rows(agent?.evidence)]) : [];
   // These references belong to the exact project's spec analyses, not an invented
