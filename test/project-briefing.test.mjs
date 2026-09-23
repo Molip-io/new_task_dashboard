@@ -72,3 +72,10 @@ test('project detail omits the removed decision-check section and keeps metric a
   html = projectBriefingHtml(d, d.projects[0]);
   assert.doesNotMatch(html, /<h4>판단 전 확인<\/h4>|파트너 테스트 시작 여부 확인 필요/);
 });
+
+
+test('meetingNotes and GitHub source-status keys preserve partial-analysis warnings', () => {
+ const d=fixture();d.ai.sourceStatus={meetingNotes:'failed',GitHub:'partial'};
+ const v=view(d);assert.equal(v.status,'partial');
+ assert.match(v.limits.join(' '),/회의록 failed/);assert.match(v.limits.join(' '),/GitHub partial/);
+});

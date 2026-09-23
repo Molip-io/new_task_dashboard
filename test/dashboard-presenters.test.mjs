@@ -91,7 +91,7 @@ function briefingDashboard(status = 'success') {
   };
 }
 
-test('Given project status data, When the executive briefing renders, Then the selected project summary and detail link remain available', () => {
+test('Given project status data without a matched agent result, When briefing renders, Then legacy prose is not presented as current analysis', () => {
   const dashboard = briefingDashboard();
   dashboard.projects = [{
     name: '피자레디',
@@ -104,7 +104,7 @@ test('Given project status data, When the executive briefing renders, Then the s
 
   assert.match(html, /<h3 id="project-status-title">2\. 프로젝트 브리핑<\/h3>/);
   assert.match(html, /피자레디/);
-  assert.match(html, /이벤트 QA와 다음 스프린트 범위를 확인해야 합니다\./);
+  assert.doesNotMatch(html, /이벤트 QA와 다음 스프린트 범위를 확인해야 합니다\./);
   assert.doesNotMatch(html.slice(html.indexOf('id="project-status-title"'), html.indexOf('id="management-title"')), /완료 1\/4 · 진행 2 · 예정 1 · 검토 0/);
   assert.match(html, /현재 진행 요약/);
   assert.match(html, /data-project-jump="피자레디"/);
@@ -288,7 +288,8 @@ test('Given structured decisions and project-prefixed risks, When briefing rende
 
 test('project selection limits the narrative to one project and does not mutate the dashboard', () => {
   const dashboard = briefingDashboard();
-  dashboard.projects = [{ name: 'A', stats: {}, notionSummary: { summary: 'A 진행 요약' } }, { name: 'B', stats: {}, notionSummary: { summary: 'B 진행 요약' } }];
+  dashboard.projects = [{ name: 'A', stats: {} }, { name: 'B', stats: {} }];
+  dashboard.ai.projects = [{name: 'A', summary: 'A 진행 요약'}, {name: 'B', summary: 'B 진행 요약'}];
   const before = JSON.stringify(dashboard);
   const html = briefingHtml(dashboard, null, () => '', {}, { project: 'B' });
   assert.match(html, /B 진행 요약/);
@@ -346,4 +347,34 @@ test('project performance displays build metrics and hides empty decision checks
   assert.doesNotMatch(render(), /판단 전 확인|전체 적용 전 결과 확인 필요/);
   d.ai.projects[0].projectBriefing.data = null;
   assert.match(render(), /현재 전달·배포 빌드에 연결된 성과 지표가 확인되지 않았습니다/);
+});
+
+
+test('failed input is visible and unset sprint preparation cannot masquerade as zero', () => {
+  const d = briefingDashboard('stale');
+  d.agentHandoff = { status: 'failed', error: '입력 안전 한도 초과' };
+  d.sprintScope = { mode: 'unset' };
+  const h = briefingHtml(d, 'setup', () => '');
+  assert.match(h, /role="alert">분석 입력 생성 실패/);
+  assert.match(h, /입력 안전 한도 초과/);
+  assert.match(h, /data-briefing-detail="setup" aria-expanded="true"><span class="value">미평가/);
+  assert.match(h, /진행 준비 필요 항목 · 미평가/);
+  assert.doesNotMatch(h, /진행 준비 필요 항목 0개/);
+});
+
+test('project evidence and spec evidence are not counted as the same reading coverage', () => {
+  const d = briefingDashboard();
+  d.projects = [{name: 'A', stats: {}}];
+  d.ai.projects = [{name: 'A', projectBriefing: { currentProgress: '리뷰 진행', evidence: [{source:'slack', excerpt:'빌드 전달', url:'https://example.com/build'}] }, specSummaries: [{specId:'s', evidence:[{source:'meeting', excerpt:'스펙 검토', url:'https://example.com/meeting'}]}]}];
+  const h = briefingHtml(d, null, () => '');
+  assert.match(h, /브리핑 직접 근거 · 1건/);
+  assert.match(h, /스펙별 분석 근거 · 1건/);
+  assert.doesNotMatch(h, /분석 근거 · 2건/);
+});
+
+test('failed agent result cannot fall back to an unverified Notion narrative', () => {
+  const d = briefingDashboard('failed');
+  d.projects = [{name:'A', stats:{}, notionSummary:{summary:'숨겨야 할 오래된 요약'}}];
+  const h = briefingHtml(d, null, () => '');
+  assert.doesNotMatch(h, /숨겨야 할 오래된 요약/);
 });

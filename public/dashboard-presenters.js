@@ -64,6 +64,7 @@ function briefingDetailHtml(dashboard, detail, taskRows, filters = {}, showFilte
     guide: '가이드 위반 작업항목',
     setup: '진행 준비 필요 항목',
   };
+  if (detail === 'setup' && dashboard.sprintScope?.mode === 'unset') return '<section id="briefing-detail" class="card briefing-detail" tabindex="-1"><h3>진행 준비 필요 항목 · 미평가</h3><p>수집 시점의 현재 스프린트 기준이 없어 진행 준비 여부를 판정하지 못했습니다. 조회 목록을 선택해도 수집 당시 판정이 바뀌지는 않습니다.</p></section>';
   const allItems = briefingDetailItems(dashboard, detail);
   const items = briefingDetailItems(dashboard, detail, filters);
   if (detail === 'projects') return `<section id="briefing-detail" class="card briefing-detail" tabindex="-1" aria-live="polite"><h3>${labels[detail]} ${items.length}개</h3>${items.map(project => `<div class="briefing-row"><strong>${esc(project.name)}</strong><small>진행 ${project.stats.inProgress}건 · 기한 초과 ${project.stats.overdue}건 · 관리 확인 ${project.stats.issueCount}건</small></div>`).join('') || '<div class="summary">해당 프로젝트가 없습니다.</div>'}</section>`;
@@ -148,11 +149,11 @@ function integratedAnalysisFactsHtml(dashboard, analysis) {
   const project = dashboard.projects[0];
   const view = resolveProjectBriefing(dashboard, project);
   const paragraph = value => value ? `<p>${esc(value)}</p>` : '';
-  const progress = view.currentProgress || compactText(project.notionSummary?.summary);
+  const progress = view.currentProgress;
   const actions = view.nextActions.map(action => `<p><small>${action.kind === 'agreed' ? '합의된 행동' : action.kind === 'suggested_check' ? '확인 제안' : '이전 분석 행동'}</small> ${esc(action.text)}</p>`).join('');
   const references = values => values.map(row => `<div class="analysis-fact-row"><strong>${esc(row.source)} · ${esc(briefingTime(row.timestamp))}</strong><span>${esc(row.excerpt)}</span>${row.url ? `<a href="${esc(safeUrl(row.url))}" target="_blank" rel="noreferrer">원문 보기</a>` : ''}</div>`).join('');
   const freshness = view.status === 'stale' ? '이전 분석 · 갱신 필요. 아래 내용은 마지막 확인 기록이며 현재 상태 확정이 아닙니다.' : view.status === 'not_run' ? '프로젝트 통합 분석이 아직 없습니다.' : view.status === 'partial' || view.status === 'legacy' ? '분석 확인 제한 · 근거와 확인 시점을 함께 보세요.' : '프로젝트 통합 분석';
-  return `<p class="project-briefing-meta">${esc(freshness)} · 분석 ${esc(briefingTime(view.generatedAt))} · 데이터 ${esc(briefingTime(view.inputAt))}</p><div class="project-primary">${analysisFactHtml('현재 진행 요약', paragraph(progress))}${analysisFactHtml('다음 주요 행동', actions, '확인된 다음 행동이 없습니다.')}</div><details class="project-more"><summary>프로젝트 상세 · 빌드·출시 / 성과·실험 / 병목</summary><div class="analysis-facts">${analysisFactHtml('빌드·출시 현황', paragraph(view.buildRelease), '빌드·출시 통합 분석 미확인 · 원문만으로 현재 상태를 확정하지 않습니다.')}${analysisFactHtml('빌드 성과·실험 결과', paragraph(view.data), '현재 전달·배포 빌드에 연결된 성과 지표가 확인되지 않았습니다.')}${analysisFactHtml('실행 병목', view.blockers.map(paragraph).join(''), '확인된 실행 병목이 제공되지 않았습니다.')}</div><details><summary>분석 근거 · ${view.evidence.length}건</summary>${references(view.evidence) || '<p>연결된 근거가 없습니다.</p>'}</details><details><summary>원본 수집 근거 · ${view.rawEvidence.length}건</summary><p>과거 계획과 원문 발췌입니다. 작성 날짜의 기록이며 현재 상태를 뜻하지 않습니다.</p>${references(view.rawEvidence)}</details>${view.limits.length ? `<details><summary>분석 범위·확인 제한</summary>${view.limits.map(paragraph).join('')}</details>` : ''}</details>`;
+  return `<p class="project-briefing-meta">${esc(freshness)} · 분석 ${esc(briefingTime(view.generatedAt))} · 최신 수집 ${esc(briefingTime(view.inputAt))}</p><div class="project-primary">${analysisFactHtml('현재 진행 요약', paragraph(progress))}${analysisFactHtml('다음 주요 행동', actions, '확인된 다음 행동이 없습니다.')}</div><details class="project-more"><summary>프로젝트 상세 · 빌드·출시 / 성과·실험 / 병목</summary><div class="analysis-facts">${analysisFactHtml('빌드·출시 현황', paragraph(view.buildRelease), '빌드·출시 통합 분석 미확인 · 원문만으로 현재 상태를 확정하지 않습니다.')}${analysisFactHtml('빌드 성과·실험 결과', paragraph(view.data), '현재 전달·배포 빌드에 연결된 성과 지표가 확인되지 않았습니다.')}${analysisFactHtml('실행 병목', view.blockers.map(paragraph).join(''), '확인된 실행 병목이 제공되지 않았습니다.')}</div><details><summary>브리핑 직접 근거 · ${view.analysisEvidence.length}건</summary>${references(view.analysisEvidence) || '<p>브리핑에 직접 연결된 근거가 없습니다.</p>'}</details>${view.specEvidence.length ? `<details><summary>스펙별 분석 근거 · ${view.specEvidence.length}건</summary><p>개별 스펙의 근거입니다. 프로젝트 브리핑에서 직접 사용한 근거와 구분합니다.</p>${references(view.specEvidence)}</details>` : ''}<details><summary>원본 수집 근거 · ${view.rawEvidence.length}건</summary><p>과거 계획과 원문 발췌입니다. 작성 날짜의 기록이며 현재 상태를 뜻하지 않습니다.</p>${references(view.rawEvidence)}</details>${view.limits.length ? `<details><summary>분석 범위·확인 제한</summary>${view.limits.map(paragraph).join('')}</details>` : ''}</details>`;
 }
 
 function trustBriefingHtml(dashboard, analysis) {
@@ -215,7 +216,7 @@ export function briefingHtml(dashboard, selectedDetail, taskRows, briefingFilter
   const summary = overall.summary || '표시할 통합 분석이 없습니다. 수집 상태와 분석 실행 여부를 확인하세요.';
   return `<div class="section-head"><div><h2>업무 브리핑</h2><p>핵심 판단부터 선택한 프로젝트와 스프린트까지 확인합니다. 이 화면은 읽기 전용입니다.</p></div></div>
     <section class="card briefing-section ai-briefing" aria-labelledby="analysis-title"><div class="briefing-heading"><h3 id="analysis-title">1. AI 통합브리핑</h3><span class="badge gray">${esc(analysis.label)}</span></div>
-    <p class="summary analysis-summary">${esc(summary)}</p>${analysis.notice ? `<p class="analysis-notice" role="status">${esc(analysis.notice)}</p>` : ''}
+    ${dashboard.agentHandoff?.status === 'failed' ? `<p class="analysis-notice" role="alert">분석 입력 생성 실패 · 최신 수집 자료로 분석을 실행할 수 없습니다. ${esc(dashboard.agentHandoff.error || '입력 게시 상태를 확인하세요.')}</p>` : ''}<p class="summary analysis-summary">${esc(summary)}</p>${analysis.notice ? `<p class="analysis-notice" role="status">${esc(analysis.notice)}</p>` : ''}
     ${decisions.length ? `<div class="ai-decisions"><h4>확인할 결정 ${decisions.length}건</h4>${decisionHtml}</div>` : ''}
     ${risks.length ? `<section class="card analysis-risks" aria-labelledby="risk-title"><h4 id="risk-title">분석에서 짚은 위험 신호 ${risks.length}건</h4>${riskHtml}</section>` : ''}
     <details class="briefing-support"><summary>분석 근거·변경 이력</summary><p>분석 ${fmt(dashboard.ai?.generatedAt)} · 한국 시간</p>${!decisions.length ? `<p>${noDecisions}</p>` : ''}${!risks.length ? `<p>${analysis.status === 'success' ? '이번 분석에 기록된 위험 신호가 없습니다.' : '표시할 위험 신호가 없습니다. 위험이 없다는 뜻은 아닙니다.'}</p>` : ''}${trustBriefingHtml(dashboard, analysis)}
@@ -225,7 +226,7 @@ export function briefingHtml(dashboard, selectedDetail, taskRows, briefingFilter
     <section class="card briefing-section management-section" aria-labelledby="management-title"><div class="briefing-heading"><h3 id="management-title">3. 스프린트별 업무현황</h3></div>
     ${sprintFilterHtml(dashboard, scopeFilters)}
     <p class="section-note">선택 즉시 조회합니다. 숫자를 선택하면 상세 목록을 볼 수 있습니다. 항목 간 중복이 있어 합산하지 않습니다.</p>
-    <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', '', selectedDetail)}${kpi('setup', metrics.progressSetupRequiredItems, '진행 준비 필요 항목', '', selectedDetail)}</div>
+    <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', '', selectedDetail)}${kpi('setup', dashboard.sprintScope?.mode === 'unset' ? '미평가' : metrics.progressSetupRequiredItems, '진행 준비 필요 항목', '', selectedDetail)}</div>
     ${briefingDetailHtml(selectedDetail === 'git' ? dashboard : scoped, selectedDetail, taskRows, {}, false)}<p class="section-note">진행 준비 필요는 수집 시점의 판정 결과를 선택 범위로 조회합니다.</p>
     </section>`;
 }
