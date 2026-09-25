@@ -23,6 +23,67 @@ export function applyRuntimeEnv(env = {}) {
 function authenticatedUser(request) {
   return Boolean(request.headers.get('oai-authenticated-user-id'));
 }
+function runtimeErrorCode(error) {
+  const message = String(error?.message || '').toLowerCase();
+  if (message.includes('notion_token is not configured') || message.includes('notion_token 없음')) return 'missing_notion_token';
+  if (message.includes('notion 401') || message.includes('unauthorized') || message.includes('invalid token')) return 'notion_auth_failed';
+  if (message.includes('notion 403') || message.includes('permission') || message.includes('restricted')) return 'notion_permission_denied';
+  if (message.includes('timeout') || message.includes('타임아웃')) return 'notion_timeout';
+  return 'backend_unavailable';
+}
+async function healthCheck(request) {
+  const configured = {
+    notion: Boolean(process.env.NOTION_TOKEN),
+    slack: Boolean(process.env.SLACK_TOKEN),
+    github: Boolean(process.env.GITHUB_TOKEN),
+    sprintAdmins: Boolean(process.env.SPRINT_ADMIN_EMAILS),
+    cron: Boolean(process.env.CRON_SECRET),
+  };
+  const checks = {
+    snapshot: { status: 'skipped', exists: false },
+    summaries: { status: 'skipped' },
+    sprintSettings: { status: 'skipped' },
+  };
+  if (!configured.notion) {
+    return { ok: false, reason: 'missing_notion_token', configured, checks };
+  }
+
+  try {
+    const snapshot = await readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId });
+    checks.snapshot = { status: 'ok', exists: Boolean(snapshot) };
+  } catch (error) {
+    checks.snapshot = { status: 'failed', reason: runtimeErrorCode(error) };
+  }
+
+  try {
+    const errors = [];
+    await collectSummaryRows(config, errors);
+    checks.summaries = errors.length
+      ? { status: 'partial', issueCount: errors.length }
+      : { status: 'ok' };
+  } catch (error) {
+    checks.summaries = { status: 'failed', reason: runtimeErrorCode(error) };
+  }
+
+  try {
+    await readSprintSettings({ databaseId: config.notion.summaryDbId });
+    checks.sprintSettings = { status: 'ok' };
+  } catch (error) {
+    checks.sprintSettings = { status: 'failed', reason: runtimeErrorCode(error) };
+  }
+
+  const failed = Object.values(checks).some(check => check.status === 'failed');
+  const reason = failed
+    ? Object.values(checks).find(check => check.status === 'failed')?.reason || 'backend_unavailable'
+    : !checks.snapshot.exists ? 'snapshot_missing' : null;
+  return {
+    ok: !failed,
+    reason,
+    authenticated: authenticatedUser(request),
+    configured,
+    checks,
+  };
+}
 const json = (body, status = 200) => Response.json(body, {
   status,
   headers: { 'Cache-Control': 'private, no-store' },
@@ -94,6 +155,10 @@ async function handle(request, env) {
   const pathname = url.pathname;
   if (!pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
   try {
+    if (pathname === '/api/health' && request.method === 'GET') {
+      if (!authenticatedUser(request)) return json({ error: 'unauthorized' }, 401);
+      return json(await healthCheck(request));
+    }
     if (pathname === '/api/sprint-settings') {
       if (request.method !== 'POST') return json({ message: 'POST만 허용합니다.' }, 405);
       const authRequest = { headers: {
@@ -143,7 +208,11 @@ async function handle(request, env) {
     return json({ error: 'not_found' }, 404);
   } catch (error) {
     console.error(`[sites] ${pathname} failed:`, error?.message);
-    return json({ error: 'dashboard_unavailable', message: '데이터를 불러오지 못했습니다. 잠시 후 다시 시도하세요.' }, error?.statusCode || 503);
+    return json({
+      error: 'dashboard_unavailable',
+      reason: runtimeErrorCode(error),
+      message: '데이터를 불러오지 못했습니다. 잠시 후 다시 시도하세요.',
+    }, error?.statusCode || 503);
   }
 }
 
