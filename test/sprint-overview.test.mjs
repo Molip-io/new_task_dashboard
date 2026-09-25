@@ -53,10 +53,12 @@ test('Untrusted project values are escaped',()=>{
   assert.ok(html.includes('&lt;img'));
 });
 
-test('Admin key is masked and never persisted',()=>{
+test('Sprint settings use server-side administrator identity, not a browser key',()=>{
   const code=fs.readFileSync(new URL('../public/sprint-overview.js',import.meta.url),'utf8');
-  assert.ok(code.includes('type="password"'));
-  assert.doesNotMatch(code,/localStorage|sessionStorage/);
+  const worker=fs.readFileSync(new URL('../sites/worker.mjs',import.meta.url),'utf8');
+  assert.doesNotMatch(code,/type="password"|adminKey|Authorization: `Bearer/);
+  assert.ok(worker.includes('sprintAdmin(request)'));
+  assert.ok(worker.includes('settingsOriginAllowed(authRequest)'));
 });
 
 test('Briefing source contract keeps the three requested decision surfaces',()=>{
