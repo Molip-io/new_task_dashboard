@@ -10,6 +10,19 @@ import {
 } from '../lib/sprint-settings.mjs';
 
 const config = loadConfig();
+const RUNTIME_ENV_KEYS = [
+  'NOTION_TOKEN', 'SLACK_TOKEN', 'GITHUB_TOKEN', 'SPRINT_ADMIN_EMAILS',
+  'DASHBOARD_URL', 'IGNORED_NOTION_USER_IDS', 'NOTION_REQUEST_TIMEOUT_MS',
+  'CRON_SECRET', 'AI_SUMMARY_PROVIDER', 'OPENAI_API_KEY', 'OPENAI_MODEL',
+];
+export function applyRuntimeEnv(env = {}) {
+  for (const key of RUNTIME_ENV_KEYS) {
+    if (typeof env[key] === 'string') process.env[key] = env[key];
+  }
+}
+function authenticatedUser(request) {
+  return Boolean(request.headers.get('oai-authenticated-user-id'));
+}
 const json = (body, status = 200) => Response.json(body, {
   status,
   headers: { 'Cache-Control': 'private, no-store' },
@@ -73,8 +86,9 @@ async function collectForWeb(request) {
 }
 
 async function handle(request, env) {
-  // Worker environment variables remain server-side and are never serialized to clients.
-  Object.assign(process.env, env);
+  // Only copy string runtime configuration into process.env. Bindings such as ASSETS
+  // are objects and must remain on the Worker env object.
+  applyRuntimeEnv(env);
   process.env.SITES_RUNTIME = '1';
   const url = new URL(request.url);
   const pathname = url.pathname;
@@ -114,6 +128,7 @@ async function handle(request, env) {
       });
     }
     if (pathname === '/api/refresh' && request.method === 'POST') {
+      if (!authenticatedUser(request)) return json({ error: 'unauthorized' }, 401);
       const dashboard = await collectForWeb(request);
       return json({ started: true, completed: true, dashboard });
     }
