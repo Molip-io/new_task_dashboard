@@ -98,7 +98,7 @@ export function renderSprintOverview(dashboard, viewState, kpisHtml) {
     <div class="scope-exceptions">${view.outsideOverdueItems.length ? `<button type="button" data-scope-detail="outside">선택 밖 기한 초과 <b>${view.outsideOverdueItems.length}</b>개 확인</button>` : ''}${view.outsideGuideViolationItems.length ? `<button type="button" data-scope-detail="outside-guide">선택 밖 가이드 <b>${view.outsideGuideViolationItems.length}</b>개</button>` : ''}${view.unknownGuideViolationItems.length ? `<button type="button" data-scope-detail="unknown-guide">스프린트 분류 확인 가이드 <b>${view.unknownGuideViolationItems.length}</b>개</button>` : ''}${view.unknownSprintItems.length ? `<button type="button" data-scope-detail="unknown">스프린트 분류 확인 <b>${view.unknownSprintItems.length}</b>개</button>` : ''}</div>
     <p class="scope-feedback" role="status">${esc(viewState.message || '')}</p>${configured ? detailHtml(view, viewState.detail) : ''}
     <details class="scope-history"><summary>현재 스프린트 변경 이력</summary>${history.slice(0, 10).map(record => `<p><strong>전체 프로젝트</strong> · ${esc(record.previousInput || '미입력')} → ${esc(record.input || '미입력')}<small>${esc(new Date(record.changedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }))}</small></p>`).join('') || '<p>대시보드에서 저장한 변경 이력이 없습니다.</p>'}</details>
-    <dialog class="scope-auth"><form method="dialog"><h4>현재 스프린트 저장</h4><p>모든 프로젝트에 적용되는 공용 기준을 변경합니다. 관리자 키는 저장하거나 공유 링크에 포함하지 않습니다.</p><label>운영 설정 관리자 키<input type="password" name="adminKey" autocomplete="off" required minlength="24"></label><div><button type="button" data-scope-cancel>취소</button><button type="submit">저장 및 분석 입력 갱신</button></div></form></dialog>
+    <dialog class="scope-auth"><form method="dialog"><h4>현재 스프린트 저장</h4><p>모든 프로젝트에 적용되는 공용 기준을 변경합니다.</p><div><button type="button" data-scope-cancel>취소</button><button type="submit">저장 및 분석 입력 갱신</button></div></form></dialog>
   </section>`;
 }
 
@@ -156,14 +156,13 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
           if (parsed.error) { state.message = parsed.error; this.render(); return; }
           this.querySelector('dialog').showModal();
         }
-        if (button.hasAttribute('data-scope-cancel')) { this.querySelector('dialog input').value = ''; this.querySelector('dialog').close(); }
+        if (button.hasAttribute('data-scope-cancel')) this.querySelector('dialog').close();
         if (button.hasAttribute('data-scope-copy')) this.copyList();
       });
       this.addEventListener('submit', event => {
         if (!event.target.closest('dialog')) return; event.preventDefault();
-        const input = this.querySelector('dialog input'); const token = input.value; input.value = ''; this.querySelector('dialog').close(); this.save(token);
+        this.querySelector('dialog').close(); this.save();
       });
-      this.addEventListener('cancel', () => { const input = this.querySelector('dialog input'); if (input) input.value = ''; }, true);
       this.render();
     }
     render() {
@@ -194,7 +193,7 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
       try { await navigator.clipboard.writeText(lines.join('\n')); state.message = `${items.length}개 복사 완료`; }
       catch { state.message = '복사하지 못했습니다. 브라우저 클립보드 권한을 확인하세요.'; } this.render();
     }
-    async save(token) {
+    async save() {
       if (state.saving) return;
       const parsed = parsedPreview(this.binding.dashboard);
       if (parsed.error) { state.message = parsed.error; this.render(); return; }
@@ -203,10 +202,9 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
       try {
         const response = await fetch('/api/sprint-settings', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ input: previewInput(this.binding.dashboard), expectedRevision: this.binding.dashboard.sprintSettings?.revision || null }),
         });
-        token = '';
         const result = await response.json();
         if (!response.ok) throw Error(result.message || '설정을 저장하지 못했습니다.');
         saved = true;
@@ -217,7 +215,7 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
         if (refresh && !refresh.disabled) refresh.click();
         else state.message = '설정 저장 완료 · 데이터 다시 수집 후 GPT Agent를 실행하세요.';
       } catch (error) { state.message = `${saved ? '설정은 저장됐지만 후속 갱신 확인 실패' : '저장 실패'}: ${error.message}`; }
-      finally { token = ''; state.saving = false; this.render(); }
+      finally { state.saving = false; this.render(); }
     }
   });
 }

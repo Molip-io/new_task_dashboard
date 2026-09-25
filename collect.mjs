@@ -17,7 +17,7 @@ import { buildDashboardSyncCompleted } from './lib/sync-event.mjs';
 import { kstDate } from './lib/business-days.mjs';
 import { aiEnrich } from './lib/ai-summary.mjs';
 import { fitRemoteEvidenceBudget } from './lib/agent-packet-budget.mjs';
-import { writeAgentInputPacket } from './lib/agent-handoff.mjs';
+import { writeAgentInputPacket, buildAgentInputPacket } from './lib/agent-handoff.mjs';
 import { publishAgentInputToNotion } from './lib/notion-agent-handoff.mjs';
 import { publishDashboardSnapshotToNotion } from './lib/dashboard-snapshot.mjs';
 import { SETTINGS_PREFIX, readSprintSettings, applySavedSprintSettings } from './lib/sprint-settings.mjs';
@@ -70,8 +70,8 @@ async function collectSlack(projects, errors) {
   return out;
 }
 
-export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAULT_NO_AI, previousSnapshot = undefined, notionOptions = {} } = {}) {
-  writeStatus(dataDirectory, 'running');
+export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAULT_NO_AI, previousSnapshot = undefined, notionOptions = {}, persistFiles = true, localGitEnabled = true, dashboardUrl = config.dashboardUrl } = {}) {
+  if (persistFiles) writeStatus(dataDirectory, 'running');
   const errors = [];
   const collectionStartedAt = Date.now();
   try {
@@ -106,7 +106,9 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       console.log(`  Git 원격 수집 ${Date.now() - gitStartedAt}ms`);
       return result;
     });
-    const localGit = collectGitActivity({ repositories: repositorySources.local, tasks, sinceDays: config.git?.sinceDays || 30 });
+    const localGit = localGitEnabled
+      ? collectGitActivity({ repositories: repositorySources.local, tasks, sinceDays: config.git?.sinceDays || 30 })
+      : { repositories: [], commits: [], errors: repositorySources.local.map(repo => `Git ${repo.name || repo.path}: local repository unavailable in Sites; configure a GitHub URL`) };
     const [slack, remoteGit] = await Promise.all([slackPromise, remoteGitPromise]);
     console.log(`  Slack+Git 병렬 구간 ${Date.now() - externalStartedAt}ms`);
     const git = {
@@ -117,7 +119,7 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     errors.push(...git.errors);
 
     const now = new Date().toISOString();
-    const comparisonSnapshot = previousSnapshot === undefined
+    const comparisonSnapshot = previousSnapshot === undefined && persistFiles
       ? loadPreviousSnapshot(dataDirectory, kstDate(now))
       : await previousSnapshot;
     const validation = enrichParentChildCompletion(validateWorkManagement({
@@ -130,7 +132,7 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       staleBusinessDays: config.staleBusinessDays || 3,
       excludedStatusWorkItems: notion.collectionStats?.excludedStatusWorkItems || 0,
     }), tasks, now);
-    const base = buildBaseDashboard({ notion, slack, errors, dashboardUrl: config.dashboardUrl });
+    const base = buildBaseDashboard({ notion, slack, errors, dashboardUrl });
     let dashboard = buildManagementDashboard({
       base, tasks, workItems: validation.workItems, issues: validation.issues,
       ruleItems: validation.ruleItems,
@@ -167,9 +169,8 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       policyVersion: SPRINT_POLICY_VERSION,
     };
     const workOverview = buildSprintOverview(dashboard, appliedSprint.scope);
-    fs.mkdirSync(dataDirectory, { recursive: true });
     const agentInputFile = path.join(dataDirectory, 'agent-input.json');
-    let agentInput = writeAgentInputPacket(dashboard, agentInputFile);
+    let agentInput = persistFiles ? writeAgentInputPacket(dashboard, agentInputFile) : buildAgentInputPacket(dashboard);
     agentInput = enrichAgentPacketWithProjectOperations(agentInput, dashboard);
     // Preserve raw rules.metrics; publish the dashboard-aligned scoped briefing projection separately.
     agentInput.rules.briefingMetrics = workOverview.metrics;
@@ -188,7 +189,7 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
     // Preserve irreducible facts and let the Notion handoff publish an atomic
     // manifest plus bounded project parts when one page would exceed 50k.
     try { fitRemoteEvidenceBudget(agentInput, { strict: false }); } catch (error) { packetBudgetError = error; }
-    fs.writeFileSync(agentInputFile, JSON.stringify(agentInput, null, 2));
+    if (persistFiles) fs.writeFileSync(agentInputFile, JSON.stringify(agentInput, null, 2));
     const latestSprintSettings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
     if (latestSprintSettings.revision !== sprintSettings.revision) throw new Error('수집 중 현재 스프린트 설정이 변경됐습니다. 이전 기준을 게시하지 않습니다.');
     let remoteHandoff = { status: 'disabled', runId: `rule-input:${agentInput.runId}` };
@@ -230,14 +231,17 @@ export async function runCollection({ dataDirectory = DEFAULT_DATA, noAi = DEFAU
       remoteSnapshot = { ...remoteSnapshot, error: error.message };
     }
     dashboard.remoteSnapshot = remoteSnapshot;
-    fs.writeFileSync(path.join(dataDirectory, 'dashboard.json'), JSON.stringify(dashboard, null, 2));
-    fs.writeFileSync(path.join(dataDirectory, 'sync-event.json'), JSON.stringify(buildDashboardSyncCompleted(dashboard), null, 2));
-    saveDailySnapshot(dashboard, dataDirectory);
-    writeStatus(dataDirectory, 'done', { errors, slackNotificationSent: false, remoteSnapshot });
+    if (persistFiles) {
+      fs.mkdirSync(dataDirectory, { recursive: true });
+      fs.writeFileSync(path.join(dataDirectory, 'dashboard.json'), JSON.stringify(dashboard, null, 2));
+      fs.writeFileSync(path.join(dataDirectory, 'sync-event.json'), JSON.stringify(buildDashboardSyncCompleted(dashboard), null, 2));
+      saveDailySnapshot(dashboard, dataDirectory);
+      writeStatus(dataDirectory, 'done', { errors, slackNotificationSent: false, remoteSnapshot });
+    }
     console.log(`✔ 대시보드 생성 완료 · 에이전트 원격 입력 ${remoteHandoff.status} · 웹 스냅샷 ${remoteSnapshot.status} (확인 ${validation.issues.length}건, 경고 ${errors.length}건) · 총 ${Date.now() - collectionStartedAt}ms`);
     return { dashboard, remoteHandoff, remoteSnapshot, validation, sprintSettings };
   } catch (error) {
-    writeStatus(dataDirectory, 'error', { error: error.message, errors });
+    if (persistFiles) writeStatus(dataDirectory, 'error', { error: error.message, errors });
     throw error;
   }
 }
