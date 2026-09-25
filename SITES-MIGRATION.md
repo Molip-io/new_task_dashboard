@@ -50,14 +50,15 @@ Required:
 Required when private GitHub activity is collected:
 - `GITHUB_TOKEN`
 
-Required when sprint settings are writable:
-- `SPRINT_SETTINGS_TOKEN`
+Required when sprint settings are writable on Sites:
+- `SPRINT_ADMIN_EMAILS`
+
+The Vercel runtime continues to use `SPRINT_SETTINGS_TOKEN` during rollback.
 
 Optional:
 - `IGNORED_NOTION_USER_IDS`
-- `AI_SUMMARY_PROVIDER`
-- `OPENAI_API_KEY` only when direct OpenAI API summaries are explicitly enabled
-- `OPENAI_MODEL`
+- `AI_SUMMARY_PROVIDER`, `OPENAI_API_KEY`, and `OPENAI_MODEL` apply to
+  the legacy CLI/Vercel path; the Sites request path disables direct AI summaries
 - `CRON_SECRET` only when a supported scheduler is connected
 - `DASHBOARD_URL` set to the final ChatGPT Site URL after first deployment
 
@@ -97,6 +98,48 @@ Use this prompt in ChatGPT Work or Codex with @Sites and the checked-out migrati
 - Git activity loads or reports an explicit source limitation.
 - No secret appears in browser HTML, JS bundles, API responses, or logs.
 - Current Vercel production remains unchanged during validation.
+
+## Implementation on the migration branch
+
+- Sites builds `sites/worker.mjs` to `dist/server/index.js` and serves the original
+  `public/` files through the Worker assets binding. `server.mjs`, `api/app.mjs`,
+  and `vercel.json` remain intact for the existing Vercel production deployment.
+- `GET /api/dashboard` reads the persisted Notion snapshot and current sprint
+  settings. If the snapshot is absent, it runs a collection and requires the new
+  snapshot to be saved to Notion before returning success.
+- `POST /api/refresh` collects synchronously and returns a completed response.
+  Requests can take substantially longer than reading a stored snapshot; a
+  Worker runtime duration limit is still to be checked with actual integrations.
+- `GET /api/status` reflects the last Notion snapshot. Request-local collection
+  progress is not a durable global status. The UI reloads the saved snapshot.
+- `POST /api/sprint-settings` uses the Sites signed-in user identity and a
+  server-side `SPRINT_ADMIN_EMAILS` allowlist. The browser never receives or
+  enters a settings token. `SPRINT_SETTINGS_TOKEN` remains used only by the
+  untouched Vercel path.
+- Live collection skips local Git repositories and uses the GitHub HTTP API.
+  A local-only repository requires a GitHub URL and, if private, `GITHUB_TOKEN`.
+  Local filesystem output and local `gh` credential fallback are disabled.
+- No background timer runs in Sites. Manual refresh is available; an optional
+  external scheduler may call `GET /api/cron/collect` with `CRON_SECRET`
+  after an access route for the private Site has been configured. Scheduling
+  is not activated by saving a Site version.
+- The existing agent summary sync process is not scheduled in the Worker.
+  Existing summary rows in Notion remain readable. A separate scheduled
+  automation is required if the summary sync itself must remain automatic.
+
+### Sites settings names
+
+Required for collection: `NOTION_TOKEN`, `SLACK_TOKEN`.
+Required for private GitHub access: `GITHUB_TOKEN`.
+Required for sprint-setting writes: `SPRINT_ADMIN_EMAILS` (comma-separated
+admin account emails).
+Optional: `DASHBOARD_URL`, `IGNORED_NOTION_USER_IDS`,
+`NOTION_REQUEST_TIMEOUT_MS`, and `CRON_SECRET` if an external scheduler
+is enabled. Direct OpenAI API summaries are disabled in the Sites request path.
+
+The published Site must remain private and use dispatcher-provided authenticated
+user headers. Saving a version does not activate collection, scheduling, or
+private credential validation.
 
 ## Cutover
 

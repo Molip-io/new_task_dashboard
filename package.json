@@ -3,14 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.mjs",
-    "build": "node --check collect.mjs && node --check server.mjs && node --check api/app.mjs && node --check public/app.js && node --check public/dashboard-view-model.js && node --check public/dashboard-presenters.js",
+    "build": "node --check collect.mjs && node --check sites/worker.mjs && node sites/build.mjs",
     "test": "node --test",
     "collect": "node collect.mjs",
     "collect:raw": "node collect.mjs --no-ai",
     "collect:direct-ai": "AI_SUMMARY_PROVIDER=openai node collect.mjs",
     "sync:agent-summary": "node sync-agent-summary.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12",
+    "wrangler": "^4.20.0"
   }
 }
