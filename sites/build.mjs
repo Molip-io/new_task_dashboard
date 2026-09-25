@@ -11,6 +11,7 @@ await build({
   platform: 'neutral',
   target: 'es2022',
   external: ['node:*'],
+  define: { __SITES_WORKER__: 'true' },
 });
 await writeFile('dist/server/wrangler.json', JSON.stringify({
   name: 'molip-task-dashboard-preview',
