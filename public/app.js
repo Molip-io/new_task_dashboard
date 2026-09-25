@@ -610,8 +610,18 @@ async function load() {
       const timeout = setTimeout(() => controller.abort(), 8000);
       try {
         const response = await fetch('/api/dashboard', { signal: controller.signal, cache: 'no-store' });
-        if (!response.ok) throw new Error(`대시보드 응답 ${response.status}`);
         const candidate = await readJsonResponse(response);
+        if (!response.ok) {
+          const reasonLabel = {
+            missing_notion_token: 'Notion 토큰이 Site 설정에 없습니다.',
+            notion_auth_failed: 'Notion 인증에 실패했습니다.',
+            notion_permission_denied: 'Notion 데이터 접근 권한이 없습니다.',
+            notion_timeout: 'Notion 응답이 시간 안에 오지 않았습니다.',
+            snapshot_missing: '저장된 대시보드 Snapshot이 없습니다.',
+            backend_unavailable: 'Sites 백엔드에서 데이터를 읽지 못했습니다.',
+          }[candidate.reason];
+          throw new Error(reasonLabel || `대시보드 응답 ${response.status}`);
+        }
         if (!candidate || typeof candidate !== 'object' || !Array.isArray(candidate.projects)) throw new Error('대시보드 데이터 형식이 올바르지 않습니다.');
         dashboard = candidate;
       } finally {
