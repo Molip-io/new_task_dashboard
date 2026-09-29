@@ -6,11 +6,13 @@ Notion(작업현황 DB·회의록·프로젝트 리스트), Slack 프로젝트 �
 
 ## 실행
 
+운영 화면은 ChatGPT Sites에 있고, 수집·분석은 Claude Code 클라우드 루틴이 평일 아침에 실행합니다(아래 **운영**). 로컬에서 확인할 때는:
+
 ```bash
 node dashboard/api/server.mjs   # http://localhost:5678
 ```
 
-토큰 설정 전에는 샘플 데이터가 표시됩니다.
+Notion 토큰 설정 전에는 샘플 데이터가 표시됩니다.
 
 ## 최초 설정 (1회)
 
@@ -36,7 +38,7 @@ cp .env.example .env   # 열어서 Notion·Slack·GitHub 토큰 입력
 
 ### 4. Git 저장소 연결
 
-Notion **프로젝트 리스트 DB**의 `git` 속성에 GitHub 저장소 URL을 입력합니다. 작업현황 DB의 `브랜치` 속성이 있으면 해당 브랜치를 우선 수집하고, 정확한 이름이 없을 때는 `feature/` 같은 접두사·대소문자·구분자 차이를 정규화한 고신뢰 유사 이름만 조회합니다. 매칭되지 않은 브랜치는 부분 수집으로 표시합니다. 대시보드는 저장소를 복제하지 않고 GitHub API로 기본 브랜치, 작업 브랜치, 최근 push, 열린 PR 활동을 수집합니다. 비공개 저장소는 `.env`의 `GITHUB_TOKEN`에 `repo` 읽기 권한이 필요하며, 로컬에서는 토큰이 없을 때 현재 `gh` 로그인을 보조 수단으로 사용합니다.
+Notion **프로젝트 리스트 DB**의 `git` 속성에 GitHub 저장소 URL을 입력합니다. 작업현황 DB의 `브랜치` 속성이 있으면 해당 브랜치를 우선 수집하고, 정확한 이름이 없을 때는 `feature/` 같은 접두사·대소문자·구분자 차이를 정규화한 고신뢰 유사 이름만 조회합니다. 매칭되지 않은 브랜치는 부분 수집으로 표시합니다. 대시보드는 저장소를 복제하지 않고 GitHub API로 기본 브랜치, 작업 브랜치, 최근 push, 열린 PR 활동을 수집합니다. 비공개 저장소는 `GITHUB_TOKEN`에 `repo` 읽기 권한이 필요하며, 로컬에서는 토큰이 없을 때 현재 `gh` 로그인을 보조 수단으로 사용합니다. 저장소가 여러 조직(예: `supercent-io`, `MolipLtd`)에 걸쳐 있으면 한 소유자만 고를 수 있는 fine-grained 토큰 대신 classic 토큰을 쓰고, SSO를 쓰는 조직은 토큰의 **Configure SSO**에서 조직별로 승인합니다. 권한이 없는 저장소는 GitHub가 `Not Found`로 답합니다.
 
 `config.json`의 `git.repositories`는 특정 프로젝트를 로컬 저장소로 대체해야 할 때만 사용합니다.
 
@@ -51,25 +53,12 @@ Notion **프로젝트 리스트 DB**의 `git` 속성에 GitHub 저장소 URL을 
 
 작업항목과 커밋을 연결하려면 Notion 작업항목의 `Git 키` 속성 값을 커밋 제목에 포함합니다. 연결되지 않은 커밋은 프로젝트별 한 건의 관리 항목으로 집계합니다. Git은 진행 근거일 뿐이며 Git 활동만으로 Notion 상태를 자동 변경하지 않습니다.
 
-### 5. 내장 에이전트 통합 분석 연결
+## 운영
 
-기본 수집은 별도 OpenAI API를 호출하지 않습니다. 규칙 엔진은 분석 대상을 축약해 Notion **업무현황 요약 DB**의 `규칙 입력 / YYYY-MM-DD` 페이지에 게시합니다. 웹 에이전트는 로컬 파일에 접근하지 않고 이 원격 스냅샷과 연결된 Notion·Slack·GitHub만 사용해 통합 분석을 작성합니다. 다음 요약 동기화에서 최신 성공 결과를 대시보드와 병합합니다.
-
-에이전트에는 [`prompts/업무대시보드_에이전트_실행지시.md`](prompts/업무대시보드_에이전트_실행지시.md)와 [`docs/에이전트_규칙엔진_하이브리드_설계.md`](docs/에이전트_규칙엔진_하이브리드_설계.md)를 전달하고 Notion 요약 DB 쓰기, Slack·Git 읽기 권한을 연결합니다.
-
-직접 OpenAI API 방식은 선택적 대체 경로입니다. 별도 과금을 감수하고 사용할 때만 `.env`에서 `AI_SUMMARY_PROVIDER=openai`, `OPENAI_API_KEY`, `OPENAI_MODEL`을 설정합니다.
-
-## 데이터 갱신
-
-- **자동**: 서버 실행 중이면 매일 `config.json`의 `scheduleTime`(기본 07:30)에 수집
-- **에이전트 요약 동기화**: `summarySyncTime`(기본 09:00) 이후 당일 분석이 저장될 때까지 10분 간격으로 요약 DB만 확인
-- **수동**: `node agent/run-collection.mjs` (대시보드 화면에는 수집 버튼이 없습니다. 화면은 마지막 수집 시각만 보여 줍니다)
-- 직접 AI 호출 없이 규칙·에이전트 입력만 갱신: `node agent/run-collection.mjs --no-ai`
-
-## 배포와 수집 운영
-
-- **화면**: ChatGPT Sites가 `dashboard/api/worker.mjs`와 `dashboard/ui/`를 게시합니다(`npm run build`). 화면은 Notion `업무현황 요약 DB`의 최신 `dashboard-snapshot:YYYY-MM-DD`와 저장된 분석을 읽어 표시만 합니다. 설정은 [SITES-MIGRATION.md](SITES-MIGRATION.md)를 참고하세요.
-- **수집·분석**: Claude Code 클라우드 루틴이 평일 08:00(Asia/Seoul)에 `agent/runtime/collect.mjs`로 수집하고 분석을 저장합니다. 루틴 환경에는 `NOTION_TOKEN`, `SLACK_TOKEN`, `GITHUB_TOKEN`과 네트워크 허용 도메인 `slack.com`, `api.github.com`이 필요합니다. 실행 절차는 [agent/package/ROUTINE_RUNTIME.md](agent/package/ROUTINE_RUNTIME.md)에 있습니다.
+- **수집·분석**: Claude Code 클라우드 루틴 「MOLIP 아침 통합 분석」이 평일 08:00(Asia/Seoul)에 수집 → 규칙 입력 게시 → Notion·Slack 근거 대조 → 분석 저장을 수행합니다. 지침과 실행 절차는 [`agent/package/`](agent/package/)에 있습니다. 루틴 환경에는 `NOTION_TOKEN`, `SLACK_TOKEN`(수집 스크립트용), `GITHUB_TOKEN`과 네트워크 허용 도메인 `slack.com`, `api.github.com`이 필요하고, 분석 중 Slack은 실행자 계정의 Slack 커넥터(읽기 전용)로 읽습니다. 토큰이 빠지면 해당 출처 없이 수집되어 그날 스냅샷을 덮어쓰므로 설정 변경 후에는 루틴을 한 번 실행해 확인합니다.
+- **화면**: ChatGPT Sites가 Notion의 최신 스냅샷과 저장된 분석을 읽어 표시만 합니다. 화면에는 수집 버튼이 없고 마지막 수집 시각만 보입니다. 배포·설정은 [SITES-MIGRATION.md](SITES-MIGRATION.md).
+- **로컬**: `dashboard/api/server.mjs`는 실행 중일 때 `config.json`의 `scheduleTime`(07:30)에 수집하고, `summarySyncTime`(09:00) 이후 당일 분석이 저장될 때까지 10분 간격으로 요약 DB를 확인합니다. 수동 수집은 `node agent/run-collection.mjs`(`--no-ai`면 규칙·에이전트 입력만 갱신).
+- **직접 OpenAI 요약**: 선택적 대체 경로입니다. 별도 과금을 감수할 때만 `.env`에 `AI_SUMMARY_PROVIDER=openai`, `OPENAI_API_KEY`, `OPENAI_MODEL`을 설정합니다.
 
 ## 폴더 구조
 
@@ -102,7 +91,7 @@ agent/run-collection.mjs
  │   ├─ 프로젝트 리스트 DB  → 수집 대상·슬랙 채널·조회기간 설정
  │   ├─ "작업 현황" DB 자동 탐색 → 전 프로젝트 작업 (상태/담당자/마감일)
  │   ├─ "회의록" DB 자동 탐색   → 최근 14일 회의
- │   └─ 업무현황 요약 DB       → 기존 에이전트 요약 재활용
+ │   └─ 업무현황 요약 DB       → 스프린트 설정·저장된 분석
  ├─ Slack API → 프로젝트 채널 최근 N일 대화
  ├─ GitHub API → Notion의 git URL에서 최근 커밋·push·PR 활동 수집
  ├─ 규칙 처리
@@ -110,15 +99,14 @@ agent/run-collection.mjs
  │   ├─ `완료`·`일시 정지`·`정지`·`중단` 스펙·일감과 그 하위 일감은 수집 결과에서 제외
  │   ├─ 스펙→작업항목 2단계 계층·완료율·미배정 큐 계산
  │   ├─ 상·하위 공통 필드와 상태별 담당자·우선순위·기간·브랜치·댓글 태그 검증
+ │   ├─ 기한 초과 작업은 작업 페이지 댓글에서 지연 사유·변경 전후 날짜·PD 태그 확인
  │   ├─ 현재 스프린트 `시작 전`은 진행 준비 필요, 미래 스프린트는 준비 검사 제외, 지난 스프린트는 미착수로 분류
  │   ├─ Notion 갱신과 Git 활동 불일치·연결 실패 검증
  │   ├─ 출처별 성공 시각과 Notion 필수 속성 세팅 검사
  │   └─ 전날 스냅샷과 상태·기한·담당 변화 비교
- ├─ data/agent-input.json → 로컬 진단용 규칙 패킷(웹 에이전트는 접근하지 않음)
- ├─ 업무현황 요약 DB의 규칙 입력 페이지 → 웹 에이전트용 원격 규칙 스냅샷
- ├─ 업무현황 요약 DB → 내장 에이전트의 최신 성공 분석을 읽어 병합
- ├─ data/dashboard.json → 웹 UI가 표시
- └─ data/snapshots/YYYY-MM-DD.json → 다음 수집의 전일 비교 기준
+ ├─ 업무현황 요약 DB `rule-input:` 페이지 → 아침 루틴의 분석 입력
+ ├─ 업무현황 요약 DB `dashboard-snapshot:` 페이지 → 운영 화면이 표시, 다음 날 비교 기준
+ └─ data/ (로컬 실행 산출물: dashboard.json, agent-input.json, snapshots/)
 ```
 
 수집 설정(채널·조회 기간·키워드)은 노션 **프로젝트 리스트 DB**에서 관리 — 코드 수정 불필요.
@@ -135,4 +123,4 @@ agent/run-collection.mjs
 
 실제 Slack 알림 발송은 하지 않습니다. 매 수집 후 `data/sync-event.json`에 `dashboardSyncCompleted` 이벤트만 기록하므로, 이후 notifier를 연결할 수 있습니다.
 
-Notion·Slack 출처 대조는 내장 에이전트가 수행합니다. 대조가 실행되지 않았거나 일부 출처가 실패하면 `충돌 없음`으로 처리하지 않고 `대조 미실행` 또는 `부분 분석`으로 표시합니다. Notion 토큰이 없으면 실제 수집 대신 샘플 데이터가 표시됩니다.
+Notion·Slack 출처 대조는 아침 루틴이 수행합니다. 대조가 실행되지 않았거나 일부 출처가 실패하면 `충돌 없음`으로 처리하지 않고 `대조 미실행` 또는 `부분 분석`으로 표시합니다.
