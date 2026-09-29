@@ -444,3 +444,6 @@ body { font-variant-numeric: tabular-nums; }
 .project-operations-card[open] .project-operations-toggle .toggle-close { display: inline; }
 .project-operations-body { padding: 4px 18px 16px; border-top: 1px solid var(--line); background: var(--panel-3); }
 .project-operations-empty { margin: 12px 0 4px; color: var(--muted); }
+.ai-briefing .analysis-bullets { max-width: 90ch; margin: -4px 0 14px; padding-left: 20px; line-height: 1.75; color: var(--text-soft); }
+.ai-briefing .analysis-bullets li { margin: 0 0 6px; overflow-wrap: anywhere; }
+.ai-briefing .analysis-bullets li::marker { color: var(--accent); }

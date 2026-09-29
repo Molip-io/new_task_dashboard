@@ -378,3 +378,12 @@ test('failed agent result cannot fall back to an unverified Notion narrative', (
   const h = briefingHtml(d, null, () => '');
   assert.doesNotMatch(h, /숨겨야 할 오래된 요약/);
 });
+
+test('Given overall bullet items, When the AI briefing renders, Then each item is listed under the summary and escaped', () => {
+  const dashboard = briefingDashboard();
+  dashboard.ai.overall.summary = '회사 흐름 요약';
+  dashboard.ai.overall.summaryItems = ['피자레디 SP60 — 9/28 100% 배포, 1회차 A/B 진행 중(결과 미공유)', '<script>x</script>'];
+  const html = briefingHtml(dashboard, null, () => '');
+  assert.match(html, /<ul class="analysis-bullets"><li>피자레디 SP60 — 9\/28 100% 배포, 1회차 A\/B 진행 중\(결과 미공유\)<\/li>/);
+  assert.ok(!html.includes('<script>x</script>'));
+});

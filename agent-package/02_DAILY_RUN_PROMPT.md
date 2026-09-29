@@ -26,6 +26,7 @@ Notion 업무현황 요약 DB(`351b4a46-5003-80ff-8b85-f772cb93da32`)에서 기�
 - `buildRelease`: 마지막 확인된 전달·배포 빌드 → 다음 준비 빌드 → 다음 검증·전달 단계를 2~3문장으로 종합해. 스프린트·빌드 버전·플랫폼·대상을 구분하고 최신 APK를 출시 완료로 추정하지 마. 지난 예정일·부모 글의 오늘 문구를 현재 상태로 복사하지 마. 오래된 마지막 전달 사실은 날짜와 함께 유지해.
 - `data`: 현재 빌드와 연결된 D1·RV·ARPDAU·퍼널·A/B 등 성과와 실험 결과만 써. 빌드·기간·코호트·단위·분모·비교 조건을 확인해. 출처 정상·로그 적재 오류·QA 점검·고객 피드백 건수로 대체하지 마. 해당 빌드의 성과 근거가 없으면 `null`이야. 단순 수치 우세를 승리 그룹으로 만들지 마.
 - 실제 미해결 실행 차단만 `projects[].blockers`에 써. `projectBriefing.nextActions`는 합의 `agreed`와 AI 확인 제안 `suggested_check`를 구분해. 정보 부족은 `confidenceLimits`에 써. 새 `confirmationRequired` 내용은 만들지 말고 레거시 required일 때만 `[]`을 넣어.
+- 개조식 항목: `currentProgressItems`·`buildReleaseItems`·`dataItems`와 `overall.summaryItems`를 지침 「개조식 항목」대로 써. 한 항목에 한 사실, 상태·날짜·조건 유지, "여러 ~"로 뭉뚱그리지 말고 현재·다음 스프린트의 진행 중·진행 예정·확인 요청 스펙은 이름으로 빠짐없이 넣어.
 `projects[].summary`는 currentProgress의 1~2문장 압축본, `overall.summary`는 회사 흐름·주요 위험·판단 맥락의 종합이야. 전체 스펙에 `specSummaries`를 1:1로 쓰고 같은 specId의 직접 근거만 사용해. 목표·확인된 진행/완료·현재 작업·남은 작업이 드러나게 해. 행동에는 담당 역할·산출물·완료 조건을 쓰되 근거 없는 이름·합의·기한은 만들지 마.
 
 5. **저장 전 검증과 수정**
