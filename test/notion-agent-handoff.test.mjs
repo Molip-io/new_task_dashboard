@@ -7,7 +7,7 @@ import {
   publishAgentInputToNotion,
   remotePacketSize,
   validateAgentInputDeltas,
-} from '../lib/notion-agent-handoff.mjs';
+} from '../shared/notion-storage/notion-agent-handoff.mjs';
 
 const packet = {
   schemaVersion: '1.0', runId: '2026-07-21-morning', generatedAt: '2026-07-21T07:30:00+09:00',

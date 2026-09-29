@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { inspectWorkDatabaseSetup } from '../lib/notion-setup.mjs';
+import { inspectWorkDatabaseSetup } from '../shared/collectors/notion-setup.mjs';
 
 test('Given a work database with required properties, When setup is inspected, Then it is reported as ready', () => {
   const setup = inspectWorkDatabaseSetup([{

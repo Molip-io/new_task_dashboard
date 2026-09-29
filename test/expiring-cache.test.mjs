@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createExpiringCache } from '../lib/expiring-cache.mjs';
+import { createExpiringCache } from '../dashboard/api/expiring-cache.mjs';
 
 test('Given a dashboard cache, When its TTL has not elapsed, Then repeated reads reuse the same snapshot', () => {
   let time = 1_000;

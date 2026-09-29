@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deriveSpecStatus } from '../public/spec-state.js';
+import { deriveSpecStatus } from '../dashboard/ui/spec-state.js';
 
 const items = (...statuses) => statuses.map(status => ({ status }));
 

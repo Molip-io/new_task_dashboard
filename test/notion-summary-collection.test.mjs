@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { collectSummaryRows } from '../lib/notion-collector.mjs';
+import { collectSummaryRows } from '../shared/collectors/notion-collector.mjs';
 
 function richText(value) {
   return { type: 'rich_text', rich_text: value ? [{ plain_text: value }] : [] };

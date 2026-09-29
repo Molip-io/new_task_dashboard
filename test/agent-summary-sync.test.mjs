@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mergeAgentSummaryRows } from '../lib/agent-summary-sync.mjs';
+import { mergeAgentSummaryRows } from '../dashboard/agent-result-adapter/agent-summary-sync.mjs';
 
 test('Given a same-day agent result older than the latest rule input, When summaries merge, Then it is marked stale and not current', () => {
   const dashboard = {

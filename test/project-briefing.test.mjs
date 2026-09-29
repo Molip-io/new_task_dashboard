@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
-import { resolveProjectBriefing, projectBriefingHtml, briefingTime } from '../public/project-briefing.js';
-import { buildAgentAnalysis, latestProjectSummaryRow } from '../lib/dashboard-agent-analysis-adapter.mjs';
-import { compactDashboard } from '../lib/dashboard-snapshot.mjs';
-import { buildAgentInputPacket } from '../lib/agent-handoff.mjs';
-import { enrichAgentPacketWithProjectOperations } from '../lib/agent-project-operations.mjs';
+import { resolveProjectBriefing, projectBriefingHtml, briefingTime } from '../dashboard/ui/project-briefing.js';
+import { buildAgentAnalysis, latestProjectSummaryRow } from '../shared/contracts/dashboard-agent-analysis-adapter.mjs';
+import { compactDashboard } from '../shared/notion-storage/dashboard-snapshot.mjs';
+import { buildAgentInputPacket } from '../agent/input/agent-handoff.mjs';
+import { enrichAgentPacketWithProjectOperations } from '../agent/input/agent-project-operations.mjs';
 const evidence = source => ({source, timestamp:'2026-09-08T01:00:00Z',url:`https://example.test/${source}`,excerpt:`${source} direct evidence`});
 function fixture() {
  const project={name:'Project A',config:{sprintRequired:true,currentSprints:['Sprint3']},specs:[],stats:{},projectOperations:{latestBuild:{excerpt:'RAW SLACK ONLY',timestamp:'2026-09-08T01:00:00Z',url:'https://example.test/raw'}}};
@@ -37,8 +37,8 @@ test('full stored JSON and project-only JSON both preserve briefing',()=>{const 
 test('project row selection cannot use substring names',()=>{const row={'프로젝트명':'Project AB','분석 시각':'2026-09-08T01:00:00Z'};assert.equal(latestProjectSummaryRow([row],'Project A'),null);});
 test('new rule packet publishes optional backwards-compatible briefing schema and synthesis contract',()=>{const d=fixture(),p=enrichAgentPacketWithProjectOperations(buildAgentInputPacket(d),d);assert.ok(p.outputSchema.properties.projects.items.properties.projectBriefing);assert.ok(!p.outputSchema.properties.projects.items.required.includes('projectBriefing'));assert.match(p.constraints.join('\n'),/projectBriefing/);assert.match(p.constraints.join('\n'),/meetingReferences/);});
 test('renderer separates source material from primary narrative',()=>{const d=fixture(),h=projectBriefingHtml(d,d.projects[0]);assert.ok(h.indexOf('SYNTHESIS:')<h.indexOf('근거 보기'));assert.ok(h.indexOf('RAW SLACK ONLY')>h.indexOf('원본 수집 근거'));assert.match(h,/project-briefing-evidence/);});
-test('actual schema limits field and action contracts',()=>{const s=JSON.parse(fs.readFileSync(new URL('../schemas/agent-analysis.schema.json',import.meta.url)));const b=s.properties.projects.items.properties.projectBriefing;assert.equal(b.additionalProperties,false);assert.deepEqual(b.properties.nextActions.items.properties.kind.enum,['agreed','suggested_check']);assert.ok(b.required.includes('currentProgress'));});
-test('project confirmation checks are no longer required by the output contract',()=>{const s=JSON.parse(fs.readFileSync(new URL('../schemas/agent-analysis.schema.json',import.meta.url)));const b=s.properties.projects.items.properties.projectBriefing;assert.ok(!b.required.includes('confirmationRequired'));assert.match(b.properties.confirmationRequired.description,/레거시 호환/);});
+test('actual schema limits field and action contracts',()=>{const s=JSON.parse(fs.readFileSync(new URL('../shared/contracts/schemas/agent-analysis.schema.json',import.meta.url)));const b=s.properties.projects.items.properties.projectBriefing;assert.equal(b.additionalProperties,false);assert.deepEqual(b.properties.nextActions.items.properties.kind.enum,['agreed','suggested_check']);assert.ok(b.required.includes('currentProgress'));});
+test('project confirmation checks are no longer required by the output contract',()=>{const s=JSON.parse(fs.readFileSync(new URL('../shared/contracts/schemas/agent-analysis.schema.json',import.meta.url)));const b=s.properties.projects.items.properties.projectBriefing;assert.ok(!b.required.includes('confirmationRequired'));assert.match(b.properties.confirmationRequired.description,/레거시 호환/);});
 
 
 test('project briefing uses bento narrative hierarchy without exposing raw evidence first',()=>{

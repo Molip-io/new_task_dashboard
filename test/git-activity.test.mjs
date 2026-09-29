@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import * as gitActivity from '../lib/git-activity.mjs';
-import { collectGitActivity } from '../lib/git-activity.mjs';
+import * as gitActivity from '../shared/collectors/git-activity.mjs';
+import { collectGitActivity } from '../shared/collectors/git-activity.mjs';
 
 test('Given the Git activity module, When GitHub collection is requested, Then it exposes an asynchronous URL collector', () => {
   assert.equal(typeof gitActivity.collectGitHubActivity, 'function');

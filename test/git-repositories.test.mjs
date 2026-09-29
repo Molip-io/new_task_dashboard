@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveGitRepositories } from '../lib/git-repositories.mjs';
+import { resolveGitRepositories } from '../shared/collectors/git-repositories.mjs';
 
 test('Given selected Notion projects with Git URLs, When repositories are resolved, Then each project becomes a remote source', () => {
   const projects = [

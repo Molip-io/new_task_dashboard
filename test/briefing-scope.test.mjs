@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { scopeBriefing, sprintOptions } from '../public/briefing-scope.js';
-import { briefingDetailItems } from '../public/dashboard-management.js';
+import { scopeBriefing, sprintOptions } from '../dashboard/ui/briefing-scope.js';
+import { briefingDetailItems } from '../dashboard/ui/dashboard-management.js';
 
 const child = { id: 'child', project: 'A', sprint: 'sprint3.5', team: '개발', assignees: ['가'], status: '진행 중', overdueDays: 2 };
 const parent = { id: 'parent', project: 'A', sprint: '스프린트3.5', team: '기획', assignees: ['나'], status: '시작 전', overdueDays: 3 };

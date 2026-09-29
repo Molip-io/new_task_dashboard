@@ -7,7 +7,7 @@ import {
   encodeDashboardSnapshot,
   publishDashboardSnapshotToNotion,
   readLatestDashboardSnapshotFromNotion,
-} from '../lib/dashboard-snapshot.mjs';
+} from '../shared/notion-storage/dashboard-snapshot.mjs';
 
 const dashboard = {
   generatedAt: '2026-07-21T22:30:00.000Z',

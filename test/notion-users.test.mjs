@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { removeIgnoredAssignees } from '../lib/notion-users.mjs';
+import { removeIgnoredAssignees } from '../shared/collectors/notion-users.mjs';
 
 test('Given an ignored former employee and an active user, When assignees are normalized, Then only the active user remains', () => {
   const result = removeIgnoredAssignees([

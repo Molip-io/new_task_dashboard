@@ -8,7 +8,7 @@ import {
   buildSourceHealth,
   diffSnapshots,
   saveDailySnapshot,
-} from '../lib/operational-metadata.mjs';
+} from '../shared/snapshot/operational-metadata.mjs';
 
 const current = {
   generatedAt: '2026-07-15T07:30:00.000Z',
@@ -124,9 +124,11 @@ test('Given a child task that just completed, When a snapshot is saved, Then the
 });
 
 test('Given a successful collection, When the dashboard is written, Then operational metadata is attached before its daily snapshot is saved', () => {
-  const collector = fs.readFileSync(new URL('../collect.mjs', import.meta.url), 'utf8');
+  const collector = fs.readFileSync(new URL('../agent/run-collection.mjs', import.meta.url), 'utf8');
+  const builder = fs.readFileSync(new URL('../shared/snapshot/build-dashboard.mjs', import.meta.url), 'utf8');
 
-  const attachIndex = collector.indexOf('attachOperationalMetadata(dashboard, dataDirectory');
+  assert.ok(builder.includes('attachOperationalMetadata(dashboard, dataDirectory'));
+  const attachIndex = collector.indexOf('attachHistoryAndScope(dashboard, {');
   const writeIndex = collector.indexOf("fs.writeFileSync(path.join(dataDirectory, 'dashboard.json')");
   const snapshotIndex = collector.indexOf('saveDailySnapshot(dashboard, dataDirectory)');
 

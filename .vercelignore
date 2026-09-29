@@ -4,7 +4,7 @@ data
 test
 docs
 analysis
-agent-package
+agent/package
 tools
 *.zip
 *.docx

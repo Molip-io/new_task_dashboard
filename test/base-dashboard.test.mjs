@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildBaseDashboard } from '../lib/base-dashboard.mjs';
-import { buildManagementDashboard } from '../lib/dashboard-model.mjs';
+import { buildBaseDashboard } from '../shared/snapshot/base-dashboard.mjs';
+import { buildManagementDashboard } from '../shared/snapshot/dashboard-model.mjs';
 
 test('Given shared and explicitly assigned meeting rows, When project candidates are built, Then partial project names do not cross project boundaries', () => {
   const dashboard = buildBaseDashboard({

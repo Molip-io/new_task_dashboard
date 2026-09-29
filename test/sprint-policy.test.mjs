@@ -10,7 +10,7 @@ import {
   parseSprintInput,
   legacyGlobalSprintScope,
   sortIssuesOverdueFirst,
-} from '../public/sprint-policy.js';
+} from '../dashboard/ui/sprint-policy.js';
 
 const guide = {type:'MISSING_BRANCH',category:'guide',severity:'error'};
 const overdue = {type:'OVERDUE',category:'schedule',severity:'warning'};

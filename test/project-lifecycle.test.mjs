@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildProjectSpecs } from '../lib/task-hierarchy.mjs';
-import { buildProjectOperations } from '../lib/project-operations.mjs';
-import { enrichParentChildCompletion } from '../lib/project-state-enrichment.mjs';
-import { enrichAgentPacketWithProjectOperations } from '../lib/agent-project-operations.mjs';
-import { buildAgentInputPacket } from '../lib/agent-handoff.mjs';
-import { compactDashboard } from '../lib/dashboard-snapshot.mjs';
-import { filterSpecsWithWorkItems } from '../public/dashboard-view-model.js';
-import { briefingHtml } from '../public/dashboard-presenters.js';
+import { buildProjectSpecs } from '../shared/rules/task-hierarchy.mjs';
+import { buildProjectOperations } from '../shared/rules/project-operations.mjs';
+import { enrichParentChildCompletion } from '../shared/rules/project-state-enrichment.mjs';
+import { enrichAgentPacketWithProjectOperations } from '../agent/input/agent-project-operations.mjs';
+import { buildAgentInputPacket } from '../agent/input/agent-handoff.mjs';
+import { compactDashboard } from '../shared/notion-storage/dashboard-snapshot.mjs';
+import { filterSpecsWithWorkItems } from '../dashboard/ui/dashboard-view-model.js';
+import { briefingHtml } from '../dashboard/ui/dashboard-presenters.js';
 
 const parent = { id: 'spec', title: 'SP3 업로드 빌드', project: '포지 앤 포춘', parentIds: [], status: '진행 중', sprint: 'Sprint3' };
 const children = [

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { classifySprint, normalizeSprint } from '../lib/sprint-rules.mjs';
+import { classifySprint, normalizeSprint } from '../shared/rules/sprint-rules.mjs';
 
 test('Given Korean and English sprint labels, When normalized, Then equivalent sprint numbers match exactly', () => {
   assert.equal(normalizeSprint('Sprint 060'), 'sprint60');

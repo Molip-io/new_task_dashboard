@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import handler, { requestIsAuthorized } from '../api/app.mjs';
+import handler, { requestIsAuthorized } from '../dashboard/api/app.mjs';
 
 function responseRecorder() {
   return {

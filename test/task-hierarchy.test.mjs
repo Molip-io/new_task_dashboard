@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { buildProjectSpecs, buildWorkload, excludePausedHierarchy, excludeUncollectedHierarchy, resolveTaskProjects, selectProjectTasks } from '../lib/task-hierarchy.mjs';
+import { buildProjectSpecs, buildWorkload, excludePausedHierarchy, excludeUncollectedHierarchy, resolveTaskProjects, selectProjectTasks } from '../shared/rules/task-hierarchy.mjs';
 
 const tasks = [
   {
@@ -85,9 +85,9 @@ test('Given a relation-none confirmation, When specs are built, Then it counts a
 });
 
 test('Given collected Notion tasks, When the dashboard base is built, Then hierarchy functions own specs and personal workload', () => {
-  const collector = fs.readFileSync(new URL('../collect.mjs', import.meta.url), 'utf8');
-  const dashboardModel = fs.readFileSync(new URL('../lib/dashboard-model.mjs', import.meta.url), 'utf8');
-  const notionCollector = fs.readFileSync(new URL('../lib/notion-collector.mjs', import.meta.url), 'utf8');
+  const collector = fs.readFileSync(new URL('../agent/run-collection.mjs', import.meta.url), 'utf8');
+  const dashboardModel = fs.readFileSync(new URL('../shared/snapshot/dashboard-model.mjs', import.meta.url), 'utf8');
+  const notionCollector = fs.readFileSync(new URL('../shared/collectors/notion-collector.mjs', import.meta.url), 'utf8');
 
   assert.match(dashboardModel, /buildProjectSpecs\(projectTasks/);
   assert.match(dashboardModel, /hierarchyStats: \{ personalTaskLinks:/);
@@ -96,8 +96,8 @@ test('Given collected Notion tasks, When the dashboard base is built, Then hiera
 });
 
 test('Given the Notion project list, When collection scope is selected, Then only named projects with summary checked remain', () => {
-  const collector = fs.readFileSync(new URL('../collect.mjs', import.meta.url), 'utf8');
-  const notionCollector = fs.readFileSync(new URL('../lib/notion-collector.mjs', import.meta.url), 'utf8');
+  const collector = fs.readFileSync(new URL('../shared/collectors/collect-sources.mjs', import.meta.url), 'utf8');
+  const notionCollector = fs.readFileSync(new URL('../shared/collectors/notion-collector.mjs', import.meta.url), 'utf8');
 
   assert.match(notionCollector, /allProjects\.filter\(project => project\.summarize\)/);
   assert.match(collector, /selectProjectTasks\(notion\.tasks, notion\.projects\)/);

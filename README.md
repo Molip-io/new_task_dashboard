@@ -7,7 +7,7 @@ Notion(작업현황 DB·회의록·프로젝트 리스트), Slack 프로젝트 �
 ## 실행
 
 ```bash
-node server.mjs          # http://localhost:5678
+node dashboard/api/server.mjs   # http://localhost:5678
 ```
 
 토큰 설정 전에는 샘플 데이터가 표시됩니다.
@@ -63,8 +63,8 @@ Notion **프로젝트 리스트 DB**의 `git` 속성에 GitHub 저장소 URL을 
 
 - **자동**: 서버 실행 중이면 매일 `config.json`의 `scheduleTime`(기본 07:30)에 수집
 - **에이전트 요약 동기화**: `summarySyncTime`(기본 09:00) 이후 당일 분석이 저장될 때까지 10분 간격으로 요약 DB만 확인
-- **수동**: 대시보드 우상단 **↻ 새로고침** 버튼, 또는 `node collect.mjs`
-- 직접 AI 호출 없이 규칙·에이전트 입력만 갱신: `node collect.mjs --no-ai`
+- **수동**: `node agent/run-collection.mjs` (대시보드 화면에는 수집 버튼이 없습니다. 화면은 마지막 수집 시각만 보여 줍니다)
+- 직접 AI 호출 없이 규칙·에이전트 입력만 갱신: `node agent/run-collection.mjs --no-ai`
 
 ## Vercel 배포
 
@@ -80,10 +80,33 @@ Notion **프로젝트 리스트 DB**의 `git` 속성에 GitHub 저장소 URL을 
 
 Vercel Cron은 UTC `22:30`에 실행되어 `Asia/Seoul` 기준 다음 날 `07:30`에 수집합니다. 웹 에이전트는 로컬에 접근하지 않고 Notion에 게시된 원격 규칙 입력만 읽습니다.
 
+## 폴더 구조
+
+```
+agent/       아침 루틴이 쓰는 코드. 수집 실행 권한은 여기에만 있다.
+  package/     에이전트 지침·일일 실행문·루틴 실행 환경 문서
+  runtime/     수집 시작(collect) · 입력 읽기 · 결과 검증·저장 · 근거 조회
+  input/       에이전트 입력 패킷 생성·크기 조정
+  run-collection.mjs  수집 오케스트레이터 (아래 4단계)
+  publish-input.mjs   3단계: 에이전트 입력 게시
+dashboard/   화면과 서버. 스냅샷을 읽어 표시만 한다.
+  api/         Vercel·Sites·로컬 서버 진입점
+  ui/          정적 화면 (브라우저가 직접 받는 파일)
+  agent-result-adapter/  Notion 요약 DB의 분석 결과를 화면용으로 병합
+shared/      양쪽이 함께 쓰는 코드
+  collectors/  Notion · Slack · Git 수집 (collect-sources.mjs가 1단계)
+  rules/       기한·누락·가이드 판정
+  snapshot/    대시보드 스냅샷 모델 (build-dashboard.mjs가 2단계)
+  contracts/   분석 결과 스키마와 결과 해석기
+  notion-storage/  Notion 요약 DB 읽기·쓰기 (스냅샷·입력·스프린트 설정)
+```
+
+수집은 `agent/run-collection.mjs` 한 곳에서 원본 수집 → 규칙·스냅샷 모델 → 에이전트 입력 게시 → 스냅샷 게시 순서로 진행합니다. 규칙이 쓰는 스프린트·스펙 상태 판정은 브라우저와 공유하므로 `dashboard/ui/sprint-policy.js`, `dashboard/ui/spec-state.js`에 있습니다.
+
 ## 동작 방식
 
 ```
-collect.mjs
+agent/run-collection.mjs
  ├─ Notion REST API
  │   ├─ 프로젝트 리스트 DB  → 수집 대상·슬랙 채널·조회기간 설정
  │   ├─ "작업 현황" DB 자동 탐색 → 전 프로젝트 작업 (상태/담당자/마감일)

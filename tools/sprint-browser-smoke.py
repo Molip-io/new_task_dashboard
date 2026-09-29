@@ -46,7 +46,7 @@ def check(name, condition, detail=None):
 class Quiet(SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
-server = ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(ROOT / 'public')))
+server = ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(ROOT / 'dashboard' / 'ui')))
 threading.Thread(target=server.serve_forever, daemon=True).start()
 base = f'http://127.0.0.1:{server.server_port}'
 try:

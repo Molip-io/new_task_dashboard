@@ -101,13 +101,14 @@ Use this prompt in ChatGPT Work or Codex with @Sites and the checked-out migrati
 
 ## Implementation on the migration branch
 
-- Sites builds `sites/worker.mjs` to `dist/server/index.js` and serves the original
-  `public/` files through the Worker assets binding. `server.mjs`, `api/app.mjs`,
-  and `vercel.json` remain intact for the existing Vercel production deployment.
+- Sites builds `dashboard/api/worker.mjs` to `dist/server/index.js` and serves the
+  `dashboard/ui/` files through the Worker assets binding (`npm run build`).
+  `dashboard/api/server.mjs`, `dashboard/api/app.mjs` (with the `api/app.mjs` shim
+  Vercel needs) and `vercel.json` remain for the existing Vercel deployment.
 - `GET /api/dashboard` reads the persisted Notion snapshot, the saved analysis and
   the current sprint settings. If there is no snapshot it answers 503 instead of
   collecting. Collection and publishing the snapshot are done by the morning
-  routine (`tools/agent-routine/collect.mjs`).
+  routine (`agent/runtime/collect.mjs`).
 - `POST /api/refresh` and `GET /api/cron/collect` answer 410. The page shows when
   the data was last collected.
 - `GET /api/status` reflects the last Notion snapshot.

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { renderSprintOverview } from '../public/sprint-overview.js';
+import { renderSprintOverview } from '../dashboard/ui/sprint-overview.js';
 
 const kpis=metrics=>`<div class="kpis">${Object.entries(metrics).map(([key,value])=>`<button data-briefing-detail="${key}">${value}</button>`).join('')}</div>`;
 const data={
@@ -23,7 +23,7 @@ test('Section uses one shared sprint text input without example numbers',()=>{
 });
 
 test('Preview copy explicitly separates unsaved scope from stored analysis',()=>{
-  const code=fs.readFileSync(new URL('../public/sprint-overview.js',import.meta.url),'utf8');
+  const code=fs.readFileSync(new URL('../dashboard/ui/sprint-overview.js',import.meta.url),'utf8');
   assert.ok(code.includes('조회 미리보기'));
   assert.ok(code.includes('저장해야 팀 공통 기준'));
 });
@@ -54,15 +54,15 @@ test('Untrusted project values are escaped',()=>{
 });
 
 test('Sprint settings use server-side administrator identity, not a browser key',()=>{
-  const code=fs.readFileSync(new URL('../public/sprint-overview.js',import.meta.url),'utf8');
-  const worker=fs.readFileSync(new URL('../sites/worker.mjs',import.meta.url),'utf8');
+  const code=fs.readFileSync(new URL('../dashboard/ui/sprint-overview.js',import.meta.url),'utf8');
+  const worker=fs.readFileSync(new URL('../dashboard/api/worker.mjs',import.meta.url),'utf8');
   assert.doesNotMatch(code,/type="password"|adminKey|Authorization: `Bearer/);
   assert.ok(worker.includes('sprintAdmin(request)'));
   assert.ok(worker.includes('settingsOriginAllowed(authRequest)'));
 });
 
 test('Briefing source contract keeps the three requested decision surfaces',()=>{
-  const presenter=fs.readFileSync(new URL('../public/dashboard-presenters.js',import.meta.url),'utf8');
+  const presenter=fs.readFileSync(new URL('../dashboard/ui/dashboard-presenters.js',import.meta.url),'utf8');
   assert.match(presenter,/1\. AI 통합브리핑/);
   assert.match(presenter,/2\. 프로젝트 브리핑/);
   assert.match(presenter,/3\. 스프린트별 업무현황/);
@@ -70,10 +70,10 @@ test('Briefing source contract keeps the three requested decision surfaces',()=>
 });
 
 test('Backend connects shared settings without changing raw metrics',()=>{
-  const api=fs.readFileSync(new URL('../api/app.mjs',import.meta.url),'utf8'),collect=fs.readFileSync(new URL('../collect.mjs',import.meta.url),'utf8');
+  const api=fs.readFileSync(new URL('../dashboard/api/app.mjs',import.meta.url),'utf8'),sources=fs.readFileSync(new URL('../shared/collectors/collect-sources.mjs',import.meta.url),'utf8'),publish=fs.readFileSync(new URL('../agent/publish-input.mjs',import.meta.url),'utf8');
   assert.ok(api.includes('settingsWriteAuthorized'));
   assert.ok(api.includes('input: body.input'));
-  assert.ok(collect.includes('applySavedSprintSettings'));
-  assert.ok(collect.includes('agentInput.rules.briefingMetrics = workOverview.metrics'));
-  assert.ok(!collect.includes('agentInput.rules.metrics = workOverview.metrics'));
+  assert.ok(sources.includes('applySavedSprintSettings'));
+  assert.ok(publish.includes('agentInput.rules.briefingMetrics = workOverview.metrics'));
+  assert.ok(!publish.includes('agentInput.rules.metrics = workOverview.metrics'));
 });

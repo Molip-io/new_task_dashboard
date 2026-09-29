@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { classifyExecutionAttention } from '../lib/execution-attention.mjs';
+import { classifyExecutionAttention } from '../shared/rules/execution-attention.mjs';
 
 const cases = [
   ['dependency', '보안 승인 대기 때문에 후속 개발이 중단됐습니다.'],

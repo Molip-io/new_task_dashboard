@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { extractAnalysisJsonFromBlocks } from '../lib/notion-collector.mjs';
+import { extractAnalysisJsonFromBlocks } from '../shared/collectors/notion-collector.mjs';
 
 test('Given a Notion page with a dashboard JSON code block, When summary details are extracted, Then the machine-readable agent result is returned', () => {
   const payload = JSON.stringify({ overall: {}, projects: [] });

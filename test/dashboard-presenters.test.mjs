@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { briefingHtml } from '../public/dashboard-presenters.js';
+import { briefingHtml } from '../dashboard/ui/dashboard-presenters.js';
 
 test('Given two projects with connected repositories, When Git briefing details render, Then each project uses its own repository', () => {
   const dashboard = {
