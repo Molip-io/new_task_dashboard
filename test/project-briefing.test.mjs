@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import { resolveProjectBriefing, projectBriefingHtml, briefingTime } from '../public/project-briefing.js';
-import { buildAgentAnalysis, latestProjectSummaryRow } from '../lib/agent-analysis.mjs';
+import { buildAgentAnalysis, latestProjectSummaryRow } from '../lib/dashboard-agent-analysis-adapter.mjs';
 import { compactDashboard } from '../lib/dashboard-snapshot.mjs';
 import { buildAgentInputPacket } from '../lib/agent-handoff.mjs';
 import { enrichAgentPacketWithProjectOperations } from '../lib/agent-project-operations.mjs';

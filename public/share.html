@@ -13,8 +13,6 @@
   header h1 { font-size: 22px; margin: 0 0 4px; }
   header p { margin: 0; color: var(--sub); font-size: 14px; }
   .head-text { flex: 1 1 auto; min-width: 220px; }
-  #refresh { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--ink); }
-  #refresh:disabled { color: var(--sub); cursor: wait; }
   .kpis { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
   .kpis a { flex: 1 1 30%; min-width: 140px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; text-decoration: none; color: inherit; }
   .kpis a strong { display: block; font-size: 22px; }
@@ -57,7 +55,6 @@
     <h1>📋 작업 현황 갱신 요청</h1>
     <p id="generated">데이터 불러오는 중…</p>
   </div>
-  <button id="refresh" type="button">🔄 데이터 갱신</button>
 </header>
 <div id="state">불러오는 중…</div>
 <div id="content" class="hidden">
@@ -181,42 +178,7 @@ async function load() {
   render(await res.json());
 }
 
-async function refresh() {
-  const btn = $('refresh');
-  btn.disabled = true;
-  btn.textContent = '⏳ 갱신 중… (1~2분 소요)';
-  try {
-    const res = await fetch('/api/refresh', { method: 'POST' });
-    const raw = await res.text();
-    let body = {};
-    try { body = raw ? JSON.parse(raw) : {}; }
-    catch {
-      const detail = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180);
-      throw new Error(`서버 수집 실패 (${res.status})${detail ? `: ${detail}` : ''}`);
-    }
-    if (!res.ok) throw new Error(body.message || `서버 수집 실패 (${res.status})`);
-    if (body.dashboard) {
-      render(body.dashboard);
-    } else {
-      // 로컬 서버: 백그라운드 수집 → 완료까지 폴링
-      for (let waited = 0; waited < 10 * 60_000; waited += 5000) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        const status = await (await fetch('/api/status')).json();
-        if (!status.collecting) break;
-      }
-      await load();
-    }
-    btn.textContent = '✅ 갱신 완료';
-  } catch (error) {
-    btn.textContent = '⚠️ 갱신 실패 — 다시 시도';
-    console.error(error);
-  }
-  btn.disabled = false;
-  setTimeout(() => { btn.textContent = '🔄 데이터 갱신'; }, 4000);
-}
-
 $('who').addEventListener('change', applyFilter);
-$('refresh').addEventListener('click', refresh);
 load().catch(error => { $('state').textContent = `⚠️ ${error.message}`; });
 </script>
 </main>

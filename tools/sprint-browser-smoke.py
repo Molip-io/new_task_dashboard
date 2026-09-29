@@ -72,9 +72,6 @@ try:
                     project['config']['currentSprints'] = ['Sprint3','Sprint4']
                 fixture['ai']['analysisStatus'] = 'stale'
                 return route.fulfill(json={'settings': {'setting':saved,'history':[saved],'revision':'r1','legacyRecordCount':0}, 'changed': True})
-            if req.url.endswith('/api/refresh'):
-                writes.append({'path': 'refresh'})
-                return route.fulfill(json={'started': True, 'completed': True, 'dashboard': fixture})
             return route.fulfill(status=404, json={})
         context.route('**/api/**', api)
         page = context.new_page()

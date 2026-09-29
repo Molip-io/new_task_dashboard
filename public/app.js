@@ -551,55 +551,9 @@ $('#themeToggle').onclick = () => {
   syncThemeToggle();
 };
 syncThemeToggle();
-$('#refreshBtn').onclick = async () => {
-  if (demoMode) { await load(); return; }
-  const button = $('#refreshBtn');
-  const stateLabel = $('#collectState');
-  button.disabled = true;
-  stateLabel.textContent = '수집 중…';
-  try {
-    const response = await fetch('/api/refresh', { method: 'POST' });
-    const result = await readJsonResponse(response);
-    if (!response.ok) throw new Error(result.message || '수집에 실패했습니다.');
-    if (result.completed && result.dashboard) {
-      D = normalize(result.dashboard);
-      $('#empty').classList.add('hidden');
-      render();
-      stateLabel.textContent = '최신화 완료';
-      return;
-    }
-    pollStatus();
-  } catch (error) {
-    stateLabel.textContent = `수집 실패: ${error.message}`;
-  } finally {
-    button.disabled = false;
-  }
-};
-let pollTimer;
-async function pollStatus() {
-  clearInterval(pollTimer);
-  if (demoMode) {
-    $('#refreshBtn').disabled = false;
-    $('#collectState').textContent = '샘플 데이터 표시 중';
-    $('#refreshBtn').textContent = '샘플 다시 보기';
-    return;
-  }
-  const update = async () => {
-    try {
-      const response = await fetch('/api/status', { cache: 'no-store' });
-      if (!response.ok) throw new Error(`status_${response.status}`);
-      const status = await response.json();
-      $('#refreshBtn').disabled = status.collecting; $('#collectState').textContent = status.collecting ? '수집 중…' : status.last?.state === 'error' ? `수집 실패: ${status.last.error || ''}` : '';
-      if (!status.collecting) { clearInterval(pollTimer); return false; }
-      return true;
-    } catch {
-      $('#refreshBtn').disabled = false;
-      if (D?.sample) $('#collectState').textContent = '샘플 데이터 표시 중';
-      clearInterval(pollTimer);
-      return false;
-    }
-  };
-  if (await update()) pollTimer = setInterval(async () => { if (!await update()) await load(); }, 2000);
+// The page only shows the latest collected snapshot; the morning routine collects.
+function showCollectedAt() {
+  $('#collectState').textContent = D?.sample ? '샘플 데이터 표시 중' : D?.generatedAt ? `마지막 수집 ${String(D.generatedAt).replace('T', ' ').slice(0, 16)}` : '';
 }
 async function load() {
   let dashboard = demoMode ? { ...JSON.parse(JSON.stringify(demoDashboard)), sample: true } : null;
@@ -625,10 +579,10 @@ async function load() {
     $('#loading').classList.add('hidden');
     $('#empty').classList.remove('hidden');
     $('#empty h2').textContent = '실데이터를 불러오지 못했습니다';
-    $('#empty p').textContent = `${loadError || '수집된 대시보드가 없습니다.'} 데이터 다시 수집을 눌러 재시도하세요.`;
+    $('#empty p').textContent = `${loadError || '수집된 대시보드가 없습니다.'} 아침 수집이 끝난 뒤 페이지를 다시 열어 주세요.`;
     $('#collectState').textContent = '실데이터 대기 중';
     return;
   }
-  D = normalize(dashboard); $('#empty').classList.add('hidden'); render();
+  D = normalize(dashboard); $('#empty').classList.add('hidden'); render(); showCollectedAt();
 }
-load(); pollStatus();
+load();

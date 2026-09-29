@@ -143,8 +143,10 @@ export default async function handler(request, response) {
       return send(response, 200, result);
     }
     if (pathname === '/api/dashboard') {
-      let dashboard = await storedDashboard();
-      if (!dashboard) dashboard = dashboardCache.set(await collectForWeb());
+      // Display only: the latest collected snapshot merged with the saved analysis.
+      // Collection belongs to the morning routine, never to a page view.
+      const dashboard = await storedDashboard();
+      if (!dashboard) return send(response, 503, { error: 'no_snapshot', message: '저장된 수집 결과가 없습니다. 아침 수집이 끝난 뒤 다시 확인하세요.' });
       return send(response, 200, dashboard);
     }
     if (pathname === '/api/status') {
@@ -156,10 +158,11 @@ export default async function handler(request, response) {
         remoteSnapshot: dashboard?.remoteSnapshot || null,
       });
     }
-    if (pathname === '/api/refresh' && request.method === 'POST') {
-      const dashboard = dashboardCache.set(await collectForWeb());
-      return send(response, 200, { started: true, completed: true, dashboard });
+    if (pathname === '/api/refresh') {
+      return send(response, 410, { error: 'refresh_removed', message: '화면에서 수집을 실행하지 않습니다. 수집은 아침 루틴이 실행합니다.' });
     }
+    // Transitional: the last collection path in the dashboard. Remove it once the
+    // routine collects Slack and GitHub itself (SLACK_TOKEN and api.github.com allowed).
     if (pathname === '/api/cron/collect' && request.method === 'GET') {
       const dashboard = dashboardCache.set(await collectForWeb());
       return send(response, 200, { ok: true, generatedAt: dashboard.generatedAt, remoteSnapshot: dashboard.remoteSnapshot || null });
