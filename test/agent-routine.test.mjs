@@ -216,11 +216,27 @@ test('Given a time in Seoul morning, When the run id is derived, Then it uses th
   assert.equal(morningRunId(new Date('2026-09-28T23:00:00Z')), '2026-09-29-morning');
 });
 
+const bulletSchema = {
+  type: 'object',
+  properties: {
+    overall: { type: 'object', properties: { summaryItems: { type: 'array' } } },
+    projects: { type: 'array', items: { type: 'object', properties: { projectBriefing: { type: 'object', properties: { currentProgressItems: { type: 'array' } } } } } },
+  },
+};
+
+test('Given an input published before the bullet schema, When an analysis without items is validated, Then items are not demanded', () => {
+  const plain = analysis();
+  plain.projects = plain.projects.map(project => ({ ...project, projectBriefing: { ...project.projectBriefing, currentProgressItems: undefined } }));
+  delete plain.overall.summaryItems;
+  assert.deepEqual(analysisErrors({ analysis: JSON.parse(JSON.stringify(plain)), input: packet(0), runId: RUN_ID }), []);
+});
+
 test('Given an analysis without bullet items, When validated, Then the missing itemised fields are errors', () => {
+  const input = { ...packet(0), outputSchema: bulletSchema };
   const broken = analysis();
   broken.projects[0] = { ...broken.projects[0], projectBriefing: { ...broken.projects[0].projectBriefing, currentProgressItems: [] } };
   delete broken.overall.summaryItems;
-  const errors = analysisErrors({ analysis: broken, input: packet(0), runId: RUN_ID }).join('\n');
+  const errors = analysisErrors({ analysis: broken, input, runId: RUN_ID }).join('\n');
   assert.match(errors, /포지 앤 포춘: 개조식 currentProgressItems 누락/);
   assert.match(errors, /overall.summaryItems 누락/);
 });
