@@ -4,6 +4,8 @@ data/*
 !data/dashboard.sample.json
 !data/.gitkeep
 node_modules/
+dist/
+.wrangler/
 ._*
 .DS_Store
 .gstack/
