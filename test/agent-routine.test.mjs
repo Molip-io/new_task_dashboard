@@ -4,6 +4,7 @@ import test from 'node:test';
 import { publishAgentInputToNotion } from '../lib/notion-agent-handoff.mjs';
 import {
   analysisErrors,
+  analysisWarnings,
   morningRunId,
   readAgentInput,
   saveAnalysis,
@@ -81,7 +82,7 @@ function packet(rows = 0) {
 }
 
 function analysis(overrides = {}) {
-  const briefing = { currentProgress: '진행', buildRelease: null, data: null, nextActions: [], evidence: [], confidenceLimits: [] };
+  const briefing = { currentProgress: '진행', currentProgressItems: ['광산 외형 — 진행 중 (Notion 기준)'], buildRelease: null, data: null, nextActions: [], evidence: [], confidenceLimits: [] };
   const projectResult = (id, name) => ({
     name, summary: `${name} 요약`, projectBriefing: briefing, sprintSummaries: [], blockers: [], sourceConflicts: [], nextActions: [], confidenceLimits: [],
     specSummaries: [`${id}-spec-1`, `${id}-spec-2`].map(specId => ({ specId })),
@@ -89,7 +90,7 @@ function analysis(overrides = {}) {
   return {
     schemaVersion: '1.0', runId: RUN_ID, generatedAt: '2026-09-29T08:10:00+09:00', analysisStatus: 'partial',
     sourceStatus: {}, sourceComparison: { status: 'partial' }, ruleMetrics: {},
-    overall: { summary: '전체 요약', topRisks: [], decisionsForCEO: [], changesSinceYesterday: [], sourceConflicts: [], confidenceLimits: ['회의록 일부 미검토'] },
+    overall: { summary: '전체 요약', summaryItems: ['두 프로젝트 모두 다음 빌드 준비 중'], topRisks: [], decisionsForCEO: [], changesSinceYesterday: [], sourceConflicts: [], confidenceLimits: ['회의록 일부 미검토'] },
     projects: [projectResult('forge', '포지 앤 포춘'), projectResult('pizza', '피자레디')],
     ...overrides,
   };
@@ -213,4 +214,34 @@ test('Given the real output schema, When an incomplete analysis is validated, Th
 
 test('Given a time in Seoul morning, When the run id is derived, Then it uses the Seoul date', () => {
   assert.equal(morningRunId(new Date('2026-09-28T23:00:00Z')), '2026-09-29-morning');
+});
+
+test('Given an analysis without bullet items, When validated, Then the missing itemised fields are errors', () => {
+  const broken = analysis();
+  broken.projects[0] = { ...broken.projects[0], projectBriefing: { ...broken.projects[0].projectBriefing, currentProgressItems: [] } };
+  delete broken.overall.summaryItems;
+  const errors = analysisErrors({ analysis: broken, input: packet(0), runId: RUN_ID }).join('\n');
+  assert.match(errors, /포지 앤 포춘: 개조식 currentProgressItems 누락/);
+  assert.match(errors, /overall.summaryItems 누락/);
+});
+
+test('Given active specs collapsed into a vague phrase, When warnings are computed, Then only the unnamed active specs are listed', () => {
+  const input = packet(0);
+  input.projects[1].specCatalogFormat = { columns: ['specId', 'title', 'sprint', 'status'] };
+  input.projects[1].specCatalog = [
+    ['a', '광고제거 상품 분리 (A/B 테스트) ', 'Sprint61', '진행 예정'],
+    ['b', '부족 재화 RV 팝업', 'Sprint61', '진행 예정'],
+    ['c', '5배 바닥형 RV 장갑,신발 버전', 'Sprint61', '진행 중'],
+    ['d', '버프형 직원 개발', null, '시작 전'],
+  ];
+  const result = analysis();
+  result.projects[1] = { ...result.projects[1], projectBriefing: { ...result.projects[1].projectBriefing, currentProgressItems: ['Sprint61: 광고제거 상품 분리(A/B) 진행 예정, 여러 RV 지면'] } };
+
+  const warnings = analysisWarnings({ analysis: result, input });
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /피자레디: .*2건/);
+  assert.match(warnings[0], /부족 재화 RV 팝업 \(Sprint61, 진행 예정\)/);
+  assert.match(warnings[0], /5배 바닥형 RV 장갑,신발 버전 \(Sprint61, 진행 중\)/);
+  assert.doesNotMatch(warnings[0], /광고제거|버프형 직원/);
 });

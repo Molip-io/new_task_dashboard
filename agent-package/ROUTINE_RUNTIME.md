@@ -60,7 +60,9 @@ node tools/agent-routine/read-input.mjs --out /tmp/molip-agent/input.json
 node tools/agent-routine/save-analysis.mjs --dry-run --analysis /tmp/molip-agent/analysis.json --input /tmp/molip-agent/input.json
 ```
 
-검증 항목은 스키마, 실행 ID, 프로젝트 목록, 프로젝트별 `projectBriefing`, 스펙 1:1이다. 오류가 0이 될 때까지 결과를 고친다. `failed` 결과는 저장 대상이 아니다.
+검증 항목은 스키마, 실행 ID, 프로젝트 목록, 프로젝트별 `projectBriefing`과 개조식 항목, `overall.summaryItems`, 스펙 1:1이다. 오류가 0이 될 때까지 결과를 고친다. `failed` 결과는 저장 대상이 아니다.
+
+`warnings`는 개조식 항목에 이름이 없는 진행 중·진행 예정·확인 요청 스펙 목록이다. 현재·다음 빌드 범위에 드는 스펙이면 반드시 항목에 넣는다. 범위 밖(예: 더 뒤 스프린트)이라 뺀 스펙만 남아 있어야 한다.
 
 ### 5. 저장과 저장 후 검증
 
