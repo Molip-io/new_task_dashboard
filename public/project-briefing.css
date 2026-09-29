@@ -55,3 +55,7 @@
 .project-operations-bento { grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; }
 @media (max-width:1000px) { .project-operations-bento { grid-template-columns:repeat(6,minmax(0,1fr)); } .project-briefing-duo-grid { grid-template-columns:1fr; } }
 @media (max-width:720px) { .project-briefing-card > summary { padding:15px; } .project-briefing-summary-top { align-items:flex-start; } .project-briefing-summary-meta { width:100%; } }
+.project-briefing-lead { margin:0 0 10px; color:var(--text); font-weight:600; }
+.project-briefing-bullets { margin:0; padding-left:18px; color:var(--text-soft); line-height:1.7; }
+.project-briefing-bullets li { margin:0 0 6px; overflow-wrap:anywhere; }
+.project-briefing-bullets li::marker { color:var(--accent); }

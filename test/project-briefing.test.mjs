@@ -79,3 +79,5 @@ test('meetingNotes and GitHub source-status keys preserve partial-analysis warni
  const v=view(d);assert.equal(v.status,'partial');
  assert.match(v.limits.join(' '),/회의록 failed/);assert.match(v.limits.join(' '),/GitHub partial/);
 });
+test('itemised briefing renders agent bullets under the summary line and escapes them',()=>{const d=fixture();Object.assign(d.ai.projects[0].projectBriefing,{currentProgressItems:['부족 재화 RV 팝업(Sprint61) — 진행 예정, 작업 83% (Notion 9/29 기준)','<b>x</b>'],buildReleaseItems:['SP60 60.2.0 — 9/28 100% 배포(Android·iOS)'],dataItems:[]});const h=projectBriefingHtml(d,d.projects[0]);assert.match(h,/project-briefing-lead">SYNTHESIS:/);assert.match(h,/<li>부족 재화 RV 팝업\(Sprint61\) — 진행 예정, 작업 83% \(Notion 9\/29 기준\)<\/li>/);assert.match(h,/<li>SP60 60\.2\.0/);assert.ok(!h.includes('<b>x</b>'));assert.match(h,/Build 1 observations remain separate\./);});
+test('without bullet items the prose briefing is shown unchanged',()=>{const h=projectBriefingHtml(fixture(),fixture().projects[0]);assert.doesNotMatch(h,/project-briefing-bullets/);assert.match(h,/Build 2 QA is planned; build 1 is released\./);});

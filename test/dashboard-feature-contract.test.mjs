@@ -39,8 +39,8 @@ test('Given the simplified briefing, only three primary sections appear in the r
 });
 
 test('Given a deployed UI bundle, When the browser requests the shell, Then the bundle is cache-busted and local responses are not reusable', () => {
-  assert.match(prototype, /style\.css\?v=20260907-1/);
-  assert.match(prototype, /app\.js\?v=20260922-1/);
+  assert.match(prototype, /style\.css\?v=20260929-1/);
+  assert.match(prototype, /app\.js\?v=20260929-1/);
   const server = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
   assert.match(server, /Cache-Control': 'no-store, max-age=0'/);
 });

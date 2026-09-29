@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Usage: node tools/agent-routine/save-analysis.mjs --analysis FILE [--input FILE] [--dry-run]
-// --dry-run only validates the analysis against the day's input and schema.
+// --dry-run only validates the analysis against the day's input and schema, and
+// lists active specs the bullet items never name (warnings, not errors).
 // Otherwise it re-checks the input generation, saves, and reads the pages back.
 import fs from 'node:fs';
 import { loadConfig, loadEnv } from '../../lib/env.mjs';
-import { analysisErrors, saveAnalysis } from '../../lib/agent-routine.mjs';
+import { analysisErrors, analysisWarnings, saveAnalysis } from '../../lib/agent-routine.mjs';
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -25,14 +26,15 @@ try {
 
   if (args.includes('--dry-run')) {
     const errors = analysisErrors({ analysis, input, runId });
-    console.log(JSON.stringify({ status: errors.length ? 'invalid' : 'valid', errors }, null, 2));
+    const warnings = analysisWarnings({ analysis, input });
+    console.log(JSON.stringify({ status: errors.length ? 'invalid' : 'valid', errors, warnings }, null, 2));
     process.exitCode = errors.length ? 1 : 0;
   } else {
     if (!process.env.NOTION_TOKEN) throw new Error('NOTION_TOKEN 환경변수가 없습니다.');
     const result = await saveAnalysis({
       databaseId: loadConfig().notion.summaryDbId, runId, analysis, input, provenance: inputProvenance,
     });
-    console.log(JSON.stringify({ status: 'saved', ...result }, null, 2));
+    console.log(JSON.stringify({ status: 'saved', ...result, warnings: analysisWarnings({ analysis, input }) }, null, 2));
   }
 } catch (error) {
   console.error(JSON.stringify({ status: 'failed', message: error.message }));
