@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyRuntimeEnv } from '../sites/worker.mjs';
+import worker, { applyRuntimeEnv } from '../sites/worker.mjs';
 
 test('applyRuntimeEnv copies only declared string runtime variables', () => {
   delete process.env.NOTION_TOKEN;
@@ -19,4 +19,12 @@ test('applyRuntimeEnv copies only declared string runtime variables', () => {
   assert.equal(process.env.EXTRA_BINDING, undefined);
   assert.equal(process.env.ASSETS, undefined);
   assert.equal(process.env.UNRELATED_SECRET, 'keep');
+});
+
+test('Given a request to collect from the Site, When the worker handles it, Then it refuses and points to the routine', async () => {
+  for (const [path, method] of [['/api/refresh', 'POST'], ['/api/cron/collect', 'GET']]) {
+    const response = await worker.fetch(new Request(`https://site.test${path}`, { method }), {});
+    assert.equal(response.status, 410, path);
+    assert.match((await response.json()).message, /아침 루틴/);
+  }
 });

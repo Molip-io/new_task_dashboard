@@ -1,9 +1,7 @@
 import { mergeAgentSummaryRows } from '../lib/agent-summary-sync.mjs';
-import { comparableSnapshot } from '../lib/operational-metadata.mjs';
 import { collectSummaryRows } from '../lib/notion-collector.mjs';
-import { compactDashboard, readLatestDashboardSnapshotFromNotion } from '../lib/dashboard-snapshot.mjs';
+import { readLatestDashboardSnapshotFromNotion } from '../lib/dashboard-snapshot.mjs';
 import { loadConfig } from '../lib/env.mjs';
-import { runCollection } from '../collect.mjs';
 import {
   SETTINGS_PREFIX, readSprintSettings, decorateSprintDashboard, saveSprintSettings,
   settingsOriginAllowed,
@@ -13,7 +11,7 @@ const config = loadConfig();
 const RUNTIME_ENV_KEYS = [
   'NOTION_TOKEN', 'SLACK_TOKEN', 'GITHUB_TOKEN', 'SPRINT_ADMIN_EMAILS',
   'DASHBOARD_URL', 'IGNORED_NOTION_USER_IDS', 'NOTION_REQUEST_TIMEOUT_MS',
-  'CRON_SECRET', 'AI_SUMMARY_PROVIDER', 'OPENAI_API_KEY', 'OPENAI_MODEL',
+  'AI_SUMMARY_PROVIDER', 'OPENAI_API_KEY', 'OPENAI_MODEL',
 ];
 export function applyRuntimeEnv(env = {}) {
   for (const key of RUNTIME_ENV_KEYS) {
@@ -37,7 +35,6 @@ async function healthCheck(request) {
     slack: Boolean(process.env.SLACK_TOKEN),
     github: Boolean(process.env.GITHUB_TOKEN),
     sprintAdmins: Boolean(process.env.SPRINT_ADMIN_EMAILS),
-    cron: Boolean(process.env.CRON_SECRET),
   };
   const checks = {
     snapshot: { status: 'skipped', exists: false },
@@ -113,39 +110,6 @@ async function storedDashboard(request) {
   return dashboard;
 }
 
-async function collectForWeb(request) {
-  if (!process.env.NOTION_TOKEN) {
-    throw Object.assign(new Error('NOTION_TOKEN is not configured'), { statusCode: 503 });
-  }
-  const previousSnapshot = (async () => {
-    const latest = await readLatestDashboardSnapshotFromNotion({ databaseId: config.notion.summaryDbId });
-    const currentDay = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    return latest && latest.runId < `dashboard-snapshot:${currentDay}`
-      ? comparableSnapshot(latest.dashboard)
-      : null;
-  })().catch(error => {
-    console.error('[sites] previous snapshot unavailable:', error?.message);
-    return null;
-  });
-  const result = await runCollection({
-    noAi: true,
-    persistFiles: false,
-    localGitEnabled: false,
-    previousSnapshot,
-    dashboardUrl: process.env.DASHBOARD_URL || new URL(request.url).origin,
-    notionOptions: {
-      hydrateBodies: false, checkComments: true,
-      hydrateMeetingBodies: false, hydrateSummaryBodies: false,
-    },
-  });
-  if (!['created', 'updated'].includes(result.remoteSnapshot.status)) {
-    throw Object.assign(new Error('Notion dashboard snapshot could not be saved'), { statusCode: 503 });
-  }
-  return decorateSprintDashboard(compactDashboard(result.dashboard), result.sprintSettings, {
-    writable: sprintAdmin(request),
-  });
-}
-
 async function handle(request, env) {
   // Only copy string runtime configuration into process.env. Bindings such as ASSETS
   // are objects and must remain on the Worker env object.
@@ -182,7 +146,11 @@ async function handle(request, env) {
       return json(result);
     }
     if (pathname === '/api/dashboard' && request.method === 'GET') {
-      return json(await storedDashboard(request) || await collectForWeb(request));
+      // Display only: the stored snapshot merged with the saved analysis. Collection
+      // belongs to the morning routine, never to a page view.
+      const dashboard = await storedDashboard(request);
+      if (!dashboard) return json({ error: 'no_snapshot', message: '저장된 수집 결과가 없습니다. 아침 수집이 끝난 뒤 다시 확인하세요.' }, 503);
+      return json(dashboard);
     }
     if (pathname === '/api/status' && request.method === 'GET') {
       const dashboard = await storedDashboard(request);
@@ -192,18 +160,8 @@ async function handle(request, env) {
         remoteSnapshot: dashboard?.remoteSnapshot || null,
       });
     }
-    if (pathname === '/api/refresh' && request.method === 'POST') {
-      if (!authenticatedUser(request)) return json({ error: 'unauthorized' }, 401);
-      const dashboard = await collectForWeb(request);
-      return json({ started: true, completed: true, dashboard });
-    }
-    if (pathname === '/api/cron/collect' && request.method === 'GET') {
-      const supplied = request.headers.get('authorization') || '';
-      if (!env.CRON_SECRET || supplied !== `Bearer ${env.CRON_SECRET}`) {
-        return json({ error: 'unauthorized' }, 401);
-      }
-      const dashboard = await collectForWeb(request);
-      return json({ ok: true, generatedAt: dashboard.generatedAt, remoteSnapshot: dashboard.remoteSnapshot });
+    if (pathname === '/api/refresh' || pathname === '/api/cron/collect') {
+      return json({ error: 'collection_removed', message: '화면에서 수집을 실행하지 않습니다. 수집은 아침 루틴이 실행합니다.' }, 410);
     }
     return json({ error: 'not_found' }, 404);
   } catch (error) {

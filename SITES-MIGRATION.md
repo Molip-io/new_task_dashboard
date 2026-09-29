@@ -22,8 +22,8 @@ This branch includes the PM Control Tower P0 foundation from `chatgpt/pm-control
 - Notion remains the durable source of truth and remote dashboard snapshot store.
 - Runtime secrets stay in ChatGPT Sites Settings, never in source files.
 - The application must not depend on local filesystem persistence between requests.
-- Manual refresh remains supported through `POST /api/refresh`.
-- `GET /api/dashboard` should load the latest persisted dashboard snapshot from Notion and only collect live data when no snapshot exists.
+- The Site is display-only. It never collects: `POST /api/refresh` and `GET /api/cron/collect` answer 410.
+- `GET /api/dashboard` loads the latest persisted dashboard snapshot from Notion and merges the saved analysis. Without a snapshot it answers 503.
 - Sprint-setting writes remain server-side and protected.
 - PM Control Tower P0 behavior must remain intact.
 - Do not add D1/R2 unless the Site conversion proves durable state is actually required. Existing Notion persistence should be reused first.
@@ -104,25 +104,21 @@ Use this prompt in ChatGPT Work or Codex with @Sites and the checked-out migrati
 - Sites builds `sites/worker.mjs` to `dist/server/index.js` and serves the original
   `public/` files through the Worker assets binding. `server.mjs`, `api/app.mjs`,
   and `vercel.json` remain intact for the existing Vercel production deployment.
-- `GET /api/dashboard` reads the persisted Notion snapshot and current sprint
-  settings. If the snapshot is absent, it runs a collection and requires the new
-  snapshot to be saved to Notion before returning success.
-- `POST /api/refresh` collects synchronously and returns a completed response.
-  Requests can take substantially longer than reading a stored snapshot; a
-  Worker runtime duration limit is still to be checked with actual integrations.
-- `GET /api/status` reflects the last Notion snapshot. Request-local collection
-  progress is not a durable global status. The UI reloads the saved snapshot.
+- `GET /api/dashboard` reads the persisted Notion snapshot, the saved analysis and
+  the current sprint settings. If there is no snapshot it answers 503 instead of
+  collecting. Collection and publishing the snapshot are done by the morning
+  routine (`tools/agent-routine/collect.mjs`).
+- `POST /api/refresh` and `GET /api/cron/collect` answer 410. The page shows when
+  the data was last collected.
+- `GET /api/status` reflects the last Notion snapshot.
 - `POST /api/sprint-settings` uses the Sites signed-in user identity and a
   server-side `SPRINT_ADMIN_EMAILS` allowlist. The browser never receives or
   enters a settings token. `SPRINT_SETTINGS_TOKEN` remains used only by the
   untouched Vercel path.
-- Live collection skips local Git repositories and uses the GitHub HTTP API.
-  A local-only repository requires a GitHub URL and, if private, `GITHUB_TOKEN`.
-  Local filesystem output and local `gh` credential fallback are disabled.
-- No background timer runs in Sites. Manual refresh is available; an optional
-  external scheduler may call `GET /api/cron/collect` with `CRON_SECRET`
-  after an access route for the private Site has been configured. Scheduling
-  is not activated by saving a Site version.
+- The Site needs only `NOTION_TOKEN`, `SPRINT_ADMIN_EMAILS` and optionally
+  `DASHBOARD_URL`. It does not need `SLACK_TOKEN`, `GITHUB_TOKEN` or `CRON_SECRET`;
+  those belong to the routine environment that collects.
+- No background timer runs in Sites, and none is needed.
 - The existing agent summary sync process is not scheduled in the Worker.
   Existing summary rows in Notion remain readable. A separate scheduled
   automation is required if the summary sync itself must remain automatic.
