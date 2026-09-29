@@ -212,11 +212,8 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
         saved = true;
         this.binding.dashboard.sprintSettings = { ...this.binding.dashboard.sprintSettings, ...result.settings, pendingInput: result.changed };
         state.sprintInput = result.settings.setting?.input ?? state.sprintInput;
-        state.message = '설정 저장 완료 · 새로운 규칙 입력을 수집합니다. AI 통합 분석은 별도 실행입니다.'; this.render();
-        const refresh = document.getElementById('refreshBtn');
-        if (refresh && !refresh.disabled) refresh.click();
-        else state.message = '설정 저장 완료 · 다음 규칙 입력부터 대시보드 숫자에 반영됩니다.';
-      } catch (error) { state.message = `${saved ? '설정은 저장됐지만 후속 갱신 확인 실패' : '저장 실패'}: ${error.message}`; }
+        state.message = '설정 저장 완료 · 다음 규칙 입력부터 대시보드 숫자에 반영됩니다. 브리핑의 기준 스프린트는 분석이 따로 판단합니다.';
+      } catch (error) { state.message = `${saved ? '설정은 저장됐지만 화면 갱신 확인 실패' : '저장 실패'}: ${error.message}`; }
       finally { token = ''; state.saving = false; this.render(); }
     }
   });

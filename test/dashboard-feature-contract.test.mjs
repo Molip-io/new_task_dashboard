@@ -40,7 +40,7 @@ test('Given the simplified briefing, only three primary sections appear in the r
 
 test('Given a deployed UI bundle, When the browser requests the shell, Then the bundle is cache-busted and local responses are not reusable', () => {
   assert.match(prototype, /style\.css\?v=20260929-1/);
-  assert.match(prototype, /app\.js\?v=20260929-1/);
+  assert.match(prototype, /app\.js\?v=20260929-2/);
   const server = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
   assert.match(server, /Cache-Control': 'no-store, max-age=0'/);
 });
@@ -215,7 +215,9 @@ test('Given a serverless refresh, When Notion hydration is expensive or the plat
 test('Given an existing remote dashboard snapshot, When the website opens, Then reads are cached and never start a full source collection just because data is stale', () => {
   assert.match(api, /createExpiringCache\(\{ ttlMs: 60_000 \}\)/);
   assert.match(api, /Promise\.all\(\[/);
-  assert.match(api, /if \(!dashboard\) dashboard = dashboardCache\.set\(await collectForWeb\(\)\)/);
+  const dashboardRoute = api.slice(api.indexOf("pathname === '/api/dashboard'"), api.indexOf("pathname === '/api/status'"));
+  assert.doesNotMatch(dashboardRoute, /collectForWeb|runCollection/);
+  assert.match(dashboardRoute, /503/);
   assert.doesNotMatch(api, /snapshotIsStale/);
 });
 
