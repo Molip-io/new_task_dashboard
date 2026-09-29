@@ -5,6 +5,8 @@
 1. `01_AGENT_INSTRUCTIONS.md`를 에이전트 기본 지침으로 등록한다.
 2. `02_DAILY_RUN_PROMPT.md`를 매일 아침 정기 실행문으로 등록한다.
 
+Claude Code 클라우드 루틴으로 실행할 때는 위 두 문서에 `ROUTINE_RUNTIME.md`(도구 대응표)를 함께 적용한다. 루틴은 `tools/agent-routine/` 스크립트로 Notion 입력을 읽고 결과를 저장한다.
+
 ## 배포 전 조건
 
 이 문서의 manifest/조각 입력 규약은 대시보드 수집기가 다음 형식을 게시하는 버전에서만 사용할 수 있다.
