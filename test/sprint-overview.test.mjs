@@ -70,8 +70,8 @@ test('Briefing source contract keeps the three requested decision surfaces',()=>
 });
 
 test('Backend connects shared settings without changing raw metrics',()=>{
-  const api=fs.readFileSync(new URL('../dashboard/api/app.mjs',import.meta.url),'utf8'),sources=fs.readFileSync(new URL('../shared/collectors/collect-sources.mjs',import.meta.url),'utf8'),publish=fs.readFileSync(new URL('../agent/publish-input.mjs',import.meta.url),'utf8');
-  assert.ok(api.includes('settingsWriteAuthorized'));
+  const api=fs.readFileSync(new URL('../dashboard/api/worker.mjs',import.meta.url),'utf8'),sources=fs.readFileSync(new URL('../shared/collectors/collect-sources.mjs',import.meta.url),'utf8'),publish=fs.readFileSync(new URL('../agent/publish-input.mjs',import.meta.url),'utf8');
+  assert.ok(api.includes('sprintAdmin(request)'));
   assert.ok(api.includes('input: body.input'));
   assert.ok(sources.includes('applySavedSprintSettings'));
   assert.ok(publish.includes('agentInput.rules.briefingMetrics = workOverview.metrics'));

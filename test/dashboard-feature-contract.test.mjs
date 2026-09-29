@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const prototypePath = new URL('../dashboard/ui/index.html', import.meta.url);
 const appPath = new URL('../dashboard/ui/app.js', import.meta.url);
-const apiPath = new URL('../dashboard/api/app.mjs', import.meta.url);
+const apiPath = new URL('../dashboard/api/worker.mjs', import.meta.url);
 const collectorPath = new URL('../shared/collectors/notion-collector.mjs', import.meta.url);
 const collectPath = new URL('../agent/run-collection.mjs', import.meta.url);
 const managementPath = new URL('../dashboard/ui/dashboard-management.js', import.meta.url);
@@ -201,10 +201,6 @@ test('Given a serverless refresh, When Notion hydration is expensive or the plat
   assert.match(notionCollector, /hydrateBodies = true/);
   assert.match(notionCollector, /checkComments = true/);
   assert.match(collector, /notionOptions/);
-  assert.match(api, /hydrateBodies: false/);
-  assert.match(api, /checkComments: true/);
-  assert.match(api, /hydrateMeetingBodies: false/);
-  assert.match(api, /hydrateSummaryBodies: false/);
   assert.match(app, /response\.text\(\)/);
   assert.match(app, /서버 수집 실패/);
   const notion = fs.readFileSync(new URL('../shared/notion-storage/notion.mjs', import.meta.url), 'utf8');
@@ -212,8 +208,7 @@ test('Given a serverless refresh, When Notion hydration is expensive or the plat
   assert.match(notion, /MAX_RATE_LIMIT_RETRIES/);
 });
 
-test('Given an existing remote dashboard snapshot, When the website opens, Then reads are cached and never start a full source collection just because data is stale', () => {
-  assert.match(api, /createExpiringCache\(\{ ttlMs: 60_000 \}\)/);
+test('Given an existing remote dashboard snapshot, When the website opens, Then reads never start a full source collection just because data is stale', () => {
   assert.match(api, /Promise\.all\(\[/);
   const dashboardRoute = api.slice(api.indexOf("pathname === '/api/dashboard'"), api.indexOf("pathname === '/api/status'"));
   assert.doesNotMatch(dashboardRoute, /collectForWeb|runCollection/);

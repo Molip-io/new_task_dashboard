@@ -75,7 +75,7 @@ function outputText(response) {
 
 export async function requestOpenAISummary(prompt, options = {}) {
   const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY 없음 — .env 또는 Vercel 환경변수에 설정하세요.');
+  if (!apiKey) throw new Error('OPENAI_API_KEY 없음 — .env에 설정하세요.');
   const schema = JSON.parse(fs.readFileSync(path.join(ROOT, 'shared', 'contracts', 'schemas', 'dashboard-summary.schema.json'), 'utf8'));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs || 300_000);
