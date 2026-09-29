@@ -48,3 +48,26 @@ test('meeting coverage and sprint limitations do not become false certainty', ()
   assert.match(instructions, /evidenceCoverage/);
   assert.match(instructions, /별도 스킬이 없어도/);
 });
+
+test('the briefing sprint is judged by the agent from the last 7 days and never rebuilt from the saved setting', () => {
+  for (const key of ['briefingSprint', 'undetermined', '최근 7일', '실제로 진행 중', '대체하지 않는다', 'differsFromSaved', 'savedScope']) assert.ok(instructions.includes(key), key);
+  assert.ok(!instructions.includes('Slack 언급 빈도나 오래된 프로젝트 `currentSprints`로 공용 기준을 재구성하지 않는다'));
+  assert.match(instructions, /`ruleMetrics.original\/corrected`는 규칙 엔진 기준 감사 수치로 유지한다/);
+  assert.match(instructions, /공용 설정은 Notion 작업을 보는 기준일 뿐이며 브리핑의 현재 스프린트를 정하지 않는다/);
+  assert.match(daily, /briefingSprint/);
+  assert.match(daily, /undetermined/);
+});
+
+test('history is read with comparison availability and observation time, not as completion facts', () => {
+  for (const doc of [instructions, daily]) {
+    assert.ok(doc.includes('rules.comparison'));
+    assert.ok(doc.includes('observedCompleteAt'));
+    assert.match(doc, /실제 완료일이 아니/);
+  }
+  assert.match(instructions, /`available=false`이면 `\[\]`는 이전 비교 기준이 없다는 뜻/);
+});
+
+test('delay comment evidence informs the briefing only and never edits the rule counts', () => {
+  assert.ok(daily.includes('delayEvidence'));
+  assert.match(daily, /suggested_check.*규칙 수치는 바꾸지 마/);
+});

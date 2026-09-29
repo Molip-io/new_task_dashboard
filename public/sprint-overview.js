@@ -77,8 +77,8 @@ export function renderSprintOverview(dashboard, viewState, kpisHtml) {
   return `<section class="sprint-overview" aria-labelledby="sprint-overview-title">
     <div class="scope-title"><div><p class="scope-eyebrow">SPRINT WORK OVERVIEW</p><h3 id="sprint-overview-title">4. 스프린트별 업무 현황</h3><p>공용 스프린트 범위와 프로젝트·팀·담당자 필터를 같은 업무 지표에 적용합니다.</p></div><span class="scope-mode">${esc(modeLabel)}</span></div>
     ${dirty ? '<p class="scope-notice">현재 입력은 조회 미리보기입니다. 저장해야 팀 공통 기준과 다음 규칙 입력에 반영됩니다.</p>' : ''}
-    ${pending ? '<p class="scope-notice">현재 스프린트가 변경됐습니다. 기존 통합 분석은 이전 기준이며 새 규칙 입력·분석이 필요합니다.</p>' : ''}
-    ${!pending && dashboard.sprintSettings?.pendingAnalysis ? '<p class="scope-notice">새 기준의 규칙 입력은 생성됐지만 통합 분석은 아직 이전 입력 기준입니다. GPT Agent 재실행이 필요합니다.</p>' : ''}
+    ${pending ? '<p class="scope-notice">현재 스프린트 설정이 변경됐습니다. 대시보드 숫자는 다음 규칙 입력부터 반영되고, 브리핑의 기준 스프린트는 분석이 최근 7일 근거로 따로 판단합니다.</p>' : ''}
+    ${!pending && dashboard.sprintSettings?.pendingAnalysis ? '<p class="scope-notice">규칙 입력이 갱신됐지만 통합 분석은 아직 이전 입력 기준입니다. 분석 루틴이 다시 실행되어야 합니다.</p>' : ''}
     <div class="scope-filters scope-global-filters">
       <label class="scope-sprint-input">현재 스프린트
         <span class="scope-input-row"><input type="text" inputmode="text" autocomplete="off" data-scope-sprint value="${esc(previewInput(dashboard))}"><button type="button" data-scope-save ${canSave ? '' : 'disabled'}>저장</button></span>
@@ -215,7 +215,7 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
         state.message = '설정 저장 완료 · 새로운 규칙 입력을 수집합니다. AI 통합 분석은 별도 실행입니다.'; this.render();
         const refresh = document.getElementById('refreshBtn');
         if (refresh && !refresh.disabled) refresh.click();
-        else state.message = '설정 저장 완료 · 데이터 다시 수집 후 GPT Agent를 실행하세요.';
+        else state.message = '설정 저장 완료 · 다음 규칙 입력부터 대시보드 숫자에 반영됩니다.';
       } catch (error) { state.message = `${saved ? '설정은 저장됐지만 후속 갱신 확인 실패' : '저장 실패'}: ${error.message}`; }
       finally { token = ''; state.saving = false; this.render(); }
     }

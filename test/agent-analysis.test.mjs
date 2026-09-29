@@ -60,3 +60,12 @@ test('Given no summary rows, When agent analysis is built, Then not-run is expli
 test('Given duplicate project rows, When a project summary is selected, Then newest analysis wins', () => {
   assert.equal(latestProjectSummaryRow(rows, '피자레디')['현재 진행 요약'], 'Sprint 60의 개발과 아트 작업이 진행 중이다.');
 });
+
+test('Given summaries from today and earlier days, When the previous-day row is chosen, Then a same-day rerun never stands in for it', async () => {
+  const { previousDayProjectSummaryRow } = await import('../lib/agent-analysis.mjs');
+  const row = (day, text, time = 'T00:30:00+09:00') => ({ 프로젝트명: '피자레디', '현재 진행 요약': text, '기준일': { start: day }, '분석 시각': `${day}${time}` });
+  const rows = [row('2026-09-29', '오늘 재실행'), row('2026-09-28', '어제'), row('2026-09-25', '지난주')];
+  assert.equal(previousDayProjectSummaryRow(rows, '피자레디', '2026-09-29')['현재 진행 요약'], '어제');
+  assert.equal(previousDayProjectSummaryRow(rows, '피자레디', '2026-09-25'), null);
+  assert.equal(previousDayProjectSummaryRow(rows, '다른 프로젝트', '2026-09-29'), null);
+});

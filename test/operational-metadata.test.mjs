@@ -134,3 +134,12 @@ test('Given a successful collection, When the dashboard is written, Then operati
   assert.ok(writeIndex > attachIndex);
   assert.ok(snapshotIndex > writeIndex);
 });
+
+test('Given a task that turned done between snapshots, When they are compared, Then the observation time is recorded without claiming a completion date', () => {
+  const snapshot = (generatedAt, status) => ({ generatedAt, projects: [{ name: 'P', status: null, completionRate: 0, tasks: [{ id: 't', title: 'T', status, due: '2026-07-10', assignees: [] }] }] });
+  const done = diffSnapshots(snapshot('2026-07-14T00:00:00Z', '진행 중'), snapshot('2026-07-15T00:00:00Z', '완료')).find(delta => delta.field === 'task.status');
+  assert.equal(done.observedCompleteAt, '2026-07-15T00:00:00Z');
+  assert.equal('completedAt' in done, false);
+  const moved = diffSnapshots(snapshot('2026-07-14T00:00:00Z', '시작 전'), snapshot('2026-07-15T00:00:00Z', '진행 중')).find(delta => delta.field === 'task.status');
+  assert.equal('observedCompleteAt' in moved, false);
+});

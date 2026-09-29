@@ -111,6 +111,29 @@
               "currentProgressItems": { "type": "array", "maxItems": 12, "items": { "type": "string", "minLength": 1, "maxLength": 260 }, "description": "대시보드에 개조식으로 표시할 현재 진행 항목. 새 실행은 작성한다. 현재·다음 빌드 범위의 진행 중·진행 예정·확인 요청 스펙은 이름으로 빠짐없이 포함한다. 한 항목은 한 사실·한 작업이다. 대상(스펙·빌드·실험명), 상태(완료·진행 중·진행 예정·확인 중·미확인), 확인 날짜를 함께 쓴다. 원문의 예정·잠정·확인 중·불일치 조건을 생략하지 않고, 서로 다른 스펙·실험을 \"여러 ~\"·\"등\"으로 뭉뚱그리지 않는다." },
               "buildReleaseItems": { "type": "array", "maxItems": 6, "items": { "type": "string", "minLength": 1, "maxLength": 260 }, "description": "개조식 빌드·출시 항목. 마지막 확인된 전달·배포 빌드 → 다음 준비 빌드 → 남은 검증 순서. 근거가 없으면 빈 배열. 한 항목은 한 사실·한 작업이다. 대상(스펙·빌드·실험명), 상태(완료·진행 중·진행 예정·확인 중·미확인), 확인 날짜를 함께 쓴다. 원문의 예정·잠정·확인 중·불일치 조건을 생략하지 않고, 서로 다른 스펙·실험을 \"여러 ~\"·\"등\"으로 뭉뚱그리지 않는다." },
               "dataItems": { "type": "array", "maxItems": 6, "items": { "type": "string", "minLength": 1, "maxLength": 260 }, "description": "개조식 성과·실험 항목. 빌드·기간·코호트·단위·비교 기준을 항목 안에 유지한다. 근거가 없으면 빈 배열. 한 항목은 한 사실·한 작업이다. 대상(스펙·빌드·실험명), 상태(완료·진행 중·진행 예정·확인 중·미확인), 확인 날짜를 함께 쓴다. 원문의 예정·잠정·확인 중·불일치 조건을 생략하지 않고, 서로 다른 스펙·실험을 \"여러 ~\"·\"등\"으로 뭉뚱그리지 않는다." },
+              "briefingSprint": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["status", "sprints", "rationale", "evidence", "savedScope", "differsFromSaved"],
+                "description": "브리핑이 기준으로 삼은 현재 스프린트. 대시보드 공용 스프린트 설정과 독립이며 에이전트가 최근 7일의 직접 근거(진행 중인 작업·빌드·QA·합의)로 판단한다. 실제 진행 중인 스프린트는 모두 포함하고 다음 스프린트 계획 언급만 있는 스프린트는 제외한다. 근거가 없으면 status=undetermined, sprints=[]이며 공용 설정이나 프로젝트 리스트 값으로 대체하지 않는다. judged이면 sprints와 evidence가 1개 이상이다. 새 실행은 작성한다.",
+                "properties": {
+                  "status": { "enum": ["judged", "undetermined"] },
+                  "sprints": { "type": "array", "maxItems": 4, "items": { "type": "string", "minLength": 1, "maxLength": 40 } },
+                  "rationale": { "type": "string", "maxLength": 300 },
+                  "evidence": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/evidenceItem" } },
+                  "savedScope": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["mode", "sprints"],
+                    "description": "입력 rules.briefingScope에서 그대로 복사한다.",
+                    "properties": {
+                      "mode": { "enum": ["selected", "all", "unset"] },
+                      "sprints": { "type": "array", "items": { "type": "string", "maxLength": 40 } }
+                    }
+                  },
+                  "differsFromSaved": { "type": "boolean", "description": "savedScope.mode가 unset이 아니고 sprints 집합이 savedScope.sprints와 다르면 true." }
+                }
+              },
               "buildRelease": {
                 "type": [
                   "string",

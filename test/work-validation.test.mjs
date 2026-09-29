@@ -156,13 +156,13 @@ test('Given a previously completed item that is active again, When snapshots are
   assert.ok(issueTypes(result, 'work').includes('REOPENED_COMPLETED_ITEM'));
 });
 
-test('Given an overdue item without the guide-required delay record, When validation runs, Then reason, date history, and owner tag are requested', () => {
+test('Given an overdue item whose comments were read and hold no delay record, When validation runs, Then reason, date history, and owner tag are requested', () => {
   const tasks = [
     { id: 'spec', title: '스펙', project: '피자레디', parentIds: [], status: '진행 중', start: '2026-07-01', due: '2026-07-31', assignees: ['PD'], edited: NOW },
-    { id: 'late', title: '지연 작업', project: '피자레디', parentIds: ['spec'], status: '진행 중', start: '2026-07-01', due: '2026-07-10', assignees: ['A'], edited: NOW, delayReason: null, previousDue: null, delayTaggedUsers: [] },
+    { id: 'late', title: '지연 작업', project: '피자레디', parentIds: ['spec'], status: '진행 중', start: '2026-07-01', due: '2026-07-10', assignees: ['A'], edited: NOW, delayReason: null, previousDue: null, delayTaggedUsers: [], delayCommentCheck: 'checked', delayComments: [] },
   ];
 
-  const result = validateWorkManagement({ tasks, projects: [{ name: '피자레디' }], gitActivity: [], now: NOW });
+  const result = validateWorkManagement({ tasks, projects: [{ name: '피자레디', pdUsers: [{ id: 'pd-1' }] }], gitActivity: [], now: NOW });
   const types = issueTypes(result, 'late');
 
   assert.ok(types.includes('MISSING_DELAY_REASON'));
@@ -394,4 +394,56 @@ test('Given completed, paused, and stopped work, When validation runs, Then none
 
   assert.deepEqual(result.workItems, []);
   assert.equal(result.issues.some(issue => ['done', 'paused', 'stopped'].includes(issue.workItemId)), false);
+});
+
+const PD = { id: 'pd-1', name: 'PD' };
+const lateTask = extra => ({ id: 'late', title: '지연 작업', project: '피자레디', parentIds: ['spec'], status: '진행 중', start: '2026-07-01', due: '2026-07-10', assignees: ['A'], edited: NOW, delayCommentCheck: 'checked', delayComments: [], ...extra });
+const specTask = { id: 'spec', title: '스펙', project: '피자레디', parentIds: [], status: '진행 중', start: '2026-07-01', due: '2026-07-31', assignees: ['PD'], edited: NOW };
+const comment = (text, mentionUserIds = []) => ({ id: text, createdAt: '2026-07-08T09:00:00+09:00', text, mentionUserIds });
+const delayIssues = (task, project = { name: '피자레디', pdUsers: [PD] }) => validateWorkManagement({ tasks: [specTask, task], projects: [project], gitActivity: [], now: NOW }).issues.filter(issue => issue.workItemId === 'late');
+const kinds = issues => issues.map(issue => issue.type === 'RULE_NOT_EVALUATED' ? `RNE:${issue.metadata.rule}` : issue.type).filter(type => type.startsWith('MISSING_DELAY') || type.startsWith('RNE:delay'));
+
+test('Given a delay comment that states old and new dates and tags the PD, When validation runs, Then none of the three delay warnings remain', () => {
+  const issues = delayIssues(lateTask({ delayComments: [comment('사유: 밸런스 재작업. 7/10 → 7/10 은 아니고 7/8 에서 7/10 로 조정', ['pd-1'])] }));
+  assert.deepEqual(kinds(issues), []);
+});
+
+test('Given a delay comment without dates or a PD tag, When validation runs, Then only the date and sharing warnings stay', () => {
+  const issues = delayIssues(lateTask({ delayComments: [comment('리소스 대기 중입니다')] }));
+  assert.deepEqual(kinds(issues).sort(), ['MISSING_DELAY_DATE_HISTORY', 'MISSING_DELAY_OWNER_TAG']);
+});
+
+test('Given two dates where neither is the current due date, When validation runs, Then the date warning stays', () => {
+  const issues = delayIssues(lateTask({ delayComments: [comment('7/1 에서 7/5 로 변경', ['pd-1'])] }));
+  assert.deepEqual(kinds(issues), ['MISSING_DELAY_DATE_HISTORY']);
+});
+
+test('Given a comment that tags a team lead instead of the PD, When validation runs, Then the sharing warning stays', () => {
+  const issues = delayIssues(lateTask({ delayComments: [comment('7/8 에서 7/10 으로 변경', ['lead-1'])] }));
+  assert.deepEqual(kinds(issues), ['MISSING_DELAY_OWNER_TAG']);
+});
+
+test('Given comments that could not be read, When validation runs, Then delay checks are not evaluated instead of reported missing', () => {
+  for (const delayCommentCheck of ['failed', 'skipped', undefined]) {
+    const issues = delayIssues(lateTask({ delayCommentCheck, delayComments: undefined }));
+    assert.deepEqual(kinds(issues), ['RNE:delay-comment'], String(delayCommentCheck));
+    assert.deepEqual(issues.find(issue => issue.type === 'RULE_NOT_EVALUATED').metadata.pending.sort(), ['MISSING_DELAY_DATE_HISTORY', 'MISSING_DELAY_OWNER_TAG', 'MISSING_DELAY_REASON']);
+  }
+});
+
+test('Given a project without a PD, When a delay comment exists, Then the sharing check is not evaluated', () => {
+  const issues = delayIssues(lateTask({ delayComments: [comment('7/8 에서 7/10 으로 변경')] }), { name: '피자레디', pdUsers: [] });
+  assert.deepEqual(kinds(issues), ['RNE:delay-owner-tag']);
+});
+
+test('Given legacy delay properties are still filled, When comments are unread, Then those checks stay satisfied', () => {
+  const issues = delayIssues(lateTask({ delayCommentCheck: 'failed', delayReason: '재작업', previousDue: '2026-07-05', delayTaggedUsers: [PD] }));
+  assert.deepEqual(kinds(issues), []);
+});
+
+test('Given several not-evaluated rules on one item, When validation runs, Then their issue ids stay distinct', () => {
+  const issues = delayIssues(lateTask({ delayCommentCheck: 'failed', delayComments: undefined, sprint: '스프린트9' }), { name: '피자레디', pdUsers: [PD], currentSprints: [] });
+  const ids = issues.filter(issue => issue.type === 'RULE_NOT_EVALUATED').map(issue => issue.id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(ids.some(id => id.startsWith('RULE_NOT_EVALUATED:delay-comment:')));
 });

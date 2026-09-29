@@ -39,7 +39,7 @@
 6. manifest와 모든 조각을 검증한 뒤 하나의 논리 입력으로 재구성한다. 각 조각의 `projects[]` 항목은 `projectId`, `name`, `sections`와 첫 조각에만 있는 `projectMeta`로 구성된다. 프로젝트별 `projectMeta`는 정확히 한 번 있어야 한다. `sectionCounts`에 든 각 배열 필드는 `field`, `offset`, `totalItems`, `items`를 사용해 복원한다. 같은 `projectId`·`field`의 섹션을 `offset` 순으로 정렬해 0부터 간격·겹침·중복 없이 `sectionCounts[field]` 길이를 모두 덮는지 확인하고, 각 `totalItems`가 선언된 전체 길이와 같은지도 확인한다. 빈 배열은 `projectMeta`에 남는다. 복원 후 기준 페이지의 `activeSpecIds`와 `specCatalog`의 `specId`가 1:1인지 확인한다. 감사 행을 순서만으로 다른 목록의 작업과 결합하지 않는다. 조각의 근거나 프로젝트 설명을 자의적으로 생략하지 않는다. manifest가 `ready`가 아니거나 페이지를 읽을 수 없거나 조각·프로젝트 메타데이터·배열 행이 누락·중복·불일치·JSON 오류 상태면 분석과 저장을 중단한다.
 7. `packet.format`이 없는 기존 단일 페이지 형식은 직렬화 JSON 50,000자 이하이고 `MOLIP_AGENT_INPUT_V1` 블록이 정확히 하나일 때만 완독·파싱 후 호환 입력으로 허용한다. 50,000자를 넘는 단일 블록은 잘림 위험이 있으므로 거부한다. multipart manifest가 선언됐는데 조각이 불완전하면 단일 페이지 입력처럼 처리하지 않는다.
 8. 재구성된 논리 입력에 `runId`, `outputSchema`, `rules.metrics`, `projects`, `sourceHealth`가 있는지 확인한다. 각 프로젝트의 `ruleAuditFormat`, `ruleAuditItems`, `analysisTargets`, `specCatalogFormat`, `specCatalog`도 확인한다. 빈 배열과 누락은 다르다. `sourceEvidence`·형식·`meetingReferences`·`gitEvidence` 등 보조 근거의 유무와 제한도 읽는다.
-9. 변경 이력은 `rules.deltas`가 정식 경로다. 최상위 `deltas`가 없어도 이 배열이면 유효하다. 최상위 배열만 있는 호환 입력도 허용한다. 둘 다 있으면 둘 다 배열이고 내용이 같아야 한다. 둘 다 누락되거나 제공된 값이 배열이 아니거나 서로 다르면 실패한다. `[]`는 변경 없음이다. 다른 출처로 deltas를 재구성하지 않는다.
+9. 변경 이력은 `rules.deltas`가 정식 경로다. 최상위 `deltas`가 없어도 이 배열이면 유효하다. 최상위 배열만 있는 호환 입력도 허용한다. 둘 다 있으면 둘 다 배열이고 내용이 같아야 한다. 둘 다 누락되거나 제공된 값이 배열이 아니거나 서로 다르면 실패한다. `rules.comparison.available=true`일 때만 `[]`는 변경 없음이다. `available=false`이면 `[]`는 이전 비교 기준이 없다는 뜻이며 변경 없음으로 쓰지 않고 `confidenceLimits`에 비교 불가를 남긴다. `rules.comparison`이 없는 과거 입력의 `[]`는 변경 없음으로 읽는다. `deltas[].observedCompleteAt`은 스냅샷에서 완료를 처음 관찰한 시각이지 실제 완료일이 아니며 완료일처럼 쓰지 않는다. 다른 출처로 deltas를 재구성하지 않는다.
 
 규칙 입력 없음·완독 불가·JSON 파싱 실패·실행 ID 불일치·필수 입력 누락은 분석·저장을 중단하고 `failed`로 보고한다. 입력 없음은 `sourceStatus.ruleEngine=not_available`, 손상되거나 불완전한 입력은 `failed`로 구분한다. 외부 출처만으로 대체 분석하지 않는다. 조각이 없는 이전의 초과 입력을 다른 페이지나 원본 출처를 조합해 재구성하지 않는다.
 
@@ -77,7 +77,18 @@
 
 ### 스프린트와 지표 범위
 
-`rules.briefingScope`와 입력의 `sprintRelation`을 그대로 사용한다. `selected`는 선택 범위, `all`은 입력의 전체 범위다. `unset`이면 스프린트 관계 지표는 미평가이며 0건·문제없음으로 해석하지 않는다. Slack 언급 빈도나 오래된 프로젝트 `currentSprints`로 공용 기준을 재구성하지 않는다.
+`rules.briefingScope`와 입력의 `sprintRelation`은 **대시보드 공용 스프린트 설정 기준의 규칙 엔진 사실**이다. `selected`는 선택 범위, `all`은 입력의 전체 범위다. `unset`이면 스프린트 관계 지표는 미평가이며 0건·문제없음으로 해석하지 않는다. 이 값과 `rules.metrics`·`rules.briefingMetrics`는 원본 그대로 보존하고 수정하지 않는다. 공용 설정은 Notion 작업을 보는 기준일 뿐이며 브리핑의 현재 스프린트를 정하지 않는다.
+
+### 브리핑의 현재 스프린트
+
+브리핑의 현재 스프린트는 **에이전트가 프로젝트별로 판단**하고 `projectBriefing.briefingSprint`에 쓴다.
+
+- **판단 창.** 실행일(Asia/Seoul) 기준 최근 7일의 직접 근거로 판단한다: 입력의 작업 행·`analysisTargets`, 허용 Slack 채널, 연결 회의록, Git.
+- **"현재"의 정의.** 창 안에서 작업·빌드·QA가 **실제로 진행 중인** 스프린트다. 다음 스프린트 계획 언급만 있는 스프린트는 제외한다. 여러 스프린트가 동시에 진행 중이면(예: Sprint3 마무리 QA와 Sprint4 착수) 모두 현재로 보고 `sprints`에 모두 쓰며 각각 따로 브리핑한다.
+- **근거가 없으면** `status=undetermined`, `sprints=[]`로 둔다. 공용 스프린트 설정이나 프로젝트 리스트의 `현재 스프린트`로 대체하지 않는다. `judged`이면 `sprints` 1개 이상, `evidence` 1개 이상, `rationale` 300자 이내 한두 문장이다.
+- **`savedScope`**는 입력 `rules.briefingScope`의 `mode`·`sprints`를 복사한다. `differsFromSaved`는 `mode`가 `unset`이 아니고 판단한 스프린트 집합이 `savedScope.sprints`와 다를 때만 `true`다.
+- **브리핑 숫자.** 사용자가 읽는 브리핑 문장과 `projects[].sprintSummaries`의 스프린트 관련 수치(진행 준비 필요, 지난 스프린트 미착수, 스프린트별 진행)는 판단한 스프린트 기준으로 `ruleAuditItems`의 status·sprint 열에서 다시 센다. `sprintSummaries`는 판단한 스프린트마다 1개이며 `undetermined`면 `[]`이고 `confidenceLimits`에 스프린트 수치 미평가 사유를 한 줄 남긴다. `ruleMetrics.original/corrected`는 규칙 엔진 기준 감사 수치로 유지한다.
+- 이 판단은 대시보드 KPI를 바꾸지 않고, 대시보드 설정이 이 판단을 정하지도 않는다.
 
 **공용 스프린트 미설정이어도 프로젝트·회사 상황 분석은 계속한다.** 미설정 자체를 회사 실행 위험·병목으로 올리지 않는다. 프로젝트의 현재 빌드·합의·실행은 직접 근거로 설명할 수 있다.
 
@@ -109,6 +120,15 @@
 `projectBriefing.currentProgress`는 프로젝트 목표·마일스톤·전체 활성 스펙과 Notion·Slack·회의록·Git의 관련 직접 근거를 종합한다. 2~4문장으로 현재 핵심 산출물, 확인된 진척, 남은 작업, 다음 중요한 단계를 설명한다. 한 스펙의 완료를 프로젝트 전체 완료로 확대하지 않는다. 숫자는 보조 근거이며 첫 문장이나 유일한 내용으로 쓰지 않는다.
 
 `projects[].summary`는 `currentProgress`의 1~2문장 압축본이다. 별도 숫자 요약을 만들지 않는다. `overall.summary`는 회사 전체의 현재 흐름·프로젝트 간 영향·큰 위험·대표 판단 맥락을 종합한다. 프로젝트별 문장을 그대로 이어 붙이지 않는다.
+
+### 지연 기록 검토
+
+기한 초과 작업의 지연 기록은 작업 자기 페이지의 댓글(답글 포함)이다. 규칙 엔진은 현재 마감일 7일 전 이후의 댓글로 **댓글 존재 · 변경 전·후 날짜(하나는 현재 마감일) · PD 태그**만 확인했다. 사유가 충분한지는 `projects[].delayEvidence`(작업당 최신 3개, 500자 이내)를 읽고 에이전트가 판단한다.
+
+- 사유가 구체적인 원인·영향·다음 일정을 담으면 그대로 두고, 부족하거나 댓글끼리 어긋나면 `projectBriefing.nextActions`에 `suggested_check`로 한 건씩 적는다. 대시보드의 규칙 경고·수치는 바꾸지 않는다.
+- `delayEvidence`에 없는 작업은 "댓글이 없다"가 아니다. 댓글을 읽지 못한 작업은 `RULE_NOT_EVALUATED`(`delay-comment`)이고, 댓글이 없어서 규칙 경고가 난 작업은 입력에 `MISSING_DELAY_*`로 있다.
+- 잘린 댓글은 `delayEvidenceCoverage`로 알려 준다. 절단된 부분을 추정하지 않는다.
+- Notion은 해결 처리된 댓글을 제공하지 않는다. 해결 처리된 지연 댓글은 없는 것으로 보일 수 있다.
 
 ### 개조식 항목
 

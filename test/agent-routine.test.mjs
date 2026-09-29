@@ -279,3 +279,63 @@ test('Given snapshots from today and earlier days, When the routine looks for a 
   assert.equal(previous.generatedAt, '2026-09-28T00:00:00Z');
   assert.equal(await readPreviousDashboardSnapshot({ databaseId: 'db', today: '2026-09-25', query }), null);
 });
+
+const sprintSchema = {
+  type: 'object',
+  properties: { projects: { type: 'array', items: { type: 'object', properties: { projectBriefing: { type: 'object', properties: { briefingSprint: { type: 'object' } } } } } } },
+};
+const sprintInput = scope => ({ ...packet(0), outputSchema: sprintSchema, rules: { metrics: {}, deltas: [], briefingScope: scope } });
+const withSprint = value => {
+  const result = analysis();
+  result.projects = result.projects.map(project => ({ ...project, projectBriefing: { ...project.projectBriefing, briefingSprint: value } }));
+  return result;
+};
+const judgedSprint = { status: 'judged', sprints: ['Sprint4'], rationale: '최근 7일 SP4 진행', evidence: [{ source: 'slack', timestamp: null, url: null, excerpt: 'x' }], savedScope: { mode: 'unset', sprints: [] }, differsFromSaved: false };
+
+test('Given a schema that defines the briefing sprint, When it is missing, Then the analysis is rejected', () => {
+  const errors = analysisErrors({ analysis: analysis(), input: sprintInput({ mode: 'unset', sprints: [] }), runId: RUN_ID }).join('\n');
+  assert.match(errors, /포지 앤 포춘: briefingSprint 누락/);
+});
+
+test('Given a judged briefing sprint, When the saved scope is unset or matches, Then it is accepted', () => {
+  assert.deepEqual(analysisErrors({ analysis: withSprint(judgedSprint), input: sprintInput({ mode: 'unset', sprints: [] }), runId: RUN_ID }), []);
+  const same = { ...judgedSprint, savedScope: { mode: 'selected', sprints: ['Sprint4'] } };
+  assert.deepEqual(analysisErrors({ analysis: withSprint(same), input: sprintInput({ mode: 'selected', sprints: ['Sprint4'] }), runId: RUN_ID }), []);
+});
+
+test('Given inconsistent briefing sprints, When validated, Then each contradiction is reported', () => {
+  const run = (value, scope = { mode: 'unset', sprints: [] }) => analysisErrors({ analysis: withSprint(value), input: sprintInput(scope), runId: RUN_ID }).join('\n');
+  assert.match(run({ ...judgedSprint, sprints: [], evidence: [] }), /judged인데 sprints가 비어/);
+  assert.match(run({ ...judgedSprint, evidence: [] }), /judged인데 evidence가 없습니다/);
+  assert.match(run({ ...judgedSprint, status: 'undetermined' }), /undetermined인데 sprints가 비어 있지 않습니다/);
+  assert.match(run(judgedSprint, { mode: 'selected', sprints: ['Sprint3'] }), /savedScope가 입력 rules.briefingScope와 다릅니다/);
+  const differing = { ...judgedSprint, savedScope: { mode: 'selected', sprints: ['Sprint3'] }, differsFromSaved: false };
+  assert.match(run(differing, { mode: 'selected', sprints: ['Sprint3'] }), /differsFromSaved가 true여야/);
+  const falseClaim = { ...judgedSprint, differsFromSaved: true };
+  assert.match(run(falseClaim), /differsFromSaved가 false여야/);
+});
+
+test('Given a cloud environment that blocks hosts or lacks tokens, When sources are probed, Then each problem is named', async () => {
+  const { preflightSources } = await import('../lib/agent-routine.mjs');
+  const responses = {
+    'https://api.notion.com/v1/users/me': { status: 200, body: '{}' },
+    'https://slack.com/api/auth.test': { status: 200, body: '{"ok":false,"error":"not_authed"}' },
+    'https://api.github.com/rate_limit': { status: 403, body: 'Host not in allowlist' },
+  };
+  const fetchImpl = async url => ({ status: responses[url].status, text: async () => responses[url].body });
+
+  const result = await preflightSources({ env: { NOTION_TOKEN: 'n', GITHUB_TOKEN: 'g' }, fetchImpl });
+  const by = name => result.find(item => item.source === name);
+
+  assert.equal(by('notion').ok, true);
+  assert.equal(by('slack').token, false);
+  assert.equal(by('slack').ok, false);
+  assert.equal(by('github').reachable, false);
+  assert.equal(by('github').detail, '네트워크 허용 목록에 없는 호스트');
+});
+
+test('Given a probe that times out or throws, When sources are probed, Then it reports the failure instead of throwing', async () => {
+  const { preflightSources } = await import('../lib/agent-routine.mjs');
+  const result = await preflightSources({ env: { NOTION_TOKEN: 'n', SLACK_TOKEN: 's', GITHUB_TOKEN: 'g' }, fetchImpl: async () => { throw new Error('getaddrinfo ENOTFOUND'); } });
+  assert.ok(result.every(item => item.ok === false && item.detail === 'getaddrinfo ENOTFOUND'));
+});
