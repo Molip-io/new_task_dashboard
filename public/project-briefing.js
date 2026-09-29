@@ -22,6 +22,20 @@ function evidenceRows(values) {
     .map(e => ({ source: e.source, timestamp: e.timestamp || null, url: safeUrl(e.url), excerpt: text(e.excerpt), title: text(e.title) }))
     .filter(e => { const key = JSON.stringify([e.source, e.url, e.timestamp, e.excerpt]); if (seen.has(key)) return false; seen.add(key); return true; });
 }
+// The sprint the briefing itself judged from the last 7 days of evidence. It is
+// separate from the dashboard's saved sprint, which only scopes the Notion counts.
+function resolveBriefingSprint(value) {
+  if (!value || typeof value !== 'object' || !['judged', 'undetermined'].includes(value.status)) return null;
+  const saved = value.savedScope && typeof value.savedScope === 'object' ? value.savedScope : null;
+  return {
+    status: value.status,
+    sprints: strings(value.sprints),
+    rationale: text(value.rationale),
+    evidence: evidenceRows(value.evidence),
+    differsFromSaved: value.differsFromSaved === true && Boolean(saved),
+    savedLabel: saved ? (saved.mode === 'all' ? '전체' : strings(saved.sprints).join(' · ')) : '',
+  };
+}
 function collectedEvidence(project) {
   const ops = project.projectOperations || {};
   const signals = [ops.latestBuild, ops.latestQa, ops.latestRelease, ops.latestData].filter(Boolean)
@@ -46,7 +60,7 @@ export function resolveProjectBriefing(dashboard, project, { now = new Date() } 
   const day = value => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value));
   const priorDay = generatedTime !== null && day(generatedTime) < day(now);
   const newerEvidence = collectedEvidence(project).some(e => generatedTime !== null && stamp(e.timestamp) > generatedTime);
-  const outdated = Boolean(hasNarrative && (priorDay || newerEvidence || ai.analysisStatus === 'stale' || changedRun || dashboard.sprintSettings?.pendingInput || dashboard.sprintSettings?.pendingAnalysis ||
+  const outdated = Boolean(hasNarrative && (priorDay || newerEvidence || ai.analysisStatus === 'stale' || changedRun ||
     (generatedTime !== null && inputTime !== null && generatedTime < inputTime)));
   const limits = unique([...strings(agent?.confidenceLimits), ...strings(brief?.confidenceLimits), ...strings(ai.overall?.confidenceLimits)]);
   if (duplicate) limits.push('같은 프로젝트의 분석 결과가 중복되어 임의로 선택하지 않았습니다.');
@@ -76,6 +90,7 @@ export function resolveProjectBriefing(dashboard, project, { now = new Date() } 
     currentProgress: structured ? text(brief.currentProgress) : summary,
     buildRelease: structured ? text(brief.buildRelease) : '',
     data: structured ? text(brief.data) : '',
+    briefingSprint: structured ? resolveBriefingSprint(brief.briefingSprint) : null,
     currentProgressItems: structured ? strings(brief.currentProgressItems) : [],
     buildReleaseItems: structured ? strings(brief.buildReleaseItems) : [],
     dataItems: structured ? strings(brief.dataItems) : [],
@@ -101,6 +116,9 @@ export function projectBriefingHtml(dashboard, project) {
   const view = resolveProjectBriefing(dashboard, project);
   const stateLabels = { success: 'Agent 통합 분석', partial: 'Agent 통합 분석 · 확인 제한', stale: '이전 통합 분석 · 갱신 필요', legacy: '기존 저장 요약', not_run: '프로젝트 통합 분석 미생성' };
   const preview = view.currentProgress || '여러 출처를 종합한 프로젝트 브리핑이 아직 없습니다.';
+  const sprint = view.briefingSprint;
+  const sprintLabel = sprint ? (sprint.status === 'judged' && sprint.sprints.length ? `${sprint.sprints.join(' · ')} (최근 7일 근거)` : '판단 불가') : '';
+  const sprintHtml = sprint ? `<details class="project-briefing-sprint"><summary><span>브리핑 기준 스프린트:</span> <strong>${esc(sprintLabel)}</strong></summary>${sprint.rationale ? `<p>${esc(sprint.rationale)}</p>` : ''}${sprint.differsFromSaved ? `<p class="project-briefing-muted">대시보드 저장 스프린트(${esc(sprint.savedLabel || '미설정')})와 기준이 다릅니다. 대시보드 숫자는 저장된 스프린트 기준입니다.</p>` : ''}${sprint.evidence.length ? evidenceHtml(sprint.evidence) : ''}</details>` : '';
   const sourceChips = view.sources.map(source => `<span class="project-briefing-source">${esc(SOURCES[source])}</span>`).join('');
   // Bullet items are the agent's own itemised statements; prose stays the fallback
   // for older analyses. Items are never derived by splitting prose sentences.
@@ -113,7 +131,7 @@ export function projectBriefingHtml(dashboard, project) {
   const narrative = view.hasNarrative ? `<div class="project-briefing-hero">${axis(view.structured ? '현재 진행 요약' : '기존 통합 요약', view.currentProgress, '', 'project-briefing-axis-primary', view.currentProgressItems, true)}</div><div class="project-briefing-grid project-briefing-grid-axes">${axis('빌드·출시 현황', view.buildRelease, emptyAxis, '', view.buildReleaseItems)}${axis('빌드 성과·실험 결과', view.data, '현재 전달·배포 빌드에 연결된 성과 지표가 확인되지 않았습니다.', '', view.dataItems)}</div><div class="project-briefing-duo-grid"><section class="project-briefing-axis project-briefing-axis-compact"><h4>실행 병목</h4>${listHtml(view.blockers, '분석에 명시된 실행 병목이 없습니다. 출처 확인 제한이 있으면 위험 없음으로 단정하지 않습니다.')}</section><section class="project-briefing-axis project-briefing-axis-compact"><h4>다음 주요 행동</h4>${actionHtml}</section></div>` : '<p class="project-briefing-empty">프로젝트별 Agent 통합 분석이 필요합니다. 수집된 Slack 발췌를 프로젝트 전체의 결론으로 대신 표시하지 않습니다.</p>';
   const sourceDetails = `<details class="project-briefing-evidence"><summary>근거 보기 · 분석 연결 ${view.evidence.length}건 / 수집 참고 ${view.rawEvidence.length}건</summary><div class="project-briefing-evidence-body"><h5>프로젝트 분석에 연결된 근거</h5>${evidenceHtml(view.analysisEvidence)}${view.specEvidence.length ? `<h5>같은 프로젝트의 스펙별 분석 근거</h5><p class="project-briefing-muted">개별 스펙의 근거이며 모든 프로젝트 결론을 뒷받침한다는 뜻은 아닙니다.</p>${evidenceHtml(view.specEvidence)}` : ''}<details class="project-briefing-raw"><summary>원본 수집 근거 · ${view.rawEvidence.length}건</summary><p class="project-briefing-muted">수집기의 발췌입니다. Agent의 통합 판단이 아닙니다.</p>${evidenceHtml(view.rawEvidence)}</details></div></details>`;
   const summaryMeta = `<span class="project-briefing-status ${esc(view.status)}">${stateLabels[view.status]}</span><span>${esc(briefingTime(view.generatedAt))}</span>${view.sources.length ? `<span>${view.sources.length}개 출처 연결</span>` : ''}`;
-  return `<details class="card span-6 project-operations-card project-briefing-card" data-project-briefing="${esc(project.name)}"><summary><div class="project-briefing-summary-content"><div class="project-briefing-summary-top"><span class="project-briefing-kicker">PROJECT BRIEFING</span><strong>${esc(project.name)} · 프로젝트 현황</strong><span class="project-briefing-summary-meta">${summaryMeta}</span></div><small class="project-briefing-preview">${esc(preview)}</small></div><span class="project-operations-toggle"><span class="toggle-open">펼치기</span><span class="toggle-close">접기</span></span></summary><div class="project-operations-body project-briefing-body"><div class="project-briefing-meta"><span>분석 기준 ${esc(briefingTime(view.generatedAt))}</span>${sourceChips}</div>${view.status === 'stale' ? '<p class="project-briefing-warning">이전 날짜의 분석이거나 입력·근거가 변경됐습니다. 재분석 전까지 아래 내용은 마지막 확인 기록으로만 사용하세요.</p>' : ''}${narrative}${view.limits.length ? `<aside class="project-briefing-limits"><h4>분석 범위·확인 제한</h4>${listHtml(view.limits, '')}</aside>` : ''}${sourceDetails}</div></details>`;
+  return `<details class="card span-6 project-operations-card project-briefing-card" data-project-briefing="${esc(project.name)}"><summary><div class="project-briefing-summary-content"><div class="project-briefing-summary-top"><span class="project-briefing-kicker">PROJECT BRIEFING</span><strong>${esc(project.name)} · 프로젝트 현황</strong><span class="project-briefing-summary-meta">${summaryMeta}</span></div><small class="project-briefing-preview">${esc(preview)}</small></div><span class="project-operations-toggle"><span class="toggle-open">펼치기</span><span class="toggle-close">접기</span></span></summary><div class="project-operations-body project-briefing-body"><div class="project-briefing-meta"><span>분석 기준 ${esc(briefingTime(view.generatedAt))}</span>${sourceChips}</div>${sprintHtml}${view.status === 'stale' ? '<p class="project-briefing-warning">이전 날짜의 분석이거나 입력·근거가 변경됐습니다. 재분석 전까지 아래 내용은 마지막 확인 기록으로만 사용하세요.</p>' : ''}${narrative}${view.limits.length ? `<aside class="project-briefing-limits"><h4>분석 범위·확인 제한</h4>${listHtml(view.limits, '')}</aside>` : ''}${sourceDetails}</div></details>`;
 }
 export function projectBriefingsHtml(dashboard) {
   const projects = rows(dashboard.projects);

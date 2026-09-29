@@ -254,3 +254,58 @@ test('Agent input keeps deltas at the established rules path without duplicating
   }
   assert.deepEqual(buildAgentInputPacket({ ...dashboard, deltas: undefined }).rules.deltas, []);
 });
+
+const commentAt = (createdAt, text, mentionUserIds = []) => ({ id: text, createdAt, text, mentionUserIds });
+
+test('Given an overdue item with delay comments, When an agent packet is built, Then the newest comments are offered with PD tags and truncation is reported', () => {
+  const late = {
+    ...dashboard.workItems[0], delayCommentCheck: 'checked',
+    delayComments: [
+      commentAt('2026-07-11T09:00:00+09:00', '첫 공유'),
+      commentAt('2026-07-12T09:00:00+09:00', '둘째'),
+      commentAt('2026-07-13T09:00:00+09:00', '셋째'),
+      commentAt('2026-07-14T09:00:00+09:00', `${'가'.repeat(600)} 최신`, ['pd-1']),
+    ],
+  };
+  const packet = buildAgentInputPacket({
+    ...dashboard,
+    projects: [{ ...dashboard.projects[0], config: { pdUsers: [{ id: 'pd-1' }] } }],
+    workItems: [late],
+  });
+  const evidence = packet.projects[0].delayEvidence;
+
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].workItemId, 'task-1');
+  assert.deepEqual(evidence[0].comments.map(comment => comment.createdAt.slice(0, 10)), ['2026-07-14', '2026-07-13', '2026-07-12']);
+  assert.equal(evidence[0].comments[0].mentionsPd, true);
+  assert.equal(evidence[0].comments[0].text.length, 500);
+  assert.equal(evidence[0].comments[1].mentionsPd, false);
+  assert.deepEqual(packet.projects[0].delayEvidenceCoverage, { items: 1, commentsOmitted: 1, charsRemoved: 103 });
+});
+
+test('Given overdue items whose comments were not read or that have none, When an agent packet is built, Then no delay evidence is invented', () => {
+  const unread = { ...dashboard.workItems[0], delayCommentCheck: 'failed', delayComments: [] };
+  const empty = { ...dashboard.workItems[0], id: 'task-2', delayCommentCheck: 'checked', delayComments: [] };
+  const packet = buildAgentInputPacket({ ...dashboard, workItems: [unread, empty] });
+  assert.deepEqual(packet.projects[0].delayEvidence, []);
+  assert.equal('delayEvidenceCoverage' in packet.projects[0], false);
+});
+
+test('Given no previous snapshot, When an agent packet is built, Then comparison is unavailable rather than an empty change list', () => {
+  const missing = buildAgentInputPacket({ ...dashboard, deltas: [] });
+  assert.equal(missing.rules.comparison.available, false);
+  assert.deepEqual(missing.rules.deltas, []);
+  const compared = buildAgentInputPacket({ ...dashboard, deltas: [], snapshotComparison: { available: true, previousGeneratedAt: '2026-07-20T01:00:00Z', currentGeneratedAt: dashboard.generatedAt, reason: null } });
+  assert.equal(compared.rules.comparison.available, true);
+});
+
+test('Given yesterday and a same-day summary, When an agent packet is built, Then previousSummary is the earlier day and dated', () => {
+  const previous = { date: '2026-07-20', status: '주의', summary: '어제 요약' };
+  const packet = buildAgentInputPacket({
+    ...dashboard,
+    projects: [{ ...dashboard.projects[0], notionSummary: { date: '2026-07-21', summary: '오늘 재실행' }, previousDaySummary: previous }],
+  });
+  assert.deepEqual(packet.projects[0].previousSummary, previous);
+  assert.equal(packet.projects[0].previousSummaryDate, '2026-07-20');
+  assert.equal(buildAgentInputPacket(dashboard).projects[0].previousSummary, null);
+});

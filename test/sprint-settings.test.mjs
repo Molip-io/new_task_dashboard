@@ -109,14 +109,14 @@ test('Limit parsed and streamed request bodies',async()=>{
   assert.deepEqual(await readSettingsBody({body:'{"a":1}'}),{a:1});
 });
 
-test('Scope changes invalidate analysis and trust together',()=>{
+test('Scope changes are pending for counts but leave the briefing analysis current',()=>{
   const d=dashboard();
   const settings={revision:'r',history:[],legacyRecordCount:0,setting:{kind:'MOLIP_GLOBAL_SPRINT_SETTINGS_V2',mode:'selected',input:'4',sprints:['Sprint4'],revision:'r',changedAt:'2026-09-07T11:00:00Z'}};
   const v=decorateSprintDashboard(d,settings);
-  assert.equal(v.ai.analysisStatus,'stale');
-  assert.equal(v.sourceHealth.sources[0].analysisStatus,'stale');
   assert.equal(v.sprintSettings.pendingInput,true);
-  assert.equal(d.ai.analysisStatus,'success');
+  assert.equal(v.sprintSettings.pendingAnalysis,false);
+  assert.equal(v.ai.analysisStatus,'success');
+  assert.equal(v.sourceHealth.sources[0].analysisStatus,d.sourceHealth.sources[0].analysisStatus);
 });
 
 test('Equivalent global scope does not unnecessarily invalidate analysis',()=>{

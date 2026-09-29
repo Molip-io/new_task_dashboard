@@ -59,3 +59,7 @@
 .project-briefing-bullets { margin:0; padding-left:18px; color:var(--text-soft); line-height:1.7; }
 .project-briefing-bullets li { margin:0 0 6px; overflow-wrap:anywhere; }
 .project-briefing-bullets li::marker { color:var(--accent); }
+.project-briefing-sprint { margin:0 0 12px; padding:10px 14px; border-radius:var(--radius-well,14px); background:var(--well,var(--panel)); box-shadow:inset 0 0 0 1px var(--line-soft); }
+.project-briefing-sprint > summary { cursor:pointer; color:var(--text-soft); }
+.project-briefing-sprint > summary strong { color:var(--text); }
+.project-briefing-sprint p { margin:8px 0 0; color:var(--text-soft); line-height:1.7; overflow-wrap:anywhere; }

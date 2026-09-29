@@ -82,7 +82,7 @@ function normalize(raw) {
   const workItems = raw.workItems?.length ? raw.workItems : (raw.workload || []).flatMap((person, personIndex) => (person.tasks || []).map((task, index) => {
     const id = task.id || `sample-${personIndex}-${index}`;
     const overdue = task.due && task.due < new Date().toISOString().slice(0, 10) && !DONE.has(task.status);
-    const issues = overdue ? [{ id: `OVERDUE:${id}`, type: 'OVERDUE', severity: 'warning', message: '기한 초과', project: task.project, workItemId: id, detectedAt: raw.generatedAt, recommendedAction: '지연 사유와 변경 일정을 확인하세요.', metadata: {} }] : [];
+    const issues = overdue ? [{ id: `OVERDUE:${id}`, type: 'OVERDUE', severity: 'warning', message: '기한 초과', project: task.project, workItemId: id, detectedAt: raw.generatedAt, recommendedAction: '작업 페이지 댓글에 지연 사유와 변경 전·후 날짜를 적고 PD를 태그하세요. 지연 댓글은 해결 처리하지 마세요.', metadata: {} }] : [];
     return {
     id, title: task.title, project: task.project, spec: task.spec || '상위 작업 미지정',
     status: task.status, team: person.teams?.[0] || '기타', assignees: [person.name], start: task.start || null,

@@ -27,7 +27,7 @@ node tools/agent-routine/collect.mjs
 
 대시보드 수집기를 실행한다. 오늘 규칙 입력(`rule-input:YYYY-MM-DD-morning`)과 대시보드 스냅샷을 Notion에 게시한다. 변경 비교 기준은 Notion에 있는 전날 최신 스냅샷이다. 대시보드 화면(ChatGPT Sites)은 이 스냅샷을 읽는다. 따라서 분석이 실패하더라도 수집은 먼저 끝낸다.
 
-- 수집 결과 JSON의 `status`, `missingTokens`, `errors`를 확인하고 완료 보고에 남긴다.
+- 수집 결과 JSON의 `status`, `missingTokens`, `preflight`, `errors`를 확인하고 완료 보고에 남긴다. `preflight`는 Notion·Slack·GitHub이 접속 가능하고 토큰이 있는지 수집 전에 점검한 결과다. `ok:false`인 출처는 환경 설정(토큰, 네트워크 허용 도메인)을 사람이 고쳐야 하는 문제로 보고한다. 수집은 그 출처를 뺀 채 계속된다.
 - 수집이 실패하면 수집을 재시도하지 않는다. 1단계 입력 읽기로 넘어가 이미 게시된 오늘 입력이 있는지 확인한다.
 - 수집기가 로컬에 쓰는 `data/` 파일은 실행 산출물이다. 커밋하지 않고, 분석 입력으로도 쓰지 않는다.
 
