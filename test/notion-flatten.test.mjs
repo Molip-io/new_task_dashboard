@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { flatten } from '../lib/notion.mjs';
+import { flatten } from '../shared/notion-storage/notion.mjs';
 
 test('Given Notion relation properties, When a page is flattened, Then related page IDs are preserved', () => {
   const page = {

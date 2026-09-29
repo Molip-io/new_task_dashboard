@@ -6,7 +6,7 @@
   "functions": {
     "api/app.mjs": {
       "maxDuration": 300,
-      "includeFiles": "{public/**,config.json,prompts/**,schemas/**}"
+      "includeFiles": "{dashboard/ui/**,config.json,prompts/**,shared/contracts/schemas/**}"
     }
   },
   "routes": [

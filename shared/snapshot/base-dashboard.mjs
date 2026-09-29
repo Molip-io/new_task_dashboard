@@ -1,0 +1,67 @@
+import { buildAgentAnalysis, latestProjectSummaryRow, previousDayProjectSummaryRow } from '../contracts/dashboard-agent-analysis-adapter.mjs';
+import { kstDate } from '../rules/business-days.mjs';
+
+const norm = value => String(value || '').replace(/\s+/g, '').toLowerCase();
+
+const PROJECT_TITLE_ALIASES = [
+  ['피자레디', 'pizzaready'],
+  ['포지앤포춘', '포지&포춘', 'forgeandfortune', 'forge&fortune'],
+];
+
+export function meetingMatchesProject(meeting, projectName, projectNames, { allowUnassigned = false } = {}) {
+  const projectKey = norm(projectName);
+  const assigned = norm(meeting.project);
+  if (assigned) return assigned === projectKey;
+  const title = norm(meeting.title);
+  const namedProjects = projectNames.filter(name => {
+    const key = norm(name);
+    const aliases = PROJECT_TITLE_ALIASES.find(group => group.includes(key)) || [key];
+    return aliases.some(alias => title.includes(alias));
+  });
+  return namedProjects.length ? namedProjects.some(name => norm(name) === projectKey) : allowUnassigned;
+}
+
+export function notionSummaryFromRow(summary) {
+  return summary ? {
+    date: summary['date:기준일:start'] || summary['기준일']?.start || summary['기준일'] || summary['생성시각'],
+    status: summary['프로젝트 상태'] || summary['전체 상태'],
+    summary: summary['현재 진행 요약'] || summary['전체 요약'],
+    blocked: summary['막힌 점'],
+    decision: summary['대표 결정 필요'],
+    nextAction: summary['다음 액션'],
+    slackSignals: summary['Slack 신호'] || [],
+  } : null;
+}
+
+export function buildBaseDashboard({ notion, slack, errors, dashboardUrl, now = new Date() }) {
+  const today = kstDate(now);
+  const projects = notion.projects.map(config => {
+    const summary = latestProjectSummaryRow(notion.summaryRows, config.name);
+    return {
+      name: config.name,
+      config,
+      goal: config.goal || '',
+      milestones: {
+        scopeFreezePlannedAt: config.scopeFreezePlannedAt || null,
+        productionCompletePlannedAt: config.productionCompletePlannedAt || null,
+        targetAt: config.targetAt || null,
+      },
+      notionSummary: notionSummaryFromRow(summary),
+      previousDaySummary: notionSummaryFromRow(previousDayProjectSummaryRow(notion.summaryRows, config.name, today)),
+      slack: (slack[config.name] || []).map(channel => ({ channel: channel.channel, count: channel.messages.length })),
+      persistentContexts: (slack[config.name] || []).flatMap(channel => channel.persistentContexts || []),
+      // Shared meeting databases do not expose their linked-view filter through
+      // the API. Explicit assignments and known names in titles bound the
+      // candidates; only genuinely unassigned notes remain shared candidates.
+      meetings: notion.meetings.filter(meeting => meetingMatchesProject(
+        meeting, config.name, notion.projects.map(project => project.name), { allowUnassigned: true },
+      )).slice(0, 40),
+    };
+  });
+  return {
+    generatedAt: new Date().toISOString(), sample: false, errors, projects,
+    meetings: notion.meetings.slice(0, 40), slack,
+    ai: buildAgentAnalysis(notion.summaryRows, notion.projects.map(project => project.name)),
+    dashboardUrl,
+  };
+}

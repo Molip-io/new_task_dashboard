@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8');
-const instructions = read('../agent-package/01_AGENT_INSTRUCTIONS.md');
-const daily = read('../agent-package/02_DAILY_RUN_PROMPT.md');
+const instructions = read('../agent/package/01_AGENT_INSTRUCTIONS.md');
+const daily = read('../agent/package/02_DAILY_RUN_PROMPT.md');
 
 test('copy-ready documents have completion markers and the daily prompt reaches saving and read-back verification', () => {
   assert.ok(instructions.trimEnd().endsWith('END_MOLIP_AGENT_INSTRUCTIONS'));

@@ -46,8 +46,8 @@ try:
         page = browser.new_page(viewport={'width':1360,'height':1100})
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.set_content('<html lang="ko"><head></head><body><main id="fixture"></main></body></html>')
-        page.add_style_tag(content=(ROOT/'public/style.css').read_text()+'\n'+(ROOT/'public/project-briefing.css').read_text())
-        page.add_script_tag(content=(ROOT/'public/project-briefing.js').read_text().replace('export function ', 'function '))
+        page.add_style_tag(content=(ROOT/'dashboard/ui/style.css').read_text()+'\n'+(ROOT/'dashboard/ui/project-briefing.css').read_text())
+        page.add_script_tag(content=(ROOT/'dashboard/ui/project-briefing.js').read_text().replace('export function ', 'function '))
         def render(data):
             page.evaluate('d => document.getElementById("fixture").innerHTML = projectBriefingsHtml(d)', data)
         render(fixture)

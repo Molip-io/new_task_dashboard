@@ -2,16 +2,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-const prototypePath = new URL('../public/index.html', import.meta.url);
-const appPath = new URL('../public/app.js', import.meta.url);
-const apiPath = new URL('../api/app.mjs', import.meta.url);
-const collectorPath = new URL('../lib/notion-collector.mjs', import.meta.url);
-const collectPath = new URL('../collect.mjs', import.meta.url);
-const managementPath = new URL('../public/dashboard-management.js', import.meta.url);
-const presentersPath = new URL('../public/dashboard-presenters.js', import.meta.url);
-const stylePath = new URL('../public/style.css', import.meta.url);
+const prototypePath = new URL('../dashboard/ui/index.html', import.meta.url);
+const appPath = new URL('../dashboard/ui/app.js', import.meta.url);
+const apiPath = new URL('../dashboard/api/app.mjs', import.meta.url);
+const collectorPath = new URL('../shared/collectors/notion-collector.mjs', import.meta.url);
+const collectPath = new URL('../agent/run-collection.mjs', import.meta.url);
+const managementPath = new URL('../dashboard/ui/dashboard-management.js', import.meta.url);
+const presentersPath = new URL('../dashboard/ui/dashboard-presenters.js', import.meta.url);
+const stylePath = new URL('../dashboard/ui/style.css', import.meta.url);
 const designPath = new URL('../DESIGN.md', import.meta.url);
-const meetingSkillPath = new URL('../agent-package/skills/structured-meeting-evidence/SKILL.md', import.meta.url);
+const meetingSkillPath = new URL('../agent/package/skills/structured-meeting-evidence/SKILL.md', import.meta.url);
 const prototype = fs.readFileSync(prototypePath, 'utf8');
 const app = fs.readFileSync(appPath, 'utf8');
 const api = fs.readFileSync(apiPath, 'utf8');
@@ -21,10 +21,10 @@ const management = fs.readFileSync(managementPath, 'utf8');
 const presenters = fs.readFileSync(presentersPath, 'utf8');
 const style = fs.readFileSync(stylePath, 'utf8');
 const ui = `${app}\n${presenters}`;
-const viewModel = fs.readFileSync(new URL('../public/dashboard-view-model.js', import.meta.url), 'utf8');
+const viewModel = fs.readFileSync(new URL('../dashboard/ui/dashboard-view-model.js', import.meta.url), 'utf8');
 const design = fs.readFileSync(designPath, 'utf8');
 const meetingSkill = fs.readFileSync(meetingSkillPath, 'utf8');
-const specInsights = fs.readFileSync(new URL('../lib/spec-insights.mjs', import.meta.url), 'utf8');
+const specInsights = fs.readFileSync(new URL('../shared/rules/spec-insights.mjs', import.meta.url), 'utf8');
 
 test('Given the simplified briefing, only three primary sections appear in the requested order', () => {
   const briefing = presenters.slice(presenters.indexOf('export function briefingHtml'));
@@ -41,7 +41,7 @@ test('Given the simplified briefing, only three primary sections appear in the r
 test('Given a deployed UI bundle, When the browser requests the shell, Then the bundle is cache-busted and local responses are not reusable', () => {
   assert.match(prototype, /style\.css\?v=20260929-1/);
   assert.match(prototype, /app\.js\?v=20260929-2/);
-  const server = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
+  const server = fs.readFileSync(new URL('../dashboard/api/server.mjs', import.meta.url), 'utf8');
   assert.match(server, /Cache-Control': 'no-store, max-age=0'/);
 });
 
@@ -207,7 +207,7 @@ test('Given a serverless refresh, When Notion hydration is expensive or the plat
   assert.match(api, /hydrateSummaryBodies: false/);
   assert.match(app, /response\.text\(\)/);
   assert.match(app, /서버 수집 실패/);
-  const notion = fs.readFileSync(new URL('../lib/notion.mjs', import.meta.url), 'utf8');
+  const notion = fs.readFileSync(new URL('../shared/notion-storage/notion.mjs', import.meta.url), 'utf8');
   assert.match(notion, /NOTION_REQUEST_TIMEOUT_MS/);
   assert.match(notion, /MAX_RATE_LIMIT_RETRIES/);
 });

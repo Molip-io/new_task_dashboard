@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { slackMessageUrl } from '../lib/slack.mjs';
+import { slackMessageUrl } from '../shared/collectors/slack.mjs';
 
 test('Given a Slack message and thread reply, When source URLs are built, Then each link preserves its channel and thread context', () => {
   assert.equal(

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { shouldRunDaily, zonedClock } from '../lib/scheduler.mjs';
+import { shouldRunDaily, zonedClock } from '../dashboard/api/scheduler.mjs';
 
 test('Given a UTC server clock, When converted for scheduling, Then Seoul time controls the collection day', () => {
   assert.deepEqual(zonedClock(new Date('2026-07-15T22:45:00Z')), { day: '2026-07-16', time: '07:45' });

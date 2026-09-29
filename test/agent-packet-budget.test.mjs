@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {fitRemoteEvidenceBudget, REMOTE_PACKET_LIMIT} from '../lib/agent-packet-budget.mjs';
-import {buildAgentInputPacket} from '../lib/agent-handoff.mjs';
-import {enrichAgentPacketWithProjectOperations} from '../lib/agent-project-operations.mjs';
+import {fitRemoteEvidenceBudget, REMOTE_PACKET_LIMIT} from '../agent/input/agent-packet-budget.mjs';
+import {buildAgentInputPacket} from '../agent/input/agent-handoff.mjs';
+import {enrichAgentPacketWithProjectOperations} from '../agent/input/agent-project-operations.mjs';
 
 function fixture() {
  return {rules:{deltas:[{field:'task.status',from:'준비',to:'진행'}]}, outputSchema:{type:'object',required:['projects'],properties:{projects:{type:'array',description:'설명'.repeat(1000)}}}, projects:[{

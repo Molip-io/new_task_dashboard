@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { aiEnrich, buildSummaryPrompt, requestOpenAISummary } from '../lib/ai-summary.mjs';
+import { aiEnrich, buildSummaryPrompt, requestOpenAISummary } from '../agent/ai-summary.mjs';
 
 const dashboard = {
   generatedAt: '2026-07-15T07:30:00.000Z',

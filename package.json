@@ -7,13 +7,13 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node server.mjs",
-    "build": "node --check collect.mjs && node --check sites/worker.mjs && node sites/build.mjs",
+    "start": "node dashboard/api/server.mjs",
+    "build": "node --check agent/run-collection.mjs && node --check dashboard/api/worker.mjs && node dashboard/api/build-sites.mjs",
     "test": "node --test",
-    "collect": "node collect.mjs",
-    "collect:raw": "node collect.mjs --no-ai",
-    "collect:direct-ai": "AI_SUMMARY_PROVIDER=openai node collect.mjs",
-    "sync:agent-summary": "node sync-agent-summary.mjs"
+    "collect": "node agent/run-collection.mjs",
+    "collect:raw": "node agent/run-collection.mjs --no-ai",
+    "collect:direct-ai": "AI_SUMMARY_PROVIDER=openai node agent/run-collection.mjs",
+    "sync:agent-summary": "node dashboard/agent-result-adapter/sync-agent-summary.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.12",

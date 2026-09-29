@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analysisPresentation, formatKst, projectAnalysisPresentation } from '../public/dashboard-analysis.js';
+import { analysisPresentation, formatKst, projectAnalysisPresentation } from '../dashboard/ui/dashboard-analysis.js';
 
 const now = '2026-09-07T12:00:00Z';
 function dashboard(status = 'success', generatedAt = now) {

@@ -16,7 +16,7 @@ import {
   sortWorkItems,
   visibleWorkItemIssues,
   workStatusTone,
-} from '../public/dashboard-view-model.js';
+} from '../dashboard/ui/dashboard-view-model.js';
 import {
   briefingDetailItems,
   dashboardShareUrl,
@@ -26,7 +26,7 @@ import {
   issuePresentation,
   primaryActionSummary,
   slackWorkItemsMessage,
-} from '../public/dashboard-management.js';
+} from '../dashboard/ui/dashboard-management.js';
 
 const workItems = [
   { id: 'a', title: 'A', project: '피자레디', team: '개발', sprint: 'S1', status: '진행 중', due: '2026-07-20', riskScore: 10, issues: [{ type: 'OVERDUE' }] },

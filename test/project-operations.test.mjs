@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildProjectOperations } from '../lib/project-operations.mjs';
+import { buildProjectOperations } from '../shared/rules/project-operations.mjs';
 
 test('Given recent project Slack lifecycle messages, When operations are built, Then build QA release and data evidence are classified', () => {
   const messages = [

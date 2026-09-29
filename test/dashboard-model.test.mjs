@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildManagementDashboard } from '../lib/dashboard-model.mjs';
+import { buildManagementDashboard } from '../shared/snapshot/dashboard-model.mjs';
 
 test('Given validated work items and Git activity, When the dashboard model is built, Then project, person, and briefing metrics share the same facts', () => {
   const base = {

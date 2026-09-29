@@ -9,8 +9,8 @@ import {
   readSettingsBody,
   decorateSprintDashboard,
   applySavedSprintSettings,
-} from '../lib/sprint-settings.mjs';
-import { scopeSignature } from '../public/sprint-policy.js';
+} from '../shared/notion-storage/sprint-settings.mjs';
+import { scopeSignature } from '../dashboard/ui/sprint-policy.js';
 
 function storage(){
   const pages=[];

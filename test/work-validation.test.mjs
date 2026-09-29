@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateWorkManagement } from '../lib/work-validation.mjs';
+import { validateWorkManagement } from '../shared/rules/work-validation.mjs';
 
 const NOW = '2026-07-15T09:00:00+09:00';
 

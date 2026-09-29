@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-const schema = JSON.parse(fs.readFileSync(new URL('../schemas/agent-analysis.schema.json', import.meta.url), 'utf8'));
+const schema = JSON.parse(fs.readFileSync(new URL('../shared/contracts/schemas/agent-analysis.schema.json', import.meta.url), 'utf8'));
 const briefing = schema.properties.projects.items.properties.projectBriefing;
 
 test('Given the output schema, When the itemised and briefing-sprint fields are read, Then they exist as optional additions', () => {

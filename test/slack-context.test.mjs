@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { extractPersistentContexts } from '../lib/slack-context.mjs';
-import { buildSpecInsights } from '../lib/spec-insights.mjs';
+import { extractPersistentContexts } from '../shared/collectors/slack-context.mjs';
+import { buildSpecInsights } from '../shared/rules/spec-insights.mjs';
 
 const NOW = Date.parse('2026-08-07T00:00:00Z');
 

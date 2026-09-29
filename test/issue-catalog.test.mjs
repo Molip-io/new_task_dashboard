@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { enrichValidationIssue, ISSUE_CATALOG, issueDefinition } from '../lib/issue-catalog.mjs';
+import { enrichValidationIssue, ISSUE_CATALOG, issueDefinition } from '../shared/rules/issue-catalog.mjs';
 
 test('Given the shared issue catalog, When definitions are inspected, Then every type has a complete management action contract', () => {
   for (const [type, definition] of Object.entries(ISSUE_CATALOG)) {

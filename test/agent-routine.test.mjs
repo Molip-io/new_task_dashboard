@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { publishAgentInputToNotion } from '../lib/notion-agent-handoff.mjs';
+import { publishAgentInputToNotion } from '../shared/notion-storage/notion-agent-handoff.mjs';
 import {
   analysisErrors,
   analysisWarnings,
@@ -9,7 +9,7 @@ import {
   readAgentInput,
   saveAnalysis,
   schemaErrors,
-} from '../lib/agent-routine.mjs';
+} from '../agent/runtime/agent-routine.mjs';
 
 const RUN_ID = '2026-09-29-morning';
 const permissiveSchema = { type: 'object' };
@@ -204,7 +204,7 @@ test('Given analyses that break the day contract, When validated, Then each prob
 });
 
 test('Given the real output schema, When an incomplete analysis is validated, Then required fields and $ref items are checked', () => {
-  const schema = JSON.parse(fs.readFileSync(new URL('../schemas/agent-analysis.schema.json', import.meta.url), 'utf8'));
+  const schema = JSON.parse(fs.readFileSync(new URL('../shared/contracts/schemas/agent-analysis.schema.json', import.meta.url), 'utf8'));
   const errors = schemaErrors(schema, { runId: RUN_ID, extra: true });
   assert.ok(errors.some(error => error.includes('$.overall: 필수 필드 누락')));
   assert.ok(errors.some(error => error.includes('$.extra: 스키마에 없는 필드')));
@@ -263,8 +263,8 @@ test('Given active specs collapsed into a vague phrase, When warnings are comput
 });
 
 test('Given snapshots from today and earlier days, When the routine looks for a comparison point, Then it takes the latest earlier day', async () => {
-  const { encodeDashboardSnapshot } = await import('../lib/dashboard-snapshot.mjs');
-  const { readPreviousDashboardSnapshot } = await import('../lib/agent-routine.mjs');
+  const { encodeDashboardSnapshot } = await import('../shared/notion-storage/dashboard-snapshot.mjs');
+  const { readPreviousDashboardSnapshot } = await import('../agent/runtime/agent-routine.mjs');
   const snapshot = day => ({ generatedAt: `${day}T00:00:00Z`, projects: [], workItems: [], metrics: {} });
   const page = day => ({
     id: day, properties: {
@@ -316,7 +316,7 @@ test('Given inconsistent briefing sprints, When validated, Then each contradicti
 });
 
 test('Given a cloud environment that blocks hosts or lacks tokens, When sources are probed, Then each problem is named', async () => {
-  const { preflightSources } = await import('../lib/agent-routine.mjs');
+  const { preflightSources } = await import('../agent/runtime/agent-routine.mjs');
   const responses = {
     'https://api.notion.com/v1/users/me': { status: 200, body: '{}' },
     'https://slack.com/api/auth.test': { status: 200, body: '{"ok":false,"error":"not_authed"}' },
@@ -335,7 +335,7 @@ test('Given a cloud environment that blocks hosts or lacks tokens, When sources 
 });
 
 test('Given a probe that times out or throws, When sources are probed, Then it reports the failure instead of throwing', async () => {
-  const { preflightSources } = await import('../lib/agent-routine.mjs');
+  const { preflightSources } = await import('../agent/runtime/agent-routine.mjs');
   const result = await preflightSources({ env: { NOTION_TOKEN: 'n', SLACK_TOKEN: 's', GITHUB_TOKEN: 'g' }, fetchImpl: async () => { throw new Error('getaddrinfo ENOTFOUND'); } });
   assert.ok(result.every(item => item.ok === false && item.detail === 'getaddrinfo ENOTFOUND'));
 });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { applyRuntimeEnv } from '../sites/worker.mjs';
+import worker, { applyRuntimeEnv } from '../dashboard/api/worker.mjs';
 
 test('applyRuntimeEnv copies only declared string runtime variables', () => {
   delete process.env.NOTION_TOKEN;

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildSpecInsights } from '../lib/spec-insights.mjs';
+import { buildSpecInsights } from '../shared/rules/spec-insights.mjs';
 
 test('Given directly linked source activity, When spec insights are built, Then current state, blockers, action, and evidence stay with that spec', () => {
   const project = { specs: [{

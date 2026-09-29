@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseProjectRows, taskFrom } from '../lib/notion-collector.mjs';
+import { parseProjectRows, taskFrom } from '../shared/collectors/notion-collector.mjs';
 
 test('Given a selected Notion project with a Git property, When project rows are parsed, Then the Git URL is preserved', () => {
   const rows = [{

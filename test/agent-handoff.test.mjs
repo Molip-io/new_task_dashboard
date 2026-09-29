@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildAgentInputPacket, writeAgentInputPacket } from '../lib/agent-handoff.mjs';
-import { AGENT_INPUT_REMOTE_READABLE_LIMIT } from '../lib/notion-agent-handoff.mjs';
+import { buildAgentInputPacket, writeAgentInputPacket } from '../agent/input/agent-handoff.mjs';
+import { AGENT_INPUT_REMOTE_READABLE_LIMIT } from '../shared/notion-storage/notion-agent-handoff.mjs';
 
 const dashboard = {
   generatedAt: '2026-07-21T01:00:00.000Z',

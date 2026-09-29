@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { attachTaskComments } from '../lib/notion-collector.mjs';
-import { isDelayCommentTarget } from '../lib/delay-comments.mjs';
+import { attachTaskComments } from '../shared/collectors/notion-collector.mjs';
+import { isDelayCommentTarget } from '../shared/rules/delay-comments.mjs';
 
 const NOW = '2026-07-15T09:00:00+09:00';
 const comment = (id, created_time, text, mentionedId) => ({

@@ -1,0 +1,122 @@
+// 대시보드 서버: 정적 파일 + API + 일일 스케줄러
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { loadEnv, loadConfig, ROOT } from '../../shared/env.mjs';
+import { shouldRunDaily, zonedClock } from './scheduler.mjs';
+import { readSprintSettings, decorateSprintDashboard, saveSprintSettings, readSettingsBody, settingsWriteAuthorized, settingsOriginAllowed } from '../../shared/notion-storage/sprint-settings.mjs';
+
+loadEnv();
+const config = loadConfig();
+const DATA = path.join(ROOT, 'data');
+const PUBLIC = path.join(ROOT, 'dashboard', 'ui');
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+
+let collecting = null;
+let summarySyncing = null;
+
+function runCollect() {
+  if (collecting) return false;
+  collecting = spawn(process.execPath, [path.join(ROOT, 'agent', 'run-collection.mjs')], { stdio: 'inherit' });
+  collecting.on('close', () => { collecting = null; });
+  return true;
+}
+
+function runSummarySync(onClose) {
+  if (summarySyncing || collecting) return false;
+  summarySyncing = spawn(process.execPath, [path.join(ROOT, 'dashboard', 'agent-result-adapter', 'sync-agent-summary.mjs')], { stdio: 'inherit' });
+  summarySyncing.on('close', code => {
+    summarySyncing = null;
+    onClose?.(code);
+  });
+  return true;
+}
+
+function readJson(file) {
+  try { return JSON.parse(fs.readFileSync(path.join(DATA, file), 'utf8')); }
+  catch { return null; }
+}
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, 'http://x');
+  const send = (code, body, type = 'application/json') => {
+    res.writeHead(code, {
+      'Content-Type': `${type}; charset=utf-8`,
+      'Cache-Control': 'no-store, max-age=0',
+    });
+    res.end(type === 'application/json' ? JSON.stringify(body) : body);
+  };
+
+  if (url.pathname === '/api/sprint-settings') {
+    if (req.method !== 'POST') return send(405, { message: 'POST only' });
+    if (!settingsWriteAuthorized(req) || !settingsOriginAllowed(req)) return send(403, { message: 'Sprint settings admin authorization required' });
+    try {
+      const dashboard = readJson('dashboard.json');
+      if (!dashboard) return send(409, { message: 'Collect dashboard data first' });
+      const body = await readSettingsBody(req);
+      const result = await saveSprintSettings({
+        databaseId: config.notion.summaryDbId,
+        dashboard,
+        input: body.input,
+        expectedRevision: body.expectedRevision,
+      });
+      return send(200, result);
+    } catch (error) { return send(error.statusCode || 500, { message: error.message }); }
+  }
+  if (url.pathname === '/api/dashboard') {
+    const d = readJson('dashboard.json');
+    if (d) {
+      try {
+        const settings = await readSprintSettings({ databaseId: config.notion.summaryDbId });
+        return send(200, decorateSprintDashboard(d, settings, { writable: (process.env.SPRINT_SETTINGS_TOKEN || '').length >= 24 }));
+      } catch (error) { return send(error.statusCode || 503, { message: error.message }); }
+    }
+    const sample = readJson('dashboard.sample.json');
+    if (sample) return send(200, { ...sample, sample: true });
+    return send(404, { error: 'no_data', message: '아직 수집된 데이터가 없습니다. 새로고침을 눌러 수집을 시작하세요.' });
+  }
+  if (url.pathname === '/api/status') {
+    return send(200, { collecting: !!collecting, summarySyncing: !!summarySyncing, last: readJson('collect-status.json'), summarySync: readJson('summary-sync-status.json') });
+  }
+  if (url.pathname === '/api/refresh' && req.method === 'POST') {
+    const started = runCollect();
+    return send(started ? 202 : 409, { started });
+  }
+
+  let file = url.pathname === '/' ? '/index.html' : url.pathname;
+  file = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
+  const full = path.join(PUBLIC, file);
+  if (!full.startsWith(PUBLIC) || !fs.existsSync(full)) return send(404, { error: 'not_found' });
+  send(200, fs.readFileSync(full), MIME[path.extname(full)] || 'application/octet-stream');
+});
+
+const lastStatus = readJson('collect-status.json');
+let lastRunDay = lastStatus?.state === 'done' && lastStatus.at ? zonedClock(new Date(lastStatus.at), config.timeZone).day : null;
+const lastSummaryStatus = readJson('summary-sync-status.json');
+let lastSummaryRunDay = lastSummaryStatus?.state === 'done' && lastSummaryStatus.at ? zonedClock(new Date(lastSummaryStatus.at), config.timeZone).day : null;
+let summaryRetryAfter = 0;
+function checkSchedule() {
+  const result = shouldRunDaily({ scheduleTime: config.scheduleTime, lastRunDay, timeZone: config.timeZone || 'Asia/Seoul' });
+  if (result.shouldRun) {
+    lastRunDay = result.day;
+    console.log(`⏰ ${config.scheduleTime} ${config.timeZone || 'Asia/Seoul'} 정기 수집 시작`);
+    runCollect();
+  }
+  const summaryResult = shouldRunDaily({ scheduleTime: config.summarySyncTime || '09:00', lastRunDay: lastSummaryRunDay, timeZone: config.timeZone || 'Asia/Seoul' });
+  if (summaryResult.shouldRun && Date.now() >= summaryRetryAfter && !collecting && !summarySyncing) {
+    console.log(`⏰ ${config.summarySyncTime || '09:00'} ${config.timeZone || 'Asia/Seoul'} 에이전트 요약 동기화 확인`);
+    runSummarySync(code => {
+      if (code === 0) lastSummaryRunDay = summaryResult.day;
+      else summaryRetryAfter = Date.now() + 10 * 60_000;
+    });
+  }
+}
+setInterval(checkSchedule, 30_000);
+
+server.listen(config.port, () => {
+  console.log(`업무현황 대시보드: http://localhost:${config.port}`);
+  console.log(`정기 수집: 매일 ${config.scheduleTime} ${config.timeZone || 'Asia/Seoul'} (서버 실행 중일 때)`);
+  console.log(`에이전트 요약 동기화: ${config.summarySyncTime || '09:00'} 이후 당일 분석이 생길 때까지 10분 간격 확인`);
+  checkSchedule();
+});

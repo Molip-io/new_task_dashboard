@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildDashboardSyncCompleted } from '../lib/sync-event.mjs';
+import { buildDashboardSyncCompleted } from '../shared/snapshot/sync-event.mjs';
 
 test('Given a completed dashboard build, When the extension event is created, Then it contains notification-ready counts without sending Slack', () => {
   const event = buildDashboardSyncCompleted({

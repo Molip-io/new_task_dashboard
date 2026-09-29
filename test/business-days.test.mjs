@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { businessDaysBetween, calendarDaysBetween, kstDate } from '../lib/business-days.mjs';
+import { businessDaysBetween, calendarDaysBetween, kstDate } from '../shared/rules/business-days.mjs';
 
 test('Given a Friday update, When checked on Monday in Seoul, Then one business day has elapsed', () => {
   assert.equal(businessDaysBetween('2026-07-10T09:00:00+09:00', '2026-07-13T18:00:00+09:00'), 1);
