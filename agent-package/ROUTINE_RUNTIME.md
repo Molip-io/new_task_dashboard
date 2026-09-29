@@ -6,15 +6,15 @@
 
 ## 원격 도구의 의미
 
-01에는 "연결된 원격 도구로 수행하며 로컬 파일·터미널에 접근하지 않는다"는 문장이 있다. 이 환경에서는 아래 `tools/agent-routine/` 스크립트가 그 원격 도구다. 스크립트는 Notion·Slack API를 직접 호출한다.
+01에는 "연결된 원격 도구로 수행하며 로컬 파일·터미널에 접근하지 않는다"는 문장이 있다. 이 환경에서 원격 도구는 두 가지다.
+- **Notion**: 아래 `tools/agent-routine/` 스크립트. 스크립트가 Notion API를 직접 호출한다.
+- **Slack**: 루틴에 연결된 Slack 커넥터의 읽기 도구. 실행자 본인 계정 권한으로 동작한다.
 
 저장소 안의 다른 로컬 데이터는 입력이나 근거로 쓰지 않는다. 예: `data/`, `dashboard.sample.json`, 스냅샷 파일, `prompts/`.
 
-필요한 환경변수:
-- `NOTION_TOKEN`: 대시보드 통합 토큰.
-- `SLACK_TOKEN`: 읽기 전용 봇 토큰.
-
-둘 중 하나라도 없으면 분석하지 않는다. 사람이 처리할 문제로 failed 보고한다.
+필요한 설정:
+- `NOTION_TOKEN` 환경변수(대시보드 통합 토큰). 없으면 분석하지 않는다. 사람이 처리할 문제로 failed 보고한다.
+- Slack 커넥터. 연결되지 않았거나 호출이 실패하면 분석은 계속한다. 대신 `sourceStatus`에서 Slack을 확인 불가로 두고 `confidenceLimits`에 남긴다. Slack을 확인하지 못한 것을 "충돌 없음"이나 "근거 없음"으로 쓰지 않는다.
 
 ## 실행 순서
 
@@ -42,8 +42,10 @@ node tools/agent-routine/read-input.mjs --out /tmp/molip-agent/input.json
 허용 범위는 01 §2와 같다. 모두 읽기 전용이다.
 - **Notion 페이지**(회의록 URL, 작업·스펙 페이지): `node tools/agent-routine/notion-page.mjs <URL 또는 ID>`
 - **Slack**: 입력 `slackScope.channels`에 있는 채널만 본다.
-  - `node tools/agent-routine/slack-read.mjs history <채널명> --days <N>`
-  - `node tools/agent-routine/slack-read.mjs thread <채널명> <thread_ts>`
+  - 커넥터 도구 중 채널 읽기(`slack_read_channel`), 스레드 읽기(`slack_read_thread`), 채널·메시지 검색만 쓴다.
+  - 본인 계정은 DM·다른 채널도 볼 수 있다. 그래도 허용 채널 밖은 조회하지 않는다.
+  - 메시지 발송·예약·초안·반응 추가·캔버스 수정 등 쓰기 도구는 쓰지 않는다.
+  - 커넥터 대신 `SLACK_TOKEN`이 설정된 환경이라면 `node tools/agent-routine/slack-read.mjs history|thread ...`를 써도 된다.
 - **Git**: 입력의 `gitEvidence`를 근거로 쓴다. 저장소를 받거나 바꾸지 않는다.
 
 ### 3. 결과 작성
