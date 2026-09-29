@@ -28,16 +28,12 @@ This branch includes the PM Control Tower P0 foundation from `chatgpt/pm-control
 - PM Control Tower P0 behavior must remain intact.
 - Do not add D1/R2 unless the Site conversion proves durable state is actually required. Existing Notion persistence should be reused first.
 
-## Known Vercel-specific pieces
+## Vercel retired (2026-09-29)
 
-- `vercel.json`
-- `.vercelignore`
-- Vercel Cron route configuration
-- production URL currently stored in `config.json`
-
-Do not delete these until the Site has been validated.
-
-`DASHBOARD_URL` now overrides the config URL at runtime so the same source can run on Vercel and ChatGPT Sites during cutover.
+The Vercel deployment and its files (`vercel.json`, `.vercelignore`, `api/app.mjs`,
+the Vercel handler and the `/api/cron/collect` route) were removed once the morning
+routine collected Notion, Slack and GitHub itself. `config.json` now points
+`dashboardUrl` at the Site; `DASHBOARD_URL` still overrides it at runtime.
 
 ## Runtime secrets / environment values
 
@@ -53,13 +49,12 @@ Required when private GitHub activity is collected:
 Required when sprint settings are writable on Sites:
 - `SPRINT_ADMIN_EMAILS`
 
-The Vercel runtime continues to use `SPRINT_SETTINGS_TOKEN` during rollback.
+The local server (`dashboard/api/server.mjs`) uses `SPRINT_SETTINGS_TOKEN`.
 
 Optional:
 - `IGNORED_NOTION_USER_IDS`
 - `AI_SUMMARY_PROVIDER`, `OPENAI_API_KEY`, and `OPENAI_MODEL` apply to
-  the legacy CLI/Vercel path; the Sites request path disables direct AI summaries
-- `CRON_SECRET` only when a supported scheduler is connected
+  the legacy CLI path; the Sites request path disables direct AI summaries
 - `DASHBOARD_URL` set to the final ChatGPT Site URL after first deployment
 
 ## Sites handoff prompt
@@ -97,14 +92,12 @@ Use this prompt in ChatGPT Work or Codex with @Sites and the checked-out migrati
 - Notion collection succeeds.
 - Git activity loads or reports an explicit source limitation.
 - No secret appears in browser HTML, JS bundles, API responses, or logs.
-- Current Vercel production remains unchanged during validation.
 
 ## Implementation on the migration branch
 
 - Sites builds `dashboard/api/worker.mjs` to `dist/server/index.js` and serves the
   `dashboard/ui/` files through the Worker assets binding (`npm run build`).
-  `dashboard/api/server.mjs`, `dashboard/api/app.mjs` (with the `api/app.mjs` shim
-  Vercel needs) and `vercel.json` remain for the existing Vercel deployment.
+  `dashboard/api/server.mjs` remains for local development.
 - `GET /api/dashboard` reads the persisted Notion snapshot, the saved analysis and
   the current sprint settings. If there is no snapshot it answers 503 instead of
   collecting. Collection and publishing the snapshot are done by the morning
@@ -115,9 +108,9 @@ Use this prompt in ChatGPT Work or Codex with @Sites and the checked-out migrati
 - `POST /api/sprint-settings` uses the Sites signed-in user identity and a
   server-side `SPRINT_ADMIN_EMAILS` allowlist. The browser never receives or
   enters a settings token. `SPRINT_SETTINGS_TOKEN` remains used only by the
-  untouched Vercel path.
+  local server.
 - The Site needs only `NOTION_TOKEN`, `SPRINT_ADMIN_EMAILS` and optionally
-  `DASHBOARD_URL`. It does not need `SLACK_TOKEN`, `GITHUB_TOKEN` or `CRON_SECRET`;
+  `DASHBOARD_URL`. It does not need `SLACK_TOKEN` or `GITHUB_TOKEN`;
   those belong to the routine environment that collects.
 - No background timer runs in Sites, and none is needed.
 - The existing agent summary sync process is not scheduled in the Worker.
@@ -131,8 +124,7 @@ Required for private GitHub access: `GITHUB_TOKEN`.
 Required for sprint-setting writes: `SPRINT_ADMIN_EMAILS` (comma-separated
 admin account emails).
 Optional: `DASHBOARD_URL`, `IGNORED_NOTION_USER_IDS`,
-`NOTION_REQUEST_TIMEOUT_MS`, and `CRON_SECRET` if an external scheduler
-is enabled. Direct OpenAI API summaries are disabled in the Sites request path.
+and `NOTION_REQUEST_TIMEOUT_MS`. Direct OpenAI API summaries are disabled in the Sites request path.
 
 The published Site must remain private and use dispatcher-provided authenticated
 user headers. Saving a version does not activate collection, scheduling, or
@@ -148,4 +140,4 @@ Only after validation passes:
 4. Restrict Site access to the intended MOLIP workspace/users.
 5. Re-run the functional checklist.
 6. Decide how scheduled collection will run. Do not assume background services are available.
-7. Only then retire the Vercel deployment and remove Vercel-only files/config in a separate cleanup commit.
+7. Only then retire the Vercel deployment and remove Vercel-only files/config in a separate cleanup commit. (Done 2026-09-29.)

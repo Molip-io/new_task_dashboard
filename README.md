@@ -66,19 +66,10 @@ Notion **프로젝트 리스트 DB**의 `git` 속성에 GitHub 저장소 URL을 
 - **수동**: `node agent/run-collection.mjs` (대시보드 화면에는 수집 버튼이 없습니다. 화면은 마지막 수집 시각만 보여 줍니다)
 - 직접 AI 호출 없이 규칙·에이전트 입력만 갱신: `node agent/run-collection.mjs --no-ai`
 
-## Vercel 배포
+## 배포와 수집 운영
 
-기존 `task-dashboard` Vercel 프로젝트를 교체할 때는 `vercel.json`의 단일 Node Function이 정적 화면·API·인증을 함께 처리합니다. 로컬 파일은 영구 저장소로 사용하지 않고, 화면용 최신 데이터는 Notion `업무현황 요약 DB`의 `dashboard-snapshot:YYYY-MM-DD` 페이지에 gzip+base64로 압축 저장합니다.
-
-프로덕션 필수 환경변수:
-
-- `NOTION_TOKEN`: 요약 DB 읽기·삽입·업데이트
-- 대시보드 로그인: 현재 비활성화되어 있어 웹 UI와 일반 API는 인증 없이 접근합니다. 민감한 데이터를 외부에 공개하기 전 인증을 다시 추가해야 합니다.
-- `CRON_SECRET`: Vercel Cron 전용 Bearer 비밀값
-- `SLACK_TOKEN`: 선택 프로젝트 Slack 수집
-- `GITHUB_TOKEN`: 비공개 GitHub 저장소 활동 수집
-
-Vercel Cron은 UTC `22:30`에 실행되어 `Asia/Seoul` 기준 다음 날 `07:30`에 수집합니다. 웹 에이전트는 로컬에 접근하지 않고 Notion에 게시된 원격 규칙 입력만 읽습니다.
+- **화면**: ChatGPT Sites가 `dashboard/api/worker.mjs`와 `dashboard/ui/`를 게시합니다(`npm run build`). 화면은 Notion `업무현황 요약 DB`의 최신 `dashboard-snapshot:YYYY-MM-DD`와 저장된 분석을 읽어 표시만 합니다. 설정은 [SITES-MIGRATION.md](SITES-MIGRATION.md)를 참고하세요.
+- **수집·분석**: Claude Code 클라우드 루틴이 평일 08:00(Asia/Seoul)에 `agent/runtime/collect.mjs`로 수집하고 분석을 저장합니다. 루틴 환경에는 `NOTION_TOKEN`, `SLACK_TOKEN`, `GITHUB_TOKEN`과 네트워크 허용 도메인 `slack.com`, `api.github.com`이 필요합니다. 실행 절차는 [agent/package/ROUTINE_RUNTIME.md](agent/package/ROUTINE_RUNTIME.md)에 있습니다.
 
 ## 폴더 구조
 
@@ -90,7 +81,7 @@ agent/       아침 루틴이 쓰는 코드. 수집 실행 권한은 여기에�
   run-collection.mjs  수집 오케스트레이터 (아래 4단계)
   publish-input.mjs   3단계: 에이전트 입력 게시
 dashboard/   화면과 서버. 스냅샷을 읽어 표시만 한다.
-  api/         Vercel·Sites·로컬 서버 진입점
+  api/         ChatGPT Sites 워커(worker.mjs)·로컬 서버(server.mjs)
   ui/          정적 화면 (브라우저가 직접 받는 파일)
   agent-result-adapter/  Notion 요약 DB의 분석 결과를 화면용으로 병합
 shared/      양쪽이 함께 쓰는 코드

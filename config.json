@@ -3,7 +3,7 @@
   "scheduleTime": "07:30",
   "summarySyncTime": "09:00",
   "timeZone": "Asia/Seoul",
-  "dashboardUrl": "https://task-dashboard-eight-khaki.vercel.app",
+  "dashboardUrl": "https://molip-task-dashboard-preview.molip-5985.chatgpt.site",
   "staleBusinessDays": 3,
   "slackDaysDefault": 3,
   "historicalContextDays": 45,
