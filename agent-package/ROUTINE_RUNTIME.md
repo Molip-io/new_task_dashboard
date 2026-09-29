@@ -14,9 +14,22 @@
 
 필요한 설정:
 - `NOTION_TOKEN` 환경변수(대시보드 통합 토큰). 없으면 분석하지 않는다. 사람이 처리할 문제로 failed 보고한다.
+- 수집용 `SLACK_TOKEN`(대시보드 수집 봇 토큰)과 `GITHUB_TOKEN`(읽기 전용) 환경변수. 없으면 해당 출처를 뺀 채 수집되고, 수집기가 그 한계를 `sourceHealth`에 남긴다. 분석은 계속한다.
 - Slack 커넥터. 연결되지 않았거나 호출이 실패하면 분석은 계속한다. 대신 `sourceStatus`에서 Slack을 확인 불가로 두고 `confidenceLimits`에 남긴다. Slack을 확인하지 못한 것을 "충돌 없음"이나 "근거 없음"으로 쓰지 않는다.
 
 ## 실행 순서
+
+### 0. 오늘 수집
+
+```
+node tools/agent-routine/collect.mjs
+```
+
+대시보드 수집기를 실행한다. 오늘 규칙 입력(`rule-input:YYYY-MM-DD-morning`)과 대시보드 스냅샷을 Notion에 게시한다. 변경 비교 기준은 Notion에 있는 전날 최신 스냅샷이다. 대시보드 화면(ChatGPT Sites)은 이 스냅샷을 읽는다. 따라서 분석이 실패하더라도 수집은 먼저 끝낸다.
+
+- 수집 결과 JSON의 `status`, `missingTokens`, `errors`를 확인하고 완료 보고에 남긴다.
+- 수집이 실패하면 수집을 재시도하지 않는다. 1단계 입력 읽기로 넘어가 이미 게시된 오늘 입력이 있는지 확인한다.
+- 수집기가 로컬에 쓰는 `data/` 파일은 실행 산출물이다. 커밋하지 않고, 분석 입력으로도 쓰지 않는다.
 
 ### 1. 입력 읽기
 
@@ -81,5 +94,5 @@ node tools/agent-routine/save-analysis.mjs --dry-run --analysis /tmp/molip-agent
 ## 금지
 
 - 저장소 파일 수정, git commit·push·PR 생성.
-- 스크립트 밖에서 Notion에 쓰기. 규칙 입력·스냅샷·원본 업무 수정.
+- `collect.mjs`(규칙 입력·스냅샷 게시)와 `save-analysis.mjs`(분석 저장) 밖에서 Notion에 쓰기. 원본 업무 수정.
 - Slack 발송. 허용 채널 밖 조회.

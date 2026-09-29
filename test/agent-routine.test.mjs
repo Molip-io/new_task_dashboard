@@ -261,3 +261,21 @@ test('Given active specs collapsed into a vague phrase, When warnings are comput
   assert.match(warnings[0], /5배 바닥형 RV 장갑,신발 버전 \(Sprint61, 진행 중\)/);
   assert.doesNotMatch(warnings[0], /광고제거|버프형 직원/);
 });
+
+test('Given snapshots from today and earlier days, When the routine looks for a comparison point, Then it takes the latest earlier day', async () => {
+  const { encodeDashboardSnapshot } = await import('../lib/dashboard-snapshot.mjs');
+  const { readPreviousDashboardSnapshot } = await import('../lib/agent-routine.mjs');
+  const snapshot = day => ({ generatedAt: `${day}T00:00:00Z`, projects: [], workItems: [], metrics: {} });
+  const page = day => ({
+    id: day, properties: {
+      run_id: { type: 'rich_text', rich_text: [{ plain_text: `dashboard-snapshot:${day}` }] },
+      payload: { type: 'rich_text', rich_text: [{ plain_text: encodeDashboardSnapshot(snapshot(day)) }] },
+    },
+  });
+  const query = async () => [page('2026-09-29'), page('2026-09-28'), page('2026-09-25')];
+
+  const previous = await readPreviousDashboardSnapshot({ databaseId: 'db', today: '2026-09-29', query });
+
+  assert.equal(previous.generatedAt, '2026-09-28T00:00:00Z');
+  assert.equal(await readPreviousDashboardSnapshot({ databaseId: 'db', today: '2026-09-25', query }), null);
+});
