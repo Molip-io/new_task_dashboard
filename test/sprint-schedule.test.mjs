@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isSprintScheduleRow, splitSprintSchedules } from '../shared/rules/sprint-schedule.mjs';
+import { isSprintScheduleRow, scheduleProgress, splitSprintSchedules } from '../shared/rules/sprint-schedule.mjs';
 
 const row = (sprint, status, extra = {}) => ({ id: `${sprint}-schedule`, title: `${sprint} 일정`, project: '포지 앤 포춘', parentIds: [], sprint, status, ...extra });
 const spec = (id, sprint, status) => ({ id, title: id, project: '포지 앤 포춘', parentIds: [], sprint, status });
@@ -26,4 +26,13 @@ test('Given schedule rows among tasks, When they are split, Then work tasks excl
   assert.deepEqual(stages, { 스프린트3: 'testing', 스프린트4: 'development', 스프린트5: 'planned', 스프린트2: 'closed', 스프린트6: 'development' });
   const sp4 = schedulesByProject.get('포지 앤 포춘').find(schedule => schedule.sprint === '스프린트4');
   assert.deepEqual([sp4.start, sp4.due, sp4.committedSpecs, sp4.openSpecs], ['2026-09-07', '2026-10-15', 2, 1]);
+});
+
+test('Given an open schedule, When progress is read on a day, Then days to target, elapsed share and spec completion are reported', () => {
+  const schedule = { stage: 'development', start: '2026-09-07', due: '2026-10-15', committedSpecs: 21, openSpecs: 17 };
+
+  assert.deepEqual(scheduleProgress(schedule, '2026-09-30'), { daysToTarget: 15, overdueDays: 0, elapsedPercent: 61, specDonePercent: 19 });
+  assert.equal(scheduleProgress(schedule, '2026-10-18').overdueDays, 3);
+  assert.equal(scheduleProgress({ ...schedule, stage: 'testing' }, '2026-10-18').overdueDays, 0);
+  assert.equal(scheduleProgress({ ...schedule, stage: 'planned' }, '2026-09-30'), null);
 });

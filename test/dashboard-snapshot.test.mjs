@@ -101,3 +101,13 @@ test('Given a stored snapshot, When read, Then the latest payload is decoded', a
   assert.equal(result.dashboard.generatedAt, dashboard.generatedAt);
   assert.equal(result.runId, 'dashboard-snapshot:2026-07-21');
 });
+
+test('Given a project with sprint schedules, When the snapshot is compacted and decoded, Then the schedules survive for the next comparison', () => {
+  const schedules = [{ id: 'row', url: null, sprint: '스프린트4', status: '진행 중', start: '2026-09-07', due: '2026-10-15', stage: 'development', committedSpecs: 21, openSpecs: 17 }];
+  const dashboard = { generatedAt: '2026-09-30T00:00:00.000Z', projects: [{ name: '포지 앤 포춘', config: { sprintScheduleRequired: true, sprintSchedules: schedules } }] };
+
+  const decoded = decodeDashboardSnapshot(encodeDashboardSnapshot(dashboard));
+
+  assert.deepEqual(decoded.projects[0].config.sprintSchedules, schedules);
+  assert.equal(decoded.projects[0].config.sprintScheduleRequired, true);
+});

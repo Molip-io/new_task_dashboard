@@ -90,6 +90,12 @@ export function comparableSnapshot(dashboard) {
         due: task.due || null,
         assignees: [...(task.assignees || [])].sort(),
       })).sort((left, right) => left.id.localeCompare(right.id)),
+      // The sprint baseline: which sprint each spec belongs to, and each schedule row's
+      // period and stage. A change here is a re-plan, not progress.
+      specs: (project.specs || []).map(spec => ({ id: spec.id, title: spec.title, sprint: spec.sprint || null, status: spec.status || null }))
+        .sort((left, right) => String(left.id).localeCompare(String(right.id))),
+      schedules: (project.config?.sprintSchedules || []).map(schedule => ({ sprint: schedule.sprint, start: schedule.start || null, due: schedule.due || null, stage: schedule.stage }))
+        .sort((left, right) => String(left.sprint).localeCompare(String(right.sprint))),
     })).sort((left, right) => left.name.localeCompare(right.name)),
   };
 }
@@ -125,6 +131,24 @@ export function diffSnapshots(previous, current) {
       addDelta(deltas, project.name, 'task.status', priorTask.status, task.status, task, current.generatedAt);
       addDelta(deltas, project.name, 'task.due', priorTask.due, task.due, task);
       addDelta(deltas, project.name, 'task.assignees', priorTask.assignees, task.assignees, task);
+    }
+    // Older snapshots carry no baseline; compare it only when both sides have one.
+    if (Array.isArray(before.specs) && Array.isArray(project.specs)) {
+      const previousSpecs = new Map(before.specs.map(spec => [spec.id, spec]));
+      for (const spec of project.specs) {
+        const priorSpec = previousSpecs.get(spec.id);
+        if (priorSpec) addDelta(deltas, project.name, 'spec.sprint', priorSpec.sprint, spec.sprint, spec);
+      }
+    }
+    if (Array.isArray(before.schedules) && Array.isArray(project.schedules)) {
+      const previousSchedules = new Map(before.schedules.map(schedule => [schedule.sprint, schedule]));
+      for (const schedule of project.schedules) {
+        const prior = previousSchedules.get(schedule.sprint);
+        if (!prior) continue;
+        const row = { id: `schedule:${schedule.sprint}`, title: `${schedule.sprint} 일정` };
+        addDelta(deltas, project.name, 'schedule.due', prior.due, schedule.due, row);
+        addDelta(deltas, project.name, 'schedule.stage', prior.stage, schedule.stage, row);
+      }
     }
   }
   return deltas;
