@@ -115,9 +115,10 @@
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["status", "sprints", "rationale", "evidence", "savedScope", "differsFromSaved"],
-                "description": "브리핑이 기준으로 삼은 현재 스프린트. 대시보드 공용 스프린트 설정과 독립이며 에이전트가 최근 7일의 직접 근거(진행 중인 작업·빌드·QA·합의)로 판단한다. 실제 진행 중인 스프린트는 모두 포함하고 다음 스프린트 계획 언급만 있는 스프린트는 제외한다. 근거가 없으면 status=undetermined, sprints=[]이며 공용 설정이나 프로젝트 리스트 값으로 대체하지 않는다. judged이면 sprints와 evidence가 1개 이상이다. 새 실행은 작성한다.",
+                "description": "브리핑이 기준으로 삼은 현재 스프린트. 대시보드 공용 스프린트 설정과 독립이다. 입력 projects[].sprintSchedules에 stage가 development·testing인 일정이 있으면 그 스프린트들이 현재 스프린트이고 basis=schedule이다. 없으면 에이전트가 최근 7일의 직접 근거(진행 중인 작업·빌드·QA·합의)로 판단하고 basis=recent-activity다. 실제 진행 중인 스프린트는 모두 포함하고 다음 스프린트 계획 언급만 있는 스프린트는 제외한다. 근거가 없으면 status=undetermined, sprints=[]이며 공용 설정이나 프로젝트 리스트 값으로 대체하지 않는다. judged이면 sprints와 evidence가 1개 이상이다. 새 실행은 작성한다.",
                 "properties": {
                   "status": { "enum": ["judged", "undetermined"] },
+                  "basis": { "enum": ["schedule", "recent-activity"], "description": "schedule=스프린트 일정 행 기준, recent-activity=최근 7일 근거 판단. 새 실행은 작성한다." },
                   "sprints": { "type": "array", "maxItems": 4, "items": { "type": "string", "minLength": 1, "maxLength": 40 } },
                   "rationale": { "type": "string", "maxLength": 300 },
                   "evidence": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/evidenceItem" } },

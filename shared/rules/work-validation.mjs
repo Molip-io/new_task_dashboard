@@ -3,6 +3,7 @@ import { enrichValidationIssue } from './issue-catalog.mjs';
 import { classifySprint } from './sprint-rules.mjs';
 import { excludeUncollectedHierarchy } from './task-hierarchy.mjs';
 import { DELAY_GUIDANCE, mentionsAny, recordsDateChange } from './delay-comments.mjs';
+import { OPEN_SCHEDULE_STAGES } from './sprint-schedule.mjs';
 
 const DONE = new Set(['완료', '중단']);
 const START_BEFORE = '시작 전';
@@ -160,16 +161,11 @@ export function validateWorkManagement({
     });
   }
 
-  // A project that tracks sprint schedules keeps one standalone row per sprint named
-  // "<Sprint tag> 일정" (e.g. "스프린트4 일정"). Done rows were filtered out above, so
-  // any match here is an open schedule.
+  // Schedule rows ("<Sprint tag> 일정") were split out at collection into
+  // project.sprintSchedules; a tracked project needs at least one that is still open.
   for (const project of projects) {
     if (!project.sprintScheduleRequired) continue;
-    const hasOpenSchedule = tasks.some(task => task.project === project.name
-      && !(task.parentIds || []).length
-      && task.sprint
-      && String(task.title || '').trim() === `${task.sprint} 일정`);
-    if (hasOpenSchedule) continue;
+    if ((project.sprintSchedules || []).some(schedule => OPEN_SCHEDULE_STAGES.has(schedule.stage))) continue;
     addIssue(issues, {
       type: 'SPRINT_SCHEDULE_MISSING',
       severity: 'warning',

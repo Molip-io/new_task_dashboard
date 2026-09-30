@@ -16,6 +16,8 @@ import { AGENT_INPUT_PART_MARKER, validateAgentInputDeltas } from '../../shared/
 import { buildAgentAnalysis } from '../../shared/contracts/dashboard-agent-analysis-adapter.mjs';
 import { decodeDashboardSnapshot } from '../../shared/notion-storage/dashboard-snapshot.mjs';
 import { comparableSnapshot } from '../../shared/snapshot/operational-metadata.mjs';
+import { CURRENT_SCHEDULE_STAGES } from '../../shared/rules/sprint-schedule.mjs';
+import { normalizeSprint } from '../../shared/rules/sprint-rules.mjs';
 
 const INPUT_MARKER = 'MOLIP_AGENT_INPUT_V1';
 const LEGACY_INPUT_LIMIT = 50_000;
@@ -299,7 +301,7 @@ export function analysisErrors({ analysis, input, runId }) {
     if (!result) continue;
     if (!result.projectBriefing) errors.push(`${project.name}: projectBriefing 누락`);
     else if (bullets.project && !result.projectBriefing.currentProgressItems?.length) errors.push(`${project.name}: 개조식 currentProgressItems 누락`);
-    if (bullets.sprint && result.projectBriefing) errors.push(...briefingSprintErrors(project.name, result.projectBriefing.briefingSprint, input.rules?.briefingScope));
+    if (bullets.sprint && result.projectBriefing) errors.push(...briefingSprintErrors(project.name, result.projectBriefing.briefingSprint, input.rules?.briefingScope, project.sprintSchedules));
     const wanted = specIds(project).sort();
     const written = (result.specSummaries || []).map(item => item.specId).sort();
     if (!isDeepStrictEqual(wanted, written)) errors.push(`${project.name}: specSummaries가 활성 스펙과 1:1이 아닙니다.`);
@@ -311,10 +313,20 @@ export function analysisErrors({ analysis, input, runId }) {
 const sameSet = (left, right) => JSON.stringify([...new Set(left)].sort()) === JSON.stringify([...new Set(right)].sort());
 
 // Conditional rules the JSON schema cannot express: what a judged / undetermined
-// sprint must contain, and that the saved-scope copy and the "differs" flag are honest.
-function briefingSprintErrors(name, sprint, scope) {
+// sprint must contain, that open sprint schedules decide it, and that the saved-scope
+// copy and the "differs" flag are honest.
+function briefingSprintErrors(name, sprint, scope, schedules = []) {
   if (!sprint) return [`${name}: briefingSprint 누락`];
   const errors = [];
+  const scheduled = schedules.filter(schedule => CURRENT_SCHEDULE_STAGES.has(schedule.stage)).map(schedule => normalizeSprint(schedule.sprint));
+  if (scheduled.length) {
+    if (sprint.basis !== 'schedule') errors.push(`${name}: 개발 중·테스트 중 스프린트 일정이 있으면 briefingSprint.basis는 schedule이어야 합니다.`);
+    if (sprint.status !== 'judged' || !sameSet((sprint.sprints || []).map(normalizeSprint), scheduled)) {
+      errors.push(`${name}: briefingSprint.sprints가 개발 중·테스트 중 스프린트 일정(${schedules.filter(schedule => CURRENT_SCHEDULE_STAGES.has(schedule.stage)).map(schedule => schedule.sprint).join(', ')})과 다릅니다.`);
+    }
+  } else if (sprint.basis === 'schedule') {
+    errors.push(`${name}: 개발 중·테스트 중 스프린트 일정이 없는데 briefingSprint.basis가 schedule입니다.`);
+  }
   if (sprint.status === 'judged') {
     if (!sprint.sprints?.length) errors.push(`${name}: briefingSprint judged인데 sprints가 비어 있습니다.`);
     if (!sprint.evidence?.length) errors.push(`${name}: briefingSprint judged인데 evidence가 없습니다.`);

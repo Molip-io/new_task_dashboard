@@ -448,13 +448,13 @@ test('Given several not-evaluated rules on one item, When validation runs, Then 
   assert.ok(ids.some(id => id.startsWith('RULE_NOT_EVALUATED:delay-comment:')));
 });
 
-test('Given a schedule-tracked project without an open sprint schedule row, When validation runs, Then a project-level warning is raised', () => {
+test('Given a schedule-tracked project without an open sprint schedule, When validation runs, Then a project-level warning is raised', () => {
   const tasks = [
     { id: 'spec', title: '스펙', project: '포지 앤 포춘', parentIds: [], status: '진행 중', sprint: '스프린트4' },
-    { id: 'old', title: '스프린트3 일정', project: '포지 앤 포춘', parentIds: [], status: '완료', sprint: '스프린트3' },
   ];
+  const projects = [{ name: '포지 앤 포춘', sprintScheduleRequired: true, sprintSchedules: [{ sprint: '스프린트3', stage: 'closed' }] }];
 
-  const result = validateWorkManagement({ tasks, projects: [{ name: '포지 앤 포춘', sprintScheduleRequired: true }], now: NOW });
+  const result = validateWorkManagement({ tasks, projects, now: NOW });
 
   const issue = result.issues.find(item => item.type === 'SPRINT_SCHEDULE_MISSING');
   assert.equal(issue.project, '포지 앤 포춘');
@@ -465,12 +465,10 @@ test('Given a schedule-tracked project without an open sprint schedule row, When
   assert.equal(issue.specId, null);
 });
 
-test('Given an open "<Sprint> 일정" row, When validation runs, Then no sprint schedule warning is raised', () => {
-  const tasks = [
-    { id: 'schedule', title: '스프린트4 일정', project: '포지 앤 포춘', parentIds: [], status: '진행 중', sprint: '스프린트4', start: '2026-09-07', due: '2026-10-15' },
-  ];
+test('Given an open sprint schedule, When validation runs, Then no sprint schedule warning is raised', () => {
+  const projects = [{ name: '포지 앤 포춘', sprintScheduleRequired: true, sprintSchedules: [{ sprint: '스프린트4', stage: 'development' }] }];
 
-  const result = validateWorkManagement({ tasks, projects: [{ name: '포지 앤 포춘', sprintScheduleRequired: true }], now: NOW });
+  const result = validateWorkManagement({ tasks: [], projects, now: NOW });
 
   assert.equal(result.issues.some(item => item.type === 'SPRINT_SCHEDULE_MISSING'), false);
 });

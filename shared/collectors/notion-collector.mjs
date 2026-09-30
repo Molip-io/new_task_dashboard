@@ -2,6 +2,7 @@ import { queryDatabase, searchDatabases, flatten, dbTitle, retrieveBlockChildren
 import { ignoredNotionUserIds, removeIgnoredAssignees } from './notion-users.mjs';
 import { inspectWorkDatabaseSetup } from './notion-setup.mjs';
 import { excludeUncollectedHierarchy, resolveTaskProjects, selectProjectTasks } from '../rules/task-hierarchy.mjs';
+import { splitSprintSchedules } from '../rules/sprint-schedule.mjs';
 import { isDelayCommentTarget, recognizedDelayComments } from '../rules/delay-comments.mjs';
 
 // The web refresh has a hard function limit, so the comment phase there gets a
@@ -229,7 +230,10 @@ async function collectWork(allProjects, config, errors, {
   const delayPhaseStartedAt = Date.now();
   const resolvedTasks = resolveTaskProjects([...tasks.values()]);
   const selectedTasks = selectProjectTasks(resolvedTasks, allProjects.filter(project => project.summarize));
-  const collectedTasks = excludeUncollectedHierarchy(selectedTasks);
+  // Schedule rows are split out before done specs are dropped: their testing stage is
+  // read from specs that are already complete.
+  const { tasks: workTasks, schedulesByProject } = splitSprintSchedules(selectedTasks);
+  const collectedTasks = excludeUncollectedHierarchy(workTasks);
   for (const task of collectedTasks) {
     if (hydrateBodies && !(task.parentIds || []).length) {
       try {
@@ -253,7 +257,8 @@ async function collectWork(allProjects, config, errors, {
   return {
     tasks: hydrated,
     notionSetup: setup,
-    excludedStatusWorkItems: selectedTasks.length - collectedTasks.length,
+    schedulesByProject,
+    excludedStatusWorkItems: workTasks.length - collectedTasks.length,
   };
 }
 
@@ -296,7 +301,8 @@ async function collectMeetings(projects, errors, since, { hydrateMeetingBodies =
 export async function collectNotionData(config, errors, options = {}) {
   const allProjects = parseProjectRows((await queryDatabase(config.notion.projectListDbId)).map(flatten), config);
   const projects = allProjects.filter(project => project.summarize);
-  const { tasks, notionSetup, excludedStatusWorkItems } = await collectWork(allProjects, config, errors, options);
+  const { tasks, notionSetup, schedulesByProject, excludedStatusWorkItems } = await collectWork(allProjects, config, errors, options);
+  for (const project of projects) project.sprintSchedules = schedulesByProject.get(project.name) || [];
   const since = new Date(Date.now() - 14 * 86400_000).toISOString();
   const meetings = await collectMeetings(projects, errors, since, options);
   const summaryRows = await collectSummaryRows(config, errors, since, options);
