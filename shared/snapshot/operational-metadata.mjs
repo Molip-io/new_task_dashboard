@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { CURRENT_SCHEDULE_STAGES } from '../rules/sprint-schedule.mjs';
+import { normalizeSprint } from '../rules/sprint-rules.mjs';
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
@@ -89,12 +91,13 @@ export function comparableSnapshot(dashboard) {
         status: task.status || null,
         due: task.due || null,
         assignees: [...(task.assignees || [])].sort(),
+        statusSince: task.statusSince || null,
       })).sort((left, right) => left.id.localeCompare(right.id)),
       // The sprint baseline: which sprint each spec belongs to, and each schedule row's
       // period and stage. A change here is a re-plan, not progress.
-      specs: (project.specs || []).map(spec => ({ id: spec.id, title: spec.title, sprint: spec.sprint || null, status: spec.status || null }))
+      specs: (project.specs || []).map(spec => ({ id: spec.id, title: spec.title, sprint: spec.sprint || null, status: spec.status || null, statusSince: spec.statusSince || null }))
         .sort((left, right) => String(left.id).localeCompare(String(right.id))),
-      schedules: (project.config?.sprintSchedules || []).map(schedule => ({ sprint: schedule.sprint, start: schedule.start || null, due: schedule.due || null, stage: schedule.stage }))
+      schedules: (project.config?.sprintSchedules || []).map(schedule => ({ sprint: schedule.sprint, start: schedule.start || null, due: schedule.due || null, stage: schedule.stage, dueChanges: schedule.dueChanges || 0, replans: schedule.replans || 0 }))
         .sort((left, right) => String(left.sprint).localeCompare(String(right.sprint))),
     })).sort((left, right) => left.name.localeCompare(right.name)),
   };
@@ -154,6 +157,39 @@ export function diffSnapshots(previous, current) {
   return deltas;
 }
 
+// Notion has no status-change time and snapshots only compare two days, so running
+// history is carried forward in the snapshot itself: how long each item has held its
+// current status, and how often each open schedule was re-planned. With no earlier
+// snapshot, observation starts today.
+export function carryBaselineHistory(dashboard, previous, deltas) {
+  const today = kstDay(dashboard.generatedAt);
+  const previousDay = previous ? kstDay(previous.generatedAt) : null;
+  const priorItems = new Map((previous?.projects || []).flatMap(project => [...(project.tasks || []), ...(project.specs || [])]
+    .map(item => [`${project.name}:${item.id}`, item])));
+  const since = new Map();
+  for (const project of dashboard.projects || []) {
+    const items = [...(project.specs || []), ...(project.specs || []).flatMap(spec => spec.tasks || []), ...(project.activeTasks || [])];
+    for (const item of items) {
+      const prior = priorItems.get(`${project.name}:${item.id}`);
+      since.set(item.id, prior && prior.status === item.status ? (prior.statusSince || previousDay) : today);
+    }
+    const priorSchedules = new Map(((previous?.projects || []).find(entry => entry.name === project.name)?.schedules || []).map(schedule => [schedule.sprint, schedule]));
+    const projectDeltas = deltas.filter(delta => delta.project === project.name);
+    for (const schedule of project.config?.sprintSchedules || []) {
+      const prior = priorSchedules.get(schedule.sprint);
+      const key = normalizeSprint(schedule.sprint);
+      const current = CURRENT_SCHEDULE_STAGES.has(schedule.stage);
+      schedule.dueChanges = (prior?.dueChanges || 0) + projectDeltas.filter(delta => delta.field === 'schedule.due' && delta.taskId === `schedule:${schedule.sprint}`).length;
+      schedule.replans = (prior?.replans || 0) + (current ? projectDeltas.filter(delta => delta.field === 'spec.sprint'
+        && (normalizeSprint(delta.from) === key || normalizeSprint(delta.to) === key)).length : 0);
+    }
+  }
+  for (const item of [...(dashboard.workItems || []), ...(dashboard.ruleItems || []), ...(dashboard.projects || []).flatMap(project => [...(project.specs || []), ...(project.specs || []).flatMap(spec => spec.tasks || []), ...(project.activeTasks || [])])]) {
+    if (since.has(item.id)) item.statusSince = since.get(item.id);
+  }
+  return dashboard;
+}
+
 export function loadPreviousSnapshot(dataDirectory, currentDay) {
   const snapshotDirectory = path.join(dataDirectory, 'snapshots');
   if (!fs.existsSync(snapshotDirectory)) return null;
@@ -170,6 +206,8 @@ export function attachOperationalMetadata(dashboard, dataDirectory, suppliedPrev
   const previous = suppliedPrevious === undefined
     ? loadPreviousSnapshot(dataDirectory, kstDay(dashboard.generatedAt))
     : suppliedPrevious;
+  const deltas = previous ? diffSnapshots(previous, current) : [];
+  carryBaselineHistory(dashboard, previous, deltas);
   return {
     ...dashboard,
     sourceHealth: buildSourceHealth(dashboard),
@@ -184,7 +222,7 @@ export function attachOperationalMetadata(dashboard, dataDirectory, suppliedPrev
       currentGeneratedAt: current.generatedAt,
       reason: '전일 스냅샷이 없어 변화 비교를 생성하지 않았습니다.',
     },
-    deltas: previous ? diffSnapshots(previous, current) : [],
+    deltas,
   };
 }
 
