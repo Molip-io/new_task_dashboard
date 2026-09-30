@@ -83,7 +83,7 @@
 
 브리핑의 현재 스프린트는 프로젝트별로 `projectBriefing.briefingSprint`에 쓴다.
 
-- **스프린트 일정이 먼저다.** 입력 `projects[].sprintSchedules`는 작업 현황 DB의 "스프린트N 일정" 행이다(`start` = 작업자 킥오프일, `due` = 목표 업로드일). `stage`가 `development`(개발 중)·`testing`(약속한 스펙이 모두 완료돼 퍼블리셔 테스트 중)인 일정이 있으면 그 스프린트들이 현재 스프린트다. `status=judged`, `basis=schedule`로 쓰고, 일정 행을 근거로 든다. `planned`(킥오프 전 선행)는 현재 스프린트에 넣지 않고 목표일·지연을 판단하지 않는다. 일정 행은 스펙이 아니므로 `specSummaries`에 넣지 않는다.
+- **스프린트 일정이 먼저다.** 입력 `projects[].sprintSchedules`는 작업 현황 DB의 "스프린트N 일정" 행이다(`start` = 작업자 킥오프일, `due` = 목표 업로드일). `stage`가 `development`(개발 중)·`testing`(약속한 스펙이 모두 완료된 개발 완료 상태. 이후 내부 QA·빌드 업로드·퍼블리셔 테스트가 이어진다)인 일정이 있으면 그 스프린트들이 현재 스프린트다. `status=judged`, `basis=schedule`로 쓰고, 일정 행을 근거로 든다. `planned`(킥오프 전 선행)는 현재 스프린트에 넣지 않고 목표일·지연을 판단하지 않는다. 일정 행은 스펙이 아니므로 `specSummaries`에 넣지 않는다.
 - **최근 7일 근거는 대조용이다.** 일정이 있어도 최근 7일에 일정 밖 스프린트(예: 핫픽스)의 작업·논의가 실제로 진행 중이면 `confidenceLimits`에 "스프린트 일정 없는 진행 작업"으로 적고, 개발 중 일정인데 7일간 활동이 없으면 "7일간 활동 없는 일정"으로 적는다. 일정 기준을 바꾸지는 않는다.
 - **일정이 없으면** 아래 규칙대로 에이전트가 판단하고 `basis=recent-activity`로 쓴다. 목표일 대비 지연처럼 기준선이 필요한 판단은 하지 않는다.
 - **판단 창.** 실행일(Asia/Seoul) 기준 최근 7일의 직접 근거로 판단한다: 입력의 작업 행·`analysisTargets`, 허용 Slack 채널, 연결 회의록, Git.
@@ -92,6 +92,15 @@
 - **`savedScope`**는 입력 `rules.briefingScope`의 `mode`·`sprints`를 복사한다. `differsFromSaved`는 `mode`가 `unset`이 아니고 판단한 스프린트 집합이 `savedScope.sprints`와 다를 때만 `true`다.
 - **브리핑 숫자.** 사용자가 읽는 브리핑 문장과 `projects[].sprintSummaries`의 스프린트 관련 수치(진행 준비 필요, 지난 스프린트 미착수, 스프린트별 진행)는 판단한 스프린트 기준으로 `ruleAuditItems`의 status·sprint 열에서 다시 센다. `sprintSummaries`는 판단한 스프린트마다 1개이며 `undetermined`면 `[]`이고 `confidenceLimits`에 스프린트 수치 미평가 사유를 한 줄 남긴다. `ruleMetrics.original/corrected`는 규칙 엔진 기준 감사 수치로 유지한다.
 - 이 판단은 대시보드 KPI를 바꾸지 않고, 대시보드 설정이 이 판단을 정하지도 않는다.
+
+### 스프린트 일정 대비 진행과 변경
+
+개발 중·테스트 중 일정이 있으면 프로젝트 브리핑은 그 기준선과 비교해서 쓴다. 대표가 Slack을 뒤지지 않고 "목표일 대비 어떤가, 무엇이 끼어들어 무엇이 밀렸나"에 답할 수 있어야 한다.
+
+- **목표일 대비.** `sprintSchedules[].progress`를 그대로 쓴다: 목표 업로드일까지 남은 날(`daysToTarget`), 기간 경과율(`elapsedPercent`), 약속 스펙 완료율(`specDonePercent`), 개발 중인데 목표일이 지난 날수(`overdueDays`). 경과율보다 완료율이 크게 낮으면 그 차이를 한 줄로 적는다. 숫자를 다시 계산하거나 목표일을 추정하지 않는다.
+- **기준선 변경.** `rules.deltas`의 `spec.sprint`(스펙 재배치·이월), `schedule.due`(목표 업로드일 변경), `schedule.stage`(단계 전환)는 진행이 아니라 계획 변경이다. 변경마다 같은 시기의 회의록·Slack(슈퍼센트 공유 채널 포함)에서 이유를 찾아 근거와 함께 적고, 못 찾으면 "이유 미확인"으로 적는다. 사람에게 이유를 따로 기록하라고 요구하지 않는다.
+- **기준선 미갱신.** 회의록·Slack에 새 목표 업로드일이나 범위 변경이 나왔는데 일정 행 `due`나 스펙의 Sprint 태그가 그대로면 `nextActions`에 `suggested_check`로 "기준선 미갱신: ○○ 일정 목표일을 △△로 고칠지 확인"처럼 적는다. 일정 값을 바꿔 쓰지 않는다.
+- **테스트 중 일정.** 슈퍼센트 미팅 회의록·공유 채널·팀 분석에서 QA 진행, 업로드, 퍼블리셔 지표 결과와 후속 결정(종료·핫픽스·재빌드)을 찾아 `buildRelease`·`data`에 적는다. 결과와 결정이 나왔는데 일정이 계속 열려 있으면 `suggested_check`로 일정 종료 여부를 확인하게 한다.
 
 **공용 스프린트 미설정이어도 프로젝트·회사 상황 분석은 계속한다.** 미설정 자체를 회사 실행 위험·병목으로 올리지 않는다. 프로젝트의 현재 빌드·합의·실행은 직접 근거로 설명할 수 있다.
 

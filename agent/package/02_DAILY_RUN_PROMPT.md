@@ -22,7 +22,7 @@ Notion 업무현황 요약 DB(`351b4a46-5003-80ff-8b85-f772cb93da32`)에서 기�
 
 4. **상황 중심 브리핑 작성**
 모든 프로젝트에 `projectBriefing`을 반드시 작성해. 호환 스키마에서 선택형이어도 새 분석의 필수 조건이야.
-- `briefingSprint`: `projects[].sprintSchedules`에 개발 중·테스트 중 일정이 있으면 그 스프린트들을 `basis=schedule`로 써. 없을 때만 최근 7일의 실제 진행 근거로 판단해 `basis=recent-activity`로 써. 진행 중인 스프린트는 모두 넣고, 근거가 없으면 `undetermined`로 두고 공용 설정으로 대체하지 마. 스프린트 수치는 판단한 스프린트 기준으로 다시 세고, `ruleMetrics`는 규칙 엔진 기준을 유지해.
+- `briefingSprint`: `projects[].sprintSchedules`에 개발 중·테스트 중 일정이 있으면 그 스프린트들을 `basis=schedule`로 써. 없을 때만 최근 7일의 실제 진행 근거로 판단해 `basis=recent-activity`로 써. 일정이 있으면 `progress`로 목표일 대비 진행을 쓰고, `rules.deltas`의 `spec.sprint`·`schedule.due` 변경은 회의록·Slack에서 이유를 찾아 붙여(못 찾으면 "이유 미확인"). 진행 중인 스프린트는 모두 넣고, 근거가 없으면 `undetermined`로 두고 공용 설정으로 대체하지 마. 스프린트 수치는 판단한 스프린트 기준으로 다시 세고, `ruleMetrics`는 규칙 엔진 기준을 유지해.
 - `projects[].delayEvidence`는 기한 초과 작업의 작업 페이지 댓글이야. 사유가 부족하면 `nextActions`에 `suggested_check`로만 적고 규칙 수치는 바꾸지 마.
 - `currentProgress`: 무엇을 하는가 → 확인된 진척 → 남은 작업 → 다음 중요한 단계. 숫자·상태만 나열하지 마.
 - `buildRelease`: 마지막 확인된 전달·배포 빌드 → 다음 준비 빌드 → 다음 검증·전달 단계를 2~3문장으로 종합해. 스프린트·빌드 버전·플랫폼·대상을 구분하고 최신 APK를 출시 완료로 추정하지 마. 지난 예정일·부모 글의 오늘 문구를 현재 상태로 복사하지 마. 오래된 마지막 전달 사실은 날짜와 함께 유지해.

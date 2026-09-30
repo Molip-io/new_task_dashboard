@@ -71,7 +71,7 @@ function compactProject(project) {
     currentSprints: project.currentSprints ?? project.config?.currentSprints ?? [],
     sprintRequired: project.sprintRequired ?? project.config?.sprintRequired,
     notionId: project.notionId || project.config?.notionId,
-    config: project.config ? pick(project.config, ['gitUrl', 'notionId', 'currentSprints', 'sprintRequired', 'sprintSettingSource', 'sprintSettingRevision']) : undefined,
+    config: project.config ? pick(project.config, ['gitUrl', 'notionId', 'currentSprints', 'sprintRequired', 'sprintSettingSource', 'sprintSettingRevision', 'sprintScheduleRequired', 'sprintSchedules']) : undefined,
     specs: (project.specs || []).map(spec => ({
       ...pick(spec, ['id', 'url', 'title', 'status', 'parentStatus', 'childDerivedStatus', 'completionMismatch', 'sprint', 'start', 'due', 'core', 'owners', 'targetAt', 'childStats']),
       tasks: (spec.tasks || []).map(compactWorkItem),

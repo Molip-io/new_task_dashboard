@@ -82,6 +82,26 @@ test('Given matching project and task IDs, When snapshots are compared, Then cha
   assert.equal(deltas[0].to, '주의');
 });
 
+test('Given sprint baselines in both snapshots, When they are compared, Then spec re-plans and schedule changes are reported', () => {
+  const project = (sprint, due, stage) => ({
+    name: '포지 앤 포춘', status: '정상', completionRate: 0, tasks: [],
+    specs: [{ id: 'spec-1', title: '리프트 추가', sprint, status: '진행 중' }],
+    schedules: [{ sprint: '스프린트4', start: '2026-09-07', due, stage }],
+  });
+  const previous = { generatedAt: '2026-09-29T23:00:00.000Z', projects: [project('스프린트5', '2026-10-15', 'development')] };
+  const next = { generatedAt: '2026-09-30T23:00:00.000Z', projects: [project('스프린트4', '2026-10-20', 'testing')] };
+
+  const deltas = diffSnapshots(previous, next);
+
+  assert.deepEqual(deltas.map(delta => [delta.field, delta.from, delta.to]), [
+    ['spec.sprint', '스프린트5', '스프린트4'],
+    ['schedule.due', '2026-10-15', '2026-10-20'],
+    ['schedule.stage', 'development', 'testing'],
+  ]);
+  assert.equal(deltas[1].taskTitle, '스프린트4 일정');
+  assert.deepEqual(diffSnapshots({ ...previous, projects: [{ ...previous.projects[0], specs: undefined, schedules: undefined }] }, next), []);
+});
+
 test('Given no earlier daily snapshot, When metadata is attached, Then delta comparison is explicitly unavailable', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dashboard-metadata-'));
 

@@ -8,8 +8,9 @@ const DONE = '완료';
 const CANCELLED = '중단';
 
 // planned: not kicked off yet (선행), no committed target date.
-// development / testing: open. Testing means every committed spec is done, which in
-// this team's workflow means the build has been uploaded and the publisher is testing.
+// development / testing: open. Testing means every committed spec is done: the team
+// then runs internal QA, uploads the build and the publisher tests it. QA is not
+// ticketed, so spec completion can lead the upload by several days.
 export const OPEN_SCHEDULE_STAGES = new Set(['planned', 'development', 'testing']);
 export const CURRENT_SCHEDULE_STAGES = new Set(['development', 'testing']);
 
@@ -54,4 +55,28 @@ export function splitSprintSchedules(tasks) {
     schedulesByProject.set(row.project, schedules);
   }
   return { tasks: work, schedulesByProject };
+}
+
+const dayNumber = value => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ''));
+  return match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86_400_000 : null;
+};
+
+// Where an open schedule stands against its own baseline on a given day (Asia/Seoul
+// date). Planned and closed schedules have no committed target to compare against.
+export function scheduleProgress(schedule, today) {
+  if (!CURRENT_SCHEDULE_STAGES.has(schedule.stage)) return null;
+  const now = dayNumber(today);
+  const start = dayNumber(schedule.start);
+  const due = dayNumber(schedule.due);
+  const committed = schedule.committedSpecs || 0;
+  const daysToTarget = due === null || now === null ? null : due - now;
+  return {
+    daysToTarget,
+    overdueDays: schedule.stage === 'development' && daysToTarget !== null && daysToTarget < 0 ? -daysToTarget : 0,
+    elapsedPercent: start === null || due === null || now === null || due <= start
+      ? null
+      : Math.max(0, Math.min(100, Math.round(((now - start) / (due - start)) * 100))),
+    specDonePercent: committed ? Math.round(((committed - (schedule.openSpecs || 0)) / committed) * 100) : null,
+  };
 }
