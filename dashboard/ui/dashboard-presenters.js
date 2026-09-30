@@ -229,7 +229,8 @@ export function briefingHtml(dashboard, selectedDetail, taskRows, briefingFilter
     <section class="card briefing-section management-section" aria-labelledby="management-title"><div class="briefing-heading"><h3 id="management-title">3. 스프린트별 업무현황</h3></div>
     ${sprintFilterHtml(dashboard, scopeFilters)}
     <p class="section-note">선택 즉시 조회합니다. 숫자를 선택하면 상세 목록을 볼 수 있습니다. 항목 간 중복이 있어 합산하지 않습니다.</p>
-    <div class="kpis">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}${kpi('overdue', metrics.overdueWorkItems, '기한 초과 작업항목', metrics.overdueWorkItems ? 'error' : '', selectedDetail)}${kpi('guide', metrics.guideViolationWorkItems, '가이드 위반 작업항목', '', selectedDetail)}${kpi('setup', dashboard.sprintScope?.mode === 'unset' ? '미평가' : metrics.progressSetupRequiredItems, '진행 준비 필요 항목', '', selectedDetail)}</div>
+    <div class="kpis kpis-compact">${kpi('projects', metrics.activeProjects, '진행 중 프로젝트', 'info', selectedDetail)}${kpi('work-items', metrics.inProgressWorkItems, '진행 중 작업항목', 'normal', selectedDetail)}</div>
+    <p class="section-note management-handoff">작업 단위 관리는 확인필요에서 봅니다: <button type="button" data-open-checks="overdue">기한 초과 ${esc(metrics.overdueWorkItems ?? 0)}</button> · <button type="button" data-open-checks="guide">가이드 위반 ${esc(metrics.guideViolationWorkItems ?? 0)}</button> · <button type="button" data-open-checks="setup">진행 준비 필요 ${esc(dashboard.sprintScope?.mode === 'unset' ? '미평가' : metrics.progressSetupRequiredItems ?? 0)}</button></p>
     ${briefingDetailHtml(selectedDetail === 'git' ? dashboard : scoped, selectedDetail, taskRows, {}, false)}<p class="section-note">진행 준비 필요는 수집 시점의 판정 결과를 선택 범위로 조회합니다.</p>
     </section>`;
 }

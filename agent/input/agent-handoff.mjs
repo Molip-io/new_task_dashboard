@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fitRemoteEvidenceBudget } from './agent-packet-budget.mjs';
 import { scheduleProgress } from '../../shared/rules/sprint-schedule.mjs';
+import { buildSummary } from '../../shared/rules/build-notes.mjs';
 import { calendarDaysBetween, kstDate } from '../../shared/rules/business-days.mjs';
 import OUTPUT_SCHEMA from '../../shared/contracts/schemas/agent-analysis.schema.json' with { type: 'json' };
 
@@ -155,7 +156,7 @@ function projectSourceEvidence(project) {
   return rows;
 }
 
-const pickSchedule = ({ sprint, stage, start, due, url, committedSpecs, openSpecs, dueChanges = 0, replans = 0 }) => ({ sprint, stage, start, due, url, committedSpecs, openSpecs, dueChanges, replans });
+const pickSchedule = ({ sprint, stage, testingPhase = null, buildUploadedAt = null, start, due, url, committedSpecs, openSpecs, dueChanges = 0, replans = 0, carriedOver = 0, deferredDone = 0 }) => ({ sprint, stage, testingPhase, buildUploadedAt, start, due, url, committedSpecs, openSpecs, dueChanges, replans, carriedOver, deferredDone });
 const CONFIRMATION_WAIT_LIMIT = 5;
 
 // Items waiting on a confirmation, longest first. statusSince is carried in the daily
@@ -229,7 +230,10 @@ function projectPacket(dashboard, project) {
       ...pickSchedule(schedule),
       progress: scheduleProgress(schedule, kstDate(dashboard.generatedAt)),
     })),
-    bottlenecks: { confirmationWaits: confirmationWaits(activeWorkItems, kstDate(dashboard.generatedAt)) },
+    bottlenecks: {
+      confirmationWaits: confirmationWaits(activeWorkItems, kstDate(dashboard.generatedAt)),
+      builds: buildSummary(project.config?.builds || []),
+    },
     pdUserIds: (project.config?.pdUsers || []).map(user => user.id),
     teamLeadUserIds: (project.config?.teamLeadUsers || []).map(user => user.id),
     milestones: project.milestones || {},
@@ -303,7 +307,8 @@ export function buildAgentInputPacket(dashboard) {
       '완료·일시 정지·정지·중단 항목과 그 하위 계층은 활성 집계에서 제외한다. 진행 중 상위의 완료 하위는 진행률 근거다. 마지막 전달·성과·해결 이력은 활성 업무로 세지 않으면서 역사적 근거로 사용할 수 있다.',
       '현재 스프린트의 시작 전 항목은 진행 준비 필요로 집계하고, 미래 스프린트의 시작 전 항목은 실행 준비 필드 위반에서 제외한다. 이 문장의 현재 스프린트와 rules.metrics·sprintRelation은 대시보드 공용 스프린트 설정 기준의 규칙 엔진 원본 사실이다. 브리핑의 현재 스프린트는 projects[].sprintSchedules에서 stage가 development·testing인 일정이 있으면 그 스프린트들이고(basis=schedule), 없으면 에이전트가 최근 7일 근거로 판단한다(basis=recent-activity). 브리핑 안의 스프린트 수치는 그 스프린트 기준으로 다시 센다.',
       'projects[].sprintSchedules는 작업 현황 DB의 "스프린트N 일정" 행이다. start는 작업자 킥오프일, due는 목표 업로드일이다. stage: planned=킥오프 전 선행(목표일·지연 판단 없음), development=개발 중, testing=약속한 스펙이 모두 완료된 개발 완료 상태로 내부 QA·빌드 업로드·퍼블리셔 테스트가 이어진다(QA는 일감이 없어 업로드보다 스펙 완료가 며칠 빠를 수 있다), closed=종료. progress는 실행일 기준 daysToTarget(목표 업로드일까지 남은 날, 음수면 지남)·overdueDays(개발 중인데 목표일이 지난 날수)·elapsedPercent(기간 경과율)·specDonePercent(약속 스펙 완료율)이다. 일정 행은 스펙이 아니므로 specSummaries에 넣지 않는다.',
-      'rules.deltas의 spec.sprint는 스펙의 Sprint 태그 변경(재배치·이월), schedule.due는 일정 행의 목표 업로드일 변경, schedule.stage는 일정 단계 전환이다. 이것은 진행이 아니라 기준선 변경이다. sprintSchedules[].dueChanges·replans는 그 일정이 열린 뒤 누적된 목표일 변경·재배치 횟수다.',
+      'rules.deltas의 spec.sprint는 스펙의 Sprint 태그 변경(재배치·이월), schedule.due는 일정 행의 목표 업로드일 변경, schedule.stage는 일정 단계 전환이다. 이것은 진행이 아니라 기준선 변경이다. sprintSchedules[].dueChanges·replans는 그 일정이 열린 뒤 누적된 목표일 변경·재배치 횟수이고, carriedOver·deferredDone은 그 스프린트에서 미완성으로 이월한 스펙 수와 완성했지만 출시를 미룬 스펙 수다. progress.carryOverPercent는 이월 비율이다. testing 일정의 testingPhase는 pre-upload(스펙 완료, QA·업로드 전) 또는 publisher-test(빌드노트 업로드일 buildUploadedAt 이후 퍼블리셔 테스트)다.',
+      'projects[].bottlenecks.builds는 최근 windowDays일 빌드노트 요약이다: total·offCycle(핫픽스·비교 재빌드)·offCyclePercent, QA 기간이 기록된 빌드의 averageQaDays, 최근 빌드 목록. QA 기간은 별도 QA팀이 진행할 때만 기록되므로 비어 있으면 미기록으로 둔다.',
       'projects[].bottlenecks.confirmationWaits는 확인 요청 상태로 머문 작업 수(count)와 오래된 순 5건(longest: since=그 상태를 처음 관찰한 날, days=관찰 이후 일수)이다. 관찰 시작 전 기간은 포함하지 않으므로 실제 대기는 같거나 더 길다.',
       'rules.comparison.available이 false이면 rules.deltas의 빈 배열은 변경 없음이 아니라 비교 불가다. deltas의 observedCompleteAt은 스냅샷에서 완료를 처음 관찰한 시각이며 실제 완료일이 아니다. previousSummary는 이전 날짜의 분석이고 previousSummaryDate가 그 날짜다.',
       'projects[].delayEvidence는 기한 초과 작업의 작업 페이지 댓글(현재 마감일 7일 전 이후)이다. 규칙 엔진은 댓글 존재·날짜·PD 태그만 확인했고 사유가 충분한지는 판단하지 않았다. 부족하면 브리핑 nextActions의 suggested_check로만 지적하고 규칙 수치는 바꾸지 않는다. 댓글이 없는 작업이나 읽지 못한 작업(RULE_NOT_EVALUATED)은 여기에 없다. Notion은 해결 처리된 댓글을 돌려주지 않는다.',

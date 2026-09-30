@@ -85,6 +85,8 @@ main, .empty { max-width: 1280px; margin: 0 auto; }
 .section-head { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 12px; margin: 0 0 16px; }
 .section-head h2 { margin: 0; font-size: 25px; letter-spacing: -.03em; } .section-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
 .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
+.kpis.kpis-compact { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.management-handoff button { padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .kpi { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-height: 104px; padding: 18px; background: var(--panel-grad); border: 0; border-radius: var(--radius-card); box-shadow: var(--hairline), 0 0 0 1px var(--line-soft), var(--lift); color: var(--text); text-align: left; }
 .kpi:hover { box-shadow: var(--hairline), var(--lift), inset 0 0 0 1px var(--line-strong); }
 .kpi.selected::after { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 2px; background: var(--accent); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }

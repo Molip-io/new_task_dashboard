@@ -4,6 +4,9 @@ import { inspectWorkDatabaseSetup } from './notion-setup.mjs';
 import { excludeUncollectedHierarchy, resolveTaskProjects, selectProjectTasks } from '../rules/task-hierarchy.mjs';
 import { splitSprintSchedules } from '../rules/sprint-schedule.mjs';
 import { findUpdateGaps } from '../rules/update-gaps.mjs';
+import { applyBuildUploads } from '../rules/sprint-schedule.mjs';
+import { parseBuildNote, recentBuilds } from '../rules/build-notes.mjs';
+import { kstDate } from '../rules/business-days.mjs';
 import { isDelayCommentTarget, recognizedDelayComments } from '../rules/delay-comments.mjs';
 
 // The web refresh has a hard function limit, so the comment phase there gets a
@@ -302,12 +305,27 @@ async function collectMeetings(projects, errors, since, { hydrateMeetingBodies =
   return meetings.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 }
 
+export async function collectBuildNotes(config, allProjects, errors, { queryBuildDatabase = queryDatabase } = {}) {
+  if (!config.notion?.buildNoteDbId) return [];
+  const projectByNotionId = new Map(allProjects.map(project => [project.notionId, project.name]));
+  try {
+    return (await queryBuildDatabase(config.notion.buildNoteDbId)).map(flatten).map(row => parseBuildNote(row, projectByNotionId));
+  } catch (error) {
+    errors.push(`빌드노트 DB: ${error.message}`);
+    return [];
+  }
+}
+
 export async function collectNotionData(config, errors, options = {}) {
   const allProjects = parseProjectRows((await queryDatabase(config.notion.projectListDbId)).map(flatten), config);
   const projects = allProjects.filter(project => project.summarize);
   const { tasks, notionSetup, schedulesByProject, updateGaps, excludedStatusWorkItems } = await collectWork(allProjects, config, errors, options);
+  const builds = await collectBuildNotes(config, allProjects, errors, options);
+  const today = kstDate(options.now || new Date());
   for (const project of projects) {
-    project.sprintSchedules = schedulesByProject.get(project.name) || [];
+    const projectBuilds = builds.filter(build => build.project === project.name);
+    project.sprintSchedules = applyBuildUploads(schedulesByProject.get(project.name) || [], projectBuilds);
+    project.builds = recentBuilds(projectBuilds, project.name, today);
     if (project.sprintScheduleRequired) project.updateGaps = updateGaps.filter(gap => gap.project === project.name);
   }
   const since = new Date(Date.now() - 14 * 86400_000).toISOString();

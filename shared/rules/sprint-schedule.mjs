@@ -3,6 +3,7 @@
 // to the target upload date. It is the sprint's baseline, not a spec or a work item,
 // so it is split out before any work rule sees the task list.
 import { normalizeSprint } from './sprint-rules.mjs';
+import { buildSprintKey } from './build-notes.mjs';
 
 const DONE = '완료';
 const CANCELLED = '중단';
@@ -78,5 +79,23 @@ export function scheduleProgress(schedule, today) {
       ? null
       : Math.max(0, Math.min(100, Math.round(((now - start) / (due - start)) * 100))),
     specDonePercent: committed ? Math.round(((committed - (schedule.openSpecs || 0)) / committed) * 100) : null,
+    // Specs moved out of this sprint unfinished, against everything the sprint ever held.
+    carryOverPercent: committed + (schedule.carriedOver || 0) + (schedule.deferredDone || 0)
+      ? Math.round(((schedule.carriedOver || 0) / (committed + (schedule.carriedOver || 0) + (schedule.deferredDone || 0))) * 100)
+      : null,
   };
+}
+
+// The build note's upload date is the real edge between internal QA and the publisher's
+// test. An uploaded build for the sprint puts an open schedule in testing even if some
+// spec status lags; a done sprint with no upload yet is still before the upload.
+export function applyBuildUploads(schedules, builds) {
+  return schedules.map(schedule => {
+    const key = buildSprintKey(schedule.sprint);
+    const buildUploadedAt = builds.filter(build => key && build.sprintKey === key && build.uploadedAt)
+      .map(build => build.uploadedAt).sort()[0] || null;
+    if (!CURRENT_SCHEDULE_STAGES.has(schedule.stage)) return { ...schedule, buildUploadedAt };
+    if (buildUploadedAt) return { ...schedule, stage: 'testing', testingPhase: 'publisher-test', buildUploadedAt };
+    return { ...schedule, buildUploadedAt, ...(schedule.stage === 'testing' ? { testingPhase: 'pre-upload' } : {}) };
+  });
 }

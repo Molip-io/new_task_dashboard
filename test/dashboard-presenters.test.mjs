@@ -181,7 +181,7 @@ test('Given a setup deep link, When briefing renders, Then decisions and analysi
   assert.ok(html.indexOf('id="management-title"') < detail);
   assert.ok(html.indexOf('착수 목록 업무') > detail);
   assert.match(html, /현재 스프린트에서 아직 시작 전인 항목입니다. 실행 병목·가이드 위반과는 별도 분류입니다./);
-  assert.match(html, /data-briefing-detail="setup" aria-expanded="true"/);
+  assert.match(html, /data-open-checks="setup">진행 준비 필요 1</);
 });
 
 test('Given untrusted decision and context text, When briefing renders, Then all decision text is escaped', () => {
@@ -357,7 +357,7 @@ test('failed input is visible and unset sprint preparation cannot masquerade as 
   const h = briefingHtml(d, 'setup', () => '');
   assert.match(h, /role="alert">분석 입력 생성 실패/);
   assert.match(h, /입력 안전 한도 초과/);
-  assert.match(h, /data-briefing-detail="setup" aria-expanded="true"><span class="value">미평가/);
+  assert.match(h, /data-open-checks="setup">진행 준비 필요 미평가</);
   assert.match(h, /진행 준비 필요 항목 · 미평가/);
   assert.doesNotMatch(h, /진행 준비 필요 항목 0개/);
 });

@@ -192,3 +192,17 @@ test('Given yesterday\'s snapshot, When history is carried, Then unchanged statu
   assert.deepEqual(dashboard.workItems.map(task => task.statusSince), ['2026-09-25', '2026-09-30', '2026-10-01', '2026-10-01']);
   assert.deepEqual([schedule.dueChanges, schedule.replans], [2, 3]);
 });
+
+test('Given specs moved out of an open sprint, When history is carried, Then unfinished moves count as carry-over and finished ones as deferrals', () => {
+  const schedule = { sprint: '스프린트4', stage: 'development' };
+  const dashboard = { generatedAt: '2026-09-30T23:00:00.000Z', projects: [{ name: '포지 앤 포춘', specs: [{ id: 'open-spec', status: '진행 중', tasks: [] }, { id: 'done-spec', status: '완료', tasks: [] }], config: { sprintSchedules: [schedule] } }] };
+  const previous = { generatedAt: '2026-09-29T23:00:00.000Z', projects: [{ name: '포지 앤 포춘', tasks: [], specs: [], schedules: [{ sprint: '스프린트4', carriedOver: 1, deferredDone: 0 }] }] };
+  const deltas = [
+    { project: '포지 앤 포춘', field: 'spec.sprint', taskId: 'open-spec', from: '스프린트4', to: '스프린트5' },
+    { project: '포지 앤 포춘', field: 'spec.sprint', taskId: 'done-spec', from: '스프린트4', to: '스프린트5' },
+  ];
+
+  carryBaselineHistory(dashboard, previous, deltas);
+
+  assert.deepEqual([schedule.carriedOver, schedule.deferredDone, schedule.replans], [2, 1, 2]);
+});
