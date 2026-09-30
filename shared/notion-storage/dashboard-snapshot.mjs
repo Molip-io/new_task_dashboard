@@ -50,6 +50,10 @@ function compactWorkItem(item) {
 function compactIssue(issue) {
   const metadata = issue.metadata ? {
     url: issue.metadata.url,
+    title: issue.metadata.title,
+    assignees: issue.metadata.assignees,
+    team: issue.metadata.team,
+    specTitle: issue.metadata.specTitle,
     remote: issue.metadata.remote,
     commitHash: issue.metadata.commitHash,
     representativeCommit: issue.metadata.representativeCommit?.url

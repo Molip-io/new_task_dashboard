@@ -177,6 +177,31 @@ export function validateWorkManagement({
     });
   }
 
+  // Items left behind by their spec (F7). They were found at collection because done
+  // specs and their children never reach this task list; the issue carries what the
+  // screen needs to show and route them.
+  const gapIssues = {
+    'open-under-closed-spec': ['OPEN_UNDER_CLOSED_SPEC', gap => `상위 스펙 ${gap.specStatus} · 작업 ${gap.status}`],
+    'sprint-mismatch': ['CHILD_SPRINT_MISMATCH', gap => `작업 ${gap.sprint} · 상위 스펙 ${gap.specSprint}`],
+  };
+  for (const project of projects) {
+    if (!project.sprintScheduleRequired) continue;
+    for (const gap of project.updateGaps || []) {
+      const [type, message] = gapIssues[gap.kind] || [];
+      if (!type) continue;
+      addIssue(issues, {
+        type,
+        severity: 'check',
+        message: message(gap),
+        project: project.name,
+        workItemId: gap.workItemId,
+        specId: gap.specId,
+        detectedAt,
+        metadata: { title: gap.title, url: gap.url, assignees: gap.assignees, team: gap.team, specTitle: gap.specTitle },
+      });
+    }
+  }
+
   for (const task of tasks) {
     const isWorkItem = (task.parentIds || []).length > 0;
     const spec = isWorkItem ? tasksById.get(task.parentIds[0]) : null;
