@@ -49,11 +49,13 @@ test('Given a sprint-optional AI project, When project rows are parsed, Then spr
 
   const projects = parseProjectRows(rows, {
     slackDaysDefault: 3,
-    validation: { sprintOptionalProjects: ['UI 자동화'] },
+    validation: { sprintOptionalProjects: ['UI 자동화'], sprintScheduleProjects: ['피자레디'] },
   });
 
   assert.equal(projects.find(project => project.name === 'UI 자동화').sprintRequired, false);
   assert.equal(projects.find(project => project.name === '피자레디').sprintRequired, true);
+  assert.equal(projects.find(project => project.name === '피자레디').sprintScheduleRequired, true);
+  assert.equal(projects.find(project => project.name === 'UI 자동화').sprintScheduleRequired, false);
 });
 
 test('Given a work row with a branch property, When it is parsed, Then the requested Git branch is preserved', () => {

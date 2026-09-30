@@ -29,6 +29,7 @@ export const ISSUE_CATALOG = Object.freeze({
   REOPENED_COMPLETED_ITEM: guide('신규 작업 분리 필요', PROJECT_LEAD, 'work-item', '추가 작업이면 기존 페이지가 아닌 신규 작업항목을 생성하세요.'),
 
   OVERDUE: schedule('지연 기록 필요', PROJECT_LEAD, 'work-item', '작업 페이지 댓글에 지연 사유와 변경 전·후 날짜를 적고 PD를 태그하세요. 지연 댓글은 해결 처리하지 마세요.'),
+  SPRINT_SCHEDULE_MISSING: schedule('스프린트 일정 없음', PROJECT_LEAD, 'project', '작업 현황 DB에 "스프린트N 일정" 행(예: 스프린트4 일정)을 만들고 기간을 킥오프일 → 목표 업로드일로 입력하세요.'),
   PAST_SPRINT_NOT_STARTED: schedule('지난 스프린트 미착수', PROJECT_LEAD, 'work-item', '실제 진행 여부와 스프린트·상태를 확인하세요.'),
 
   CURRENT_SPRINT_SETUP_REQUIRED: readiness('진행 준비 필요', PROJECT_LEAD, 'work-item', '담당자·우선순위·기간·브랜치를 입력한 뒤 진행 예정으로 변경하세요.'),
