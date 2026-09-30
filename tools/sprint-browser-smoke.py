@@ -1,5 +1,6 @@
 """Real Chromium regression checks with synthetic dashboard data and mocked writes."""
 import json
+import re
 import shutil
 import threading
 from functools import partial
@@ -79,22 +80,28 @@ try:
         page.goto(base + '/?tab=briefing')
         page.locator('#tab-briefing .management-section .kpi').first.wait_for()
         def values():
-            return [int(x) for x in page.locator('#tab-briefing .management-section .kpi .value').all_text_contents()]
+            # Two overview cards, then the overdue / guide / setup counts, which are
+            # links to the check screen rather than cards.
+            cards = [int(x) for x in page.locator('#tab-briefing .management-section .kpi .value').all_text_contents()]
+            counts = [int(re.search(r'(\d+)\s*$', x).group(1)) for x in page.locator('#tab-briefing .management-section [data-open-checks]').all_text_contents()]
+            return cards + counts
         def select_sprint(value):
             page.locator('.sprint-picker > summary').click()
             page.locator(f'[data-briefing-sprint][value="{value}"]').check()
             page.locator('#tab-briefing .management-section .kpi').first.wait_for()
         baseline = values()
-        check('Briefing has five scoped KPIs', len(baseline) == 5, baseline)
+        check('Briefing has five scoped counts: two cards and three check-screen links', len(baseline) == 5, baseline)
         headings = page.locator('#tab-briefing h3').all_text_contents()
         check('Only the three requested briefing surfaces are rendered', len(headings) == 3 and headings[0].startswith('1.') and headings[1].startswith('2.') and headings[2].startswith('3.') and 'AI 통합브리핑' in headings[0] and '프로젝트 브리핑' in headings[1] and '스프린트별 업무현황' in headings[2], headings)
         check('Sprint choices normalize aliases into a list', page.locator('[data-briefing-sprint]').count() >= 3 and page.locator('[data-briefing-sprint][value="sprint3"]').count() == 1, page.locator('[data-briefing-sprint]').all_text_contents())
         select_sprint('sprint3')
         selected = values()
-        check('Selecting a sprint scopes the five KPIs', len(selected) == 5 and selected[0] <= baseline[0] and selected[1] <= baseline[1], selected)
-        page.locator('button[data-briefing-detail="guide"]').click()
-        page.locator('#briefing-detail').wait_for()
-        check('Guide detail opens from the matching KPI', '가이드 위반 작업항목' in page.locator('#briefing-detail').inner_text(), page.locator('#briefing-detail').inner_text())
+        check('Selecting a sprint scopes the five counts', len(selected) == 5 and selected[0] <= baseline[0] and selected[1] <= baseline[1], selected)
+        page.locator('#tab-briefing button[data-open-checks="guide"]').click()
+        page.locator('#tab-checks:not(.hidden)').wait_for()
+        check('Guide count opens the check screen with the guide filter', page.locator('#tab-checks [data-open-checks="guide"]').get_attribute('aria-pressed') == 'true' and 'tab=checks' in page.url, page.url)
+        page.locator('#tabs button[data-tab="briefing"]').click()
+        page.locator('#tab-briefing .management-section .kpi').first.wait_for()
         page.locator('[data-scope-filter="project"]').select_option(label='Project B')
         project_values = values()
         check('Project selection narrows the same scoped metrics', project_values[0] == 1 and project_values[1] <= selected[1], project_values)
