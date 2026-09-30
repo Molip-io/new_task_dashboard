@@ -40,6 +40,7 @@ const CATALOG = {
   MISSING_DELAY_OWNER_TAG: ['guide', '지연 담당자 태그 필요', 'PD 또는 메인 기획자'],
   OVERDUE: ['schedule', '지연 기록 필요', 'PD 또는 메인 기획자'],
   PAST_SPRINT_NOT_STARTED: ['schedule', '지난 스프린트 미착수', 'PD 또는 메인 기획자'],
+  SPRINT_SCHEDULE_MISSING: ['schedule', '스프린트 일정 없음', 'PD 또는 메인 기획자'],
   CURRENT_SPRINT_SETUP_REQUIRED: ['readiness', '진행 준비 필요', 'PD 또는 메인 기획자'],
   GIT_NOTION_ACTIVITY_MISMATCH: ['consistency', 'Notion·Git 상태 확인', '프로젝트 개발 담당자'],
   UNMAPPED_GIT_ACTIVITY: ['integration', 'Git 작업 연결 필요', '프로젝트 개발 담당자'],

@@ -102,6 +102,7 @@ export async function collectSummaryRows(config, errors = [], since = new Date(D
 
 export function parseProjectRows(rows, config) {
   const sprintOptionalProjects = new Set(config.validation?.sprintOptionalProjects || []);
+  const sprintScheduleProjects = new Set(config.validation?.sprintScheduleProjects || []);
   return rows.map(row => {
     const name = String(row['이름'] || '').trim();
     const notionSprintRequired = pick(row, ['스프린트 필수', '스프린트 사용']);
@@ -122,6 +123,7 @@ export function parseProjectRows(rows, config) {
         : notionSprintRequired === true
           ? true
           : !sprintOptionalProjects.has(name),
+      sprintScheduleRequired: sprintScheduleProjects.has(name),
       pdUsers: userList(pick(row, ['PD:users'])),
       teamLeadUsers: userList(pick(row, ['팀장:users'])),
       days: row['조회 기간'] || config.slackDaysDefault,

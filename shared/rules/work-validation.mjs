@@ -160,6 +160,27 @@ export function validateWorkManagement({
     });
   }
 
+  // A project that tracks sprint schedules keeps one standalone row per sprint named
+  // "<Sprint tag> 일정" (e.g. "스프린트4 일정"). Done rows were filtered out above, so
+  // any match here is an open schedule.
+  for (const project of projects) {
+    if (!project.sprintScheduleRequired) continue;
+    const hasOpenSchedule = tasks.some(task => task.project === project.name
+      && !(task.parentIds || []).length
+      && task.sprint
+      && String(task.title || '').trim() === `${task.sprint} 일정`);
+    if (hasOpenSchedule) continue;
+    addIssue(issues, {
+      type: 'SPRINT_SCHEDULE_MISSING',
+      severity: 'warning',
+      message: '진행 중인 스프린트 일정 없음',
+      project: project.name,
+      specId: null,
+      workItemId: null,
+      detectedAt,
+    });
+  }
+
   for (const task of tasks) {
     const isWorkItem = (task.parentIds || []).length > 0;
     const spec = isWorkItem ? tasksById.get(task.parentIds[0]) : null;
