@@ -131,16 +131,20 @@ test('Given collection health, When reading the briefing contract, Then concrete
   assert.doesNotMatch(presenters, /수집·커버리지 공백|의존관계 검토|확정 일정 위험|관리 데이터 부족/);
 });
 
-test('Given the simplified briefing, When reading its KPI contract, Then five accessible drill-down metrics remain', () => {
-  for (const detail of ['projects', 'work-items', 'setup', 'overdue', 'guide']) assert.ok(presenters.includes(`kpi('${detail}'`));
-  const kpiStart = presenters.indexOf('<div class="kpis">');
+test('Given the simplified briefing, When reading its KPI contract, Then the briefing keeps overview cards and work-level counts live on the check screen', () => {
+  const kpiStart = presenters.indexOf('<div class="kpis kpis-compact">');
   const kpiEnd = presenters.indexOf('</div>', kpiStart);
   const kpiRow = presenters.slice(kpiStart, kpiEnd);
-  assert.ok(kpiRow.indexOf("kpi('projects'") < kpiRow.indexOf("kpi('work-items'") );
-  assert.ok(kpiRow.indexOf("kpi('work-items'") < kpiRow.indexOf("kpi('overdue'") );
-  assert.ok(kpiRow.indexOf("kpi('overdue'") < kpiRow.indexOf("kpi('guide'") );
-  assert.ok(kpiRow.indexOf("kpi('guide'") < kpiRow.indexOf("kpi('setup'") );
-  assert.match(presenters, /진행 준비 필요 항목/);
+  assert.ok(kpiRow.indexOf("kpi('projects'") >= 0 && kpiRow.indexOf("kpi('projects'") < kpiRow.indexOf("kpi('work-items'"));
+  for (const detail of ['overdue', 'guide', 'setup']) {
+    assert.doesNotMatch(kpiRow, new RegExp(`kpi\\('${detail}'`));
+    assert.ok(presenters.includes(`data-open-checks="${detail}"`));
+  }
+  assert.match(app, /overdue: \{ filter: \{ issueType: 'OVERDUE' \}/);
+  assert.match(app, /guide: \{ filter: \{ category: 'guide' \}/);
+  assert.match(app, /setup: \{ filter: \{ category: 'readiness' \}/);
+  assert.match(app, /\$\{checkShortcutsHtml\(\)\}/);
+  assert.match(app, /진행 준비 필요 항목/);
   assert.match(app, /briefingDetail/);
   assert.match(app, /aria-expanded/);
   assert.doesNotMatch(presenters, /kpi\([^\n]*missingDateWorkItems|kpi\([^\n]*needsCheckProjects|kpi\([^\n]*recentGitProjects|kpi\([^\n]*gitNotionMismatchProjects/);

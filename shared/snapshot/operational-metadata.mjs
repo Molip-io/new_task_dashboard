@@ -97,7 +97,7 @@ export function comparableSnapshot(dashboard) {
       // period and stage. A change here is a re-plan, not progress.
       specs: (project.specs || []).map(spec => ({ id: spec.id, title: spec.title, sprint: spec.sprint || null, status: spec.status || null, statusSince: spec.statusSince || null }))
         .sort((left, right) => String(left.id).localeCompare(String(right.id))),
-      schedules: (project.config?.sprintSchedules || []).map(schedule => ({ sprint: schedule.sprint, start: schedule.start || null, due: schedule.due || null, stage: schedule.stage, dueChanges: schedule.dueChanges || 0, replans: schedule.replans || 0 }))
+      schedules: (project.config?.sprintSchedules || []).map(schedule => ({ sprint: schedule.sprint, start: schedule.start || null, due: schedule.due || null, stage: schedule.stage, dueChanges: schedule.dueChanges || 0, replans: schedule.replans || 0, carriedOver: schedule.carriedOver || 0, deferredDone: schedule.deferredDone || 0 }))
         .sort((left, right) => String(left.sprint).localeCompare(String(right.sprint))),
     })).sort((left, right) => left.name.localeCompare(right.name)),
   };
@@ -175,6 +175,7 @@ export function carryBaselineHistory(dashboard, previous, deltas) {
     }
     const priorSchedules = new Map(((previous?.projects || []).find(entry => entry.name === project.name)?.schedules || []).map(schedule => [schedule.sprint, schedule]));
     const projectDeltas = deltas.filter(delta => delta.project === project.name);
+    const specStatus = new Map((project.specs || []).map(spec => [spec.id, spec.status]));
     for (const schedule of project.config?.sprintSchedules || []) {
       const prior = priorSchedules.get(schedule.sprint);
       const key = normalizeSprint(schedule.sprint);
@@ -182,6 +183,11 @@ export function carryBaselineHistory(dashboard, previous, deltas) {
       schedule.dueChanges = (prior?.dueChanges || 0) + projectDeltas.filter(delta => delta.field === 'schedule.due' && delta.taskId === `schedule:${schedule.sprint}`).length;
       schedule.replans = (prior?.replans || 0) + (current ? projectDeltas.filter(delta => delta.field === 'spec.sprint'
         && (normalizeSprint(delta.from) === key || normalizeSprint(delta.to) === key)).length : 0);
+      // Moved out of this sprint: unfinished work is a carry-over, finished work held
+      // back for a later build is a deferral, which is not a delay.
+      const movedOut = current ? projectDeltas.filter(delta => delta.field === 'spec.sprint' && normalizeSprint(delta.from) === key) : [];
+      schedule.carriedOver = (prior?.carriedOver || 0) + movedOut.filter(delta => specStatus.get(delta.taskId) !== '완료').length;
+      schedule.deferredDone = (prior?.deferredDone || 0) + movedOut.filter(delta => specStatus.get(delta.taskId) === '완료').length;
     }
   }
   for (const item of [...(dashboard.workItems || []), ...(dashboard.ruleItems || []), ...(dashboard.projects || []).flatMap(project => [...(project.specs || []), ...(project.specs || []).flatMap(spec => spec.tasks || []), ...(project.activeTasks || [])])]) {

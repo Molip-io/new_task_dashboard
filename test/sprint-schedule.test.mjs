@@ -31,7 +31,7 @@ test('Given schedule rows among tasks, When they are split, Then work tasks excl
 test('Given an open schedule, When progress is read on a day, Then days to target, elapsed share and spec completion are reported', () => {
   const schedule = { stage: 'development', start: '2026-09-07', due: '2026-10-15', committedSpecs: 21, openSpecs: 17 };
 
-  assert.deepEqual(scheduleProgress(schedule, '2026-09-30'), { daysToTarget: 15, overdueDays: 0, elapsedPercent: 61, specDonePercent: 19 });
+  assert.deepEqual(scheduleProgress(schedule, '2026-09-30'), { daysToTarget: 15, overdueDays: 0, elapsedPercent: 61, specDonePercent: 19, carryOverPercent: 0 });
   assert.equal(scheduleProgress(schedule, '2026-10-18').overdueDays, 3);
   assert.equal(scheduleProgress({ ...schedule, stage: 'testing' }, '2026-10-18').overdueDays, 0);
   assert.equal(scheduleProgress({ ...schedule, stage: 'planned' }, '2026-09-30'), null);
