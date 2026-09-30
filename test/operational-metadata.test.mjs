@@ -8,6 +8,7 @@ import {
   buildSourceHealth,
   diffSnapshots,
   saveDailySnapshot,
+  carryBaselineHistory,
 } from '../shared/snapshot/operational-metadata.mjs';
 
 const current = {
@@ -164,4 +165,30 @@ test('Given a task that turned done between snapshots, When they are compared, T
   assert.equal('completedAt' in done, false);
   const moved = diffSnapshots(snapshot('2026-07-14T00:00:00Z', '시작 전'), snapshot('2026-07-15T00:00:00Z', '진행 중')).find(delta => delta.field === 'task.status');
   assert.equal('observedCompleteAt' in moved, false);
+});
+
+test('Given yesterday\'s snapshot, When history is carried, Then unchanged statuses keep their start day, changed ones restart today, and schedule re-plans accumulate', () => {
+  const previous = {
+    generatedAt: '2026-09-29T23:00:00.000Z',
+    projects: [{
+      name: '포지 앤 포춘',
+      tasks: [{ id: 'waiting', status: '확인 요청', statusSince: '2026-09-25' }, { id: 'first-seen', status: '확인 요청' }, { id: 'moved', status: '진행 중', statusSince: '2026-09-20' }],
+      specs: [],
+      schedules: [{ sprint: '스프린트4', dueChanges: 1, replans: 2 }],
+    }],
+  };
+  const tasks = [{ id: 'waiting', status: '확인 요청' }, { id: 'first-seen', status: '확인 요청' }, { id: 'moved', status: '확인 요청' }, { id: 'new', status: '시작 전' }];
+  const schedule = { sprint: '스프린트4', stage: 'development' };
+  const dashboard = { generatedAt: '2026-09-30T23:00:00.000Z', projects: [{ name: '포지 앤 포춘', specs: [{ id: 'spec', status: '진행 중', tasks }], config: { sprintSchedules: [schedule] } }], workItems: tasks.map(task => ({ ...task })) };
+  const deltas = [
+    { project: '포지 앤 포춘', field: 'schedule.due', taskId: 'schedule:스프린트4' },
+    { project: '포지 앤 포춘', field: 'spec.sprint', from: 'Sprint 5', to: '스프린트4' },
+    { project: '포지 앤 포춘', field: 'spec.sprint', from: '스프린트2', to: '스프린트3' },
+  ];
+
+  carryBaselineHistory(dashboard, previous, deltas);
+
+  assert.deepEqual(tasks.map(task => task.statusSince), ['2026-09-25', '2026-09-30', '2026-10-01', '2026-10-01']);
+  assert.deepEqual(dashboard.workItems.map(task => task.statusSince), ['2026-09-25', '2026-09-30', '2026-10-01', '2026-10-01']);
+  assert.deepEqual([schedule.dueChanges, schedule.replans], [2, 3]);
 });

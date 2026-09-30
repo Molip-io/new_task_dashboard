@@ -309,3 +309,19 @@ test('Given yesterday and a same-day summary, When an agent packet is built, The
   assert.equal(packet.projects[0].previousSummaryDate, '2026-07-20');
   assert.equal(buildAgentInputPacket(dashboard).projects[0].previousSummary, null);
 });
+
+test('Given items waiting on confirmation, When an agent packet is built, Then the longest waits and schedule re-plan counts are offered', () => {
+  const item = (id, statusSince) => ({ ...dashboard.workItems[0], id, title: id, status: '확인 요청', statusSince });
+  const schedule = { sprint: '스프린트4', stage: 'development', start: '2026-07-01', due: '2026-07-31', committedSpecs: 2, openSpecs: 1, dueChanges: 1, replans: 3 };
+  const packet = buildAgentInputPacket({
+    ...dashboard,
+    projects: [{ ...dashboard.projects[0], config: { sprintSchedules: [schedule] } }],
+    workItems: [item('short', dashboard.generatedAt.slice(0, 10)), item('long', '2026-07-01'), { ...dashboard.workItems[0], id: 'done', status: '진행 중', statusSince: '2026-06-01' }],
+  });
+
+  const waits = packet.projects[0].bottlenecks.confirmationWaits;
+  assert.equal(waits.count, 2);
+  assert.deepEqual(waits.longest.map(wait => wait.workItemId), ['long', 'short']);
+  assert.equal(waits.longest[1].days, 0);
+  assert.deepEqual([packet.projects[0].sprintSchedules[0].dueChanges, packet.projects[0].sprintSchedules[0].replans], [1, 3]);
+});

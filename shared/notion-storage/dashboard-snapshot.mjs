@@ -43,7 +43,7 @@ function compactWorkItem(item) {
   return pick(item, [
     'id', 'url', 'title', 'status', 'team', 'assignees', 'project', 'start', 'due', 'completedAt',
     'sprint', 'branch', 'specId', 'spec', 'notionUpdatedAt', 'latestGitAt', 'overdueDays',
-    'staleBusinessDays', 'riskScore', 'guideStatus', 'itemLevel', 'sprintRelation',
+    'staleBusinessDays', 'riskScore', 'guideStatus', 'itemLevel', 'sprintRelation', 'statusSince',
   ]);
 }
 
@@ -77,7 +77,7 @@ function compactProject(project) {
     notionId: project.notionId || project.config?.notionId,
     config: project.config ? pick(project.config, ['gitUrl', 'notionId', 'currentSprints', 'sprintRequired', 'sprintSettingSource', 'sprintSettingRevision', 'sprintScheduleRequired', 'sprintSchedules']) : undefined,
     specs: (project.specs || []).map(spec => ({
-      ...pick(spec, ['id', 'url', 'title', 'status', 'parentStatus', 'childDerivedStatus', 'completionMismatch', 'sprint', 'start', 'due', 'core', 'owners', 'targetAt', 'childStats']),
+      ...pick(spec, ['id', 'url', 'title', 'status', 'parentStatus', 'childDerivedStatus', 'completionMismatch', 'sprint', 'start', 'due', 'core', 'owners', 'targetAt', 'childStats', 'statusSince']),
       tasks: (spec.tasks || []).map(compactWorkItem),
     })),
     specInsights: (project.specInsights || []).map(insight => ({
