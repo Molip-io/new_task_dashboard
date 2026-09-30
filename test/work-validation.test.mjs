@@ -482,3 +482,21 @@ test('Given a project outside the schedule list, When validation runs, Then no s
 
   assert.equal(result.issues.some(item => item.type === 'SPRINT_SCHEDULE_MISSING'), false);
 });
+
+test('Given update gaps on a schedule-tracked project, When validation runs, Then each becomes a routed check issue carrying its title and owner', () => {
+  const gap = { kind: 'open-under-closed-spec', workItemId: 'w1', specId: 's1', title: '숨참 시리즈', url: 'https://notion.so/w1', status: '진행 중', assignees: ['하티'], team: '개발', specTitle: '스프린트2 요소', specStatus: '중단' };
+  const projects = [
+    { name: '포지 앤 포춘', sprintScheduleRequired: true, sprintSchedules: [{ sprint: '스프린트4', stage: 'development' }], updateGaps: [gap, { ...gap, workItemId: 'w2', kind: 'sprint-mismatch', sprint: '스프린트3', specSprint: '스프린트4' }] },
+    { name: 'UI 자동화', updateGaps: [{ ...gap, workItemId: 'w3' }] },
+  ];
+
+  const result = validateWorkManagement({ tasks: [], projects, now: NOW });
+
+  const issues = result.issues.filter(issue => ['OPEN_UNDER_CLOSED_SPEC', 'CHILD_SPRINT_MISMATCH'].includes(issue.type));
+  assert.deepEqual(issues.map(issue => [issue.type, issue.workItemId, issue.message]), [
+    ['OPEN_UNDER_CLOSED_SPEC', 'w1', '상위 스펙 중단 · 작업 진행 중'],
+    ['CHILD_SPRINT_MISMATCH', 'w2', '작업 스프린트3 · 상위 스펙 스프린트4'],
+  ]);
+  assert.equal(issues[0].category, 'consistency');
+  assert.deepEqual(issues[0].metadata, { title: '숨참 시리즈', url: 'https://notion.so/w1', assignees: ['하티'], team: '개발', specTitle: '스프린트2 요소' });
+});

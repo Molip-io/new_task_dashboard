@@ -34,6 +34,8 @@ export const ISSUE_CATALOG = Object.freeze({
 
   CURRENT_SPRINT_SETUP_REQUIRED: readiness('진행 준비 필요', PROJECT_LEAD, 'work-item', '담당자·우선순위·기간·브랜치를 입력한 뒤 진행 예정으로 변경하세요.'),
 
+  OPEN_UNDER_CLOSED_SPEC: consistency('작업 상태 갱신 필요', WORK_ASSIGNEE, 'work-item', '상위 스펙이 완료·중단됐습니다. 이 작업을 완료·중단으로 바꾸거나, 남은 일이면 다음 스프린트 스펙으로 옮기세요.'),
+  CHILD_SPRINT_MISMATCH: consistency('스프린트 태그 갱신 필요', WORK_ASSIGNEE, 'work-item', '상위 스펙과 같은 스프린트로 태그를 맞추세요. 다른 스프린트에서 할 일이면 그 스프린트의 스펙으로 옮기세요.'),
   GIT_NOTION_ACTIVITY_MISMATCH: consistency('Notion·Git 상태 확인', PROJECT_DEVELOPER, 'work-item', 'Git 활동과 실제 진행 내용이 Notion에 반영됐는지 확인하세요.'),
 
   UNMAPPED_GIT_ACTIVITY: integration('Git 작업 연결 필요', PROJECT_DEVELOPER, 'project', '커밋 메시지에 작업 키를 포함하거나 매핑 규칙을 추가하세요.'),

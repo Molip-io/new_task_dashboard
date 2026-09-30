@@ -42,6 +42,8 @@ const CATALOG = {
   PAST_SPRINT_NOT_STARTED: ['schedule', '지난 스프린트 미착수', 'PD 또는 메인 기획자'],
   SPRINT_SCHEDULE_MISSING: ['schedule', '스프린트 일정 없음', 'PD 또는 메인 기획자'],
   CURRENT_SPRINT_SETUP_REQUIRED: ['readiness', '진행 준비 필요', 'PD 또는 메인 기획자'],
+  OPEN_UNDER_CLOSED_SPEC: ['consistency', '작업 상태 갱신 필요', '작업 담당자'],
+  CHILD_SPRINT_MISMATCH: ['consistency', '스프린트 태그 갱신 필요', '작업 담당자'],
   GIT_NOTION_ACTIVITY_MISMATCH: ['consistency', 'Notion·Git 상태 확인', '프로젝트 개발 담당자'],
   UNMAPPED_GIT_ACTIVITY: ['integration', 'Git 작업 연결 필요', '프로젝트 개발 담당자'],
   MISSING_GIT_URL: ['integration', 'Git URL 입력 필요', '프로젝트 개발 담당자'],

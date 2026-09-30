@@ -486,7 +486,8 @@ function renderPeople() {
 
 function renderChecks() {
   const visible = filterVisibleIssues(D.validationIssues, D.workItems, D.projects);
-  const workItemForIssue = issue => D.workItems.find(item => item.id === issue.workItemId);
+  const workItemForIssue = issue => D.workItems.find(item => item.id === issue.workItemId)
+    || (issue.metadata?.title ? { team: issue.metadata.team, assignees: issue.metadata.assignees || [] } : undefined);
   const filtered = visible.filter(issue => !state.checkFilters.project || (issue.project || '프로젝트 미분류') === state.checkFilters.project).filter(issue => !state.checkFilters.category || issueMatchesCategory(issue, state.checkFilters.category)).filter(issue => !state.checkFilters.issueType || issue.type === state.checkFilters.issueType).filter(issue => !state.checkFilters.team || workItemForIssue(issue)?.team === state.checkFilters.team).filter(issue => !state.checkFilters.assignee || (workItemForIssue(issue)?.assignees || []).includes(state.checkFilters.assignee));
   const groups = groupIssuesByProjectItem(filtered);
   const itemCount = groups.reduce((sum, group) => sum + group.items.length, 0);

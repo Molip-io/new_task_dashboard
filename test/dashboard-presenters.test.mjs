@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { briefingHtml } from '../dashboard/ui/dashboard-presenters.js';
+import { briefingHtml, issueGroupRowHtml } from '../dashboard/ui/dashboard-presenters.js';
 
 test('Given two projects with connected repositories, When Git briefing details render, Then each project uses its own repository', () => {
   const dashboard = {
@@ -386,4 +386,14 @@ test('Given overall bullet items, When the AI briefing renders, Then each item i
   const html = briefingHtml(dashboard, null, () => '');
   assert.match(html, /<ul class="analysis-bullets"><li>피자레디 SP60 — 9\/28 100% 배포, 1회차 A\/B 진행 중\(결과 미공유\)<\/li>/);
   assert.ok(!html.includes('<script>x</script>'));
+});
+
+test('Given an issue for work a closed spec left open, When its check row renders, Then the carried title, spec, team, owner and link are shown', () => {
+  const issue = { type: 'OPEN_UNDER_CLOSED_SPEC', severity: 'check', project: '포지 앤 포춘', workItemId: 'w1', specId: 's1', message: '상위 스펙 중단 · 작업 진행 중', metadata: { title: '숨참 시리즈', url: 'https://notion.so/w1', assignees: ['하티'], team: '개발', specTitle: '스프린트2 요소' } };
+
+  const html = issueGroupRowHtml({ project: '포지 앤 포춘', severity: 'check', issues: [issue] }, { workItems: [], projects: [], git: { commits: [] } });
+
+  assert.match(html, /숨참 시리즈 · 작업 상태 갱신 필요/);
+  assert.match(html, /스프린트2 요소 · 개발 · 하티/);
+  assert.match(html, /https:\/\/notion\.so\/w1/);
 });

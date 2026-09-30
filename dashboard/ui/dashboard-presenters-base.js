@@ -30,12 +30,14 @@ export function issueGroupRowHtml(group, dashboard) {
   const item = dashboard.workItems.find(work => work.id === primary.workItemId);
   const spec = dashboard.projects.flatMap(project => project.specs || []).find(row => row.id === primary.specId);
   const commit = dashboard.git?.commits?.find(row => row.hash === primary.metadata?.commitHash);
-  const title = item?.title || spec?.title || (primary.metadata?.commitHash ? `커밋 ${primary.metadata.commitHash.slice(0, 8)}` : '프로젝트 관리 항목');
-  const context = item ? `${item.spec || '상위 작업 미지정'} · ${item.team || '팀 미지정'}` : spec ? '상위 작업' : group.project;
+  // Items a closed spec left open are not in workItems; their issue carries title and owner.
+  const carried = !item && primary.metadata?.title ? primary.metadata : null;
+  const title = item?.title || carried?.title || spec?.title || (primary.metadata?.commitHash ? `커밋 ${primary.metadata.commitHash.slice(0, 8)}` : '프로젝트 관리 항목');
+  const context = item ? `${item.spec || '상위 작업 미지정'} · ${item.team || '팀 미지정'}` : carried ? `${carried.specTitle || '상위 작업 미지정'} · ${carried.team || '팀 미지정'} · ${(carried.assignees || []).join(', ') || '담당자 미지정'}` : spec ? '상위 작업' : group.project;
   const summary = primaryActionSummary(issues);
   const categories = [...new Set(issues.map(issue => issuePresentation(issue).categoryLabel))];
   const detectedAt = issues.map(issue => issue.detectedAt).filter(Boolean).sort().at(-1);
-  return `<details class="issue-row ${esc(group.severity)}"><summary><strong><span class="dot ${esc(group.severity)}"></span>${esc(title)} · ${esc(summary.label)}</strong><small>${esc(context)} · ${esc(categories.join(' · '))}${detectedAt ? ` · 감지 ${fmt(detectedAt)}` : ''}</small></summary><div class="management-actions">${issues.map(issue => managementActionHtml(issue, item?.url || spec?.url || commit?.url)).join('')}</div></details>`;
+  return `<details class="issue-row ${esc(group.severity)}"><summary><strong><span class="dot ${esc(group.severity)}"></span>${esc(title)} · ${esc(summary.label)}</strong><small>${esc(context)} · ${esc(categories.join(' · '))}${detectedAt ? ` · 감지 ${fmt(detectedAt)}` : ''}</small></summary><div class="management-actions">${issues.map(issue => managementActionHtml(issue, item?.url || carried?.url || spec?.url || commit?.url)).join('')}</div></details>`;
 }
 
 function kpi(key, value, label, tone, selectedDetail) {

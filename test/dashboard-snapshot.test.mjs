@@ -111,3 +111,11 @@ test('Given a project with sprint schedules, When the snapshot is compacted and 
   assert.deepEqual(decoded.projects[0].config.sprintSchedules, schedules);
   assert.equal(decoded.projects[0].config.sprintScheduleRequired, true);
 });
+
+test('Given an update-gap issue, When the snapshot is compacted, Then its title and owner survive for the check screen', () => {
+  const issue = { id: 'OPEN_UNDER_CLOSED_SPEC:포지 앤 포춘:w1', type: 'OPEN_UNDER_CLOSED_SPEC', project: '포지 앤 포춘', workItemId: 'w1', metadata: { title: '숨참 시리즈', url: 'https://notion.so/w1', assignees: ['하티'], team: '개발', specTitle: '스프린트2 요소' } };
+
+  const decoded = decodeDashboardSnapshot(encodeDashboardSnapshot({ generatedAt: '2026-09-30T00:00:00.000Z', projects: [], validationIssues: [issue] }));
+
+  assert.deepEqual(decoded.validationIssues[0].metadata, issue.metadata);
+});
