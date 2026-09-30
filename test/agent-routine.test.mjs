@@ -315,6 +315,19 @@ test('Given inconsistent briefing sprints, When validated, Then each contradicti
   assert.match(run(falseClaim), /differsFromSaved가 false여야/);
 });
 
+test('Given open sprint schedules, When the briefing sprint is validated, Then it must follow the schedules', () => {
+  const input = sprintInput({ mode: 'unset', sprints: [] });
+  input.projects = input.projects.map(item => ({ ...item, sprintSchedules: [
+    { sprint: '스프린트3', stage: 'testing' }, { sprint: '스프린트4', stage: 'development' }, { sprint: '스프린트5', stage: 'planned' },
+  ] }));
+  const run = value => analysisErrors({ analysis: withSprint(value), input, runId: RUN_ID }).join('\n');
+  const scheduled = { ...judgedSprint, basis: 'schedule', sprints: ['Sprint3', 'Sprint4'] };
+  assert.equal(run(scheduled), '');
+  assert.match(run({ ...scheduled, basis: 'recent-activity' }), /basis는 schedule이어야/);
+  assert.match(run({ ...scheduled, sprints: ['Sprint4'] }), /스프린트 일정\(스프린트3, 스프린트4\)과 다릅니다/);
+  assert.match(analysisErrors({ analysis: withSprint(scheduled), input: sprintInput({ mode: 'unset', sprints: [] }), runId: RUN_ID }).join('\n'), /일정이 없는데 briefingSprint.basis가 schedule/);
+});
+
 test('Given a cloud environment that blocks hosts or lacks tokens, When sources are probed, Then each problem is named', async () => {
   const { preflightSources } = await import('../agent/runtime/agent-routine.mjs');
   const responses = {

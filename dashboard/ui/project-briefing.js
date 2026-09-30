@@ -22,13 +22,15 @@ function evidenceRows(values) {
     .map(e => ({ source: e.source, timestamp: e.timestamp || null, url: safeUrl(e.url), excerpt: text(e.excerpt), title: text(e.title) }))
     .filter(e => { const key = JSON.stringify([e.source, e.url, e.timestamp, e.excerpt]); if (seen.has(key)) return false; seen.add(key); return true; });
 }
-// The sprint the briefing itself judged from the last 7 days of evidence. It is
+// The sprint the briefing is based on: the open "<Sprint> 일정" rows when the project
+// keeps them, otherwise the agent's judgment from the last 7 days of evidence. It is
 // separate from the dashboard's saved sprint, which only scopes the Notion counts.
 function resolveBriefingSprint(value) {
   if (!value || typeof value !== 'object' || !['judged', 'undetermined'].includes(value.status)) return null;
   const saved = value.savedScope && typeof value.savedScope === 'object' ? value.savedScope : null;
   return {
     status: value.status,
+    basis: value.basis === 'schedule' ? 'schedule' : 'recent-activity',
     sprints: strings(value.sprints),
     rationale: text(value.rationale),
     evidence: evidenceRows(value.evidence),
@@ -117,7 +119,7 @@ export function projectBriefingHtml(dashboard, project) {
   const stateLabels = { success: 'Agent 통합 분석', partial: 'Agent 통합 분석 · 확인 제한', stale: '이전 통합 분석 · 갱신 필요', legacy: '기존 저장 요약', not_run: '프로젝트 통합 분석 미생성' };
   const preview = view.currentProgress || '여러 출처를 종합한 프로젝트 브리핑이 아직 없습니다.';
   const sprint = view.briefingSprint;
-  const sprintLabel = sprint ? (sprint.status === 'judged' && sprint.sprints.length ? `${sprint.sprints.join(' · ')} (최근 7일 근거)` : '판단 불가') : '';
+  const sprintLabel = sprint ? (sprint.status === 'judged' && sprint.sprints.length ? `${sprint.sprints.join(' · ')} (${sprint.basis === 'schedule' ? '스프린트 일정 기준' : '최근 7일 근거'})` : '판단 불가') : '';
   const sprintHtml = sprint ? `<details class="project-briefing-sprint"><summary><span>브리핑 기준 스프린트:</span> <strong>${esc(sprintLabel)}</strong></summary>${sprint.rationale ? `<p>${esc(sprint.rationale)}</p>` : ''}${sprint.differsFromSaved ? `<p class="project-briefing-muted">대시보드 저장 스프린트(${esc(sprint.savedLabel || '미설정')})와 기준이 다릅니다. 대시보드 숫자는 저장된 스프린트 기준입니다.</p>` : ''}${sprint.evidence.length ? evidenceHtml(sprint.evidence) : ''}</details>` : '';
   const sourceChips = view.sources.map(source => `<span class="project-briefing-source">${esc(SOURCES[source])}</span>`).join('');
   // Bullet items are the agent's own itemised statements; prose stays the fallback
