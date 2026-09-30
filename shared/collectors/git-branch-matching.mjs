@@ -8,12 +8,45 @@ function comparable(value) {
   return clean(value).toLowerCase();
 }
 
+// "sprint" spelled with one slip (srpint, sprnit, sprit ...) still names a sprint. The
+// first and last letters must stay, so unrelated words like "print" don't qualify.
+function isSprintWord(word) {
+  if (word === '스프린트' || word === 'sprint') return true;
+  if (word.length < 5 || word.length > 7 || word[0] !== 's' || word.at(-1) !== 't') return false;
+  const target = 'sprint';
+  if (word.length === target.length) {
+    const diff = [...word].flatMap((letter, index) => (letter === target[index] ? [] : [index]));
+    return diff.length === 1 || (diff.length === 2 && diff[1] === diff[0] + 1 && word[diff[0]] === target[diff[1]] && word[diff[1]] === target[diff[0]]);
+  }
+  const [longer, shorter] = word.length > target.length ? [word, target] : [target, word];
+  for (let skip = 0; skip < longer.length; skip += 1) if (longer.slice(0, skip) + longer.slice(skip + 1) === shorter) return true;
+  return false;
+}
+
+const SPRINT_PART = /([a-z]{5,7}|스프린트)\s*(\d+(?:\.\d+)?)/g;
+
+// The sprint a name refers to, e.g. "molip/develop/Srpint4" -> "4", "Sprint3.5_v2" -> "3.5".
+// Two names for different sprints never match, however alike they read.
+export function sprintIdentity(value) {
+  for (const match of comparable(value).matchAll(SPRINT_PART)) {
+    if (!isSprintWord(match[1])) continue;
+    const [whole, fraction] = match[2].split('.');
+    return fraction === undefined ? String(Number(whole)) : `${Number(whole)}.${fraction}`;
+  }
+  return null;
+}
+
+// Lower-cased name with any misspelled sprint word written out as "sprint".
+function canonical(value) {
+  return comparable(value).replace(SPRINT_PART, (part, word, number) => (isSprintWord(word) ? `sprint${number}` : part));
+}
+
 function compact(value) {
-  return comparable(value).replace(COMMON_PREFIX, '').replace(/[^a-z0-9가-힣]+/g, '');
+  return canonical(value).replace(COMMON_PREFIX, '').replace(/[^a-z0-9가-힣]+/g, '');
 }
 
 function tokens(value) {
-  return new Set(comparable(value).replace(COMMON_PREFIX, '').split(/[^a-z0-9가-힣]+/).filter(Boolean));
+  return new Set(canonical(value).replace(COMMON_PREFIX, '').split(/[^a-z0-9가-힣]+/).filter(Boolean));
 }
 
 function levenshtein(left, right) {
@@ -34,10 +67,23 @@ function levenshtein(left, right) {
   return previous[right.length];
 }
 
+// A bare sprint tag such as "sprint4" names the sprint, not one branch: it matches a
+// branch of that same sprint, whatever prefix the branch carries.
+const BARE_SPRINT_SCORE = 0.86;
+
 export function branchMatchScore(requested, candidate) {
   const requestedName = clean(requested);
   const candidateName = clean(candidate);
   if (!requestedName || !candidateName) return 0;
+  const requestedSprint = sprintIdentity(requestedName);
+  const candidateSprint = sprintIdentity(candidateName);
+  if (requestedSprint && candidateSprint && requestedSprint !== candidateSprint) return 0;
+  const score = nameMatchScore(requestedName, candidateName);
+  if (requestedSprint && requestedSprint === candidateSprint && /^sprint\d+(\.\d+)?$/.test(canonical(requestedName))) return Math.max(score, BARE_SPRINT_SCORE);
+  return score;
+}
+
+function nameMatchScore(requestedName, candidateName) {
   if (requestedName === candidateName) return 1;
   if (requestedName.toLowerCase() === candidateName.toLowerCase()) return 0.995;
 
