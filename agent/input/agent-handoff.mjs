@@ -77,7 +77,13 @@ function auditCatalog(values) {
   };
 }
 
-function specCatalog(project) {
+// Overdue days are computed on work items only; spec tasks never carry them, so both the
+// spec catalog and the sprint counts read them from work items by ID.
+function overdueByWorkItemId(workItems) {
+  return new Map(workItems.map(item => [item.id, item.overdueDays || 0]));
+}
+
+function specCatalog(project, overdueById) {
   const columns = ['specId', 'title', 'sprint', 'status', 'activeTaskCount', 'completionRate', 'overdueCount'];
   const sprintRequired = project.config?.sprintRequired !== false;
   const rows = (project.specs || [])
@@ -89,7 +95,7 @@ function specCatalog(project) {
       spec.status || null,
       (spec.tasks || []).filter(task => !DONE.has(task.status)).length,
       spec.childStats?.completionRate || 0,
-      (spec.tasks || []).filter(task => task.overdueDays > 0).length,
+      (spec.tasks || []).filter(task => overdueById.get(task.id) > 0).length,
     ]);
   return { columns, rows };
 }
@@ -160,10 +166,8 @@ function projectSourceEvidence(project) {
 // the briefing's sprint numbers are counted once in code. Spec tasks keep done items (work
 // items and audit rows hold active items only, which leaves completion without its
 // denominator); cancelled items are out of scope, as in a sprint schedule's committed scope.
-// Overdue days are computed on work items only, so they are read from there by ID.
 const sprintOrder = key => Number(/(\d+(?:\.\d+)?)/.exec(key)?.[1] ?? Infinity);
-function sprintCounts(specs, workItems) {
-  const overdueById = new Map(workItems.map(item => [item.id, item.overdueDays || 0]));
+function sprintCounts(specs, overdueById) {
   const groups = new Map();
   for (const item of specs.flatMap(spec => spec.tasks || [])) {
     if (!item.sprint || item.status === '중단') continue;
@@ -244,7 +248,8 @@ function projectPacket(dashboard, project) {
     ...(project.config?.channels || []),
     ...(dashboard.slack?.[project.name] || []).map(channel => channel.channel),
   ].filter(Boolean))];
-  const specs = specCatalog(project);
+  const overdueById = overdueByWorkItemId(workItems);
+  const specs = specCatalog(project, overdueById);
   const linkedMeetingUrls = new Set([
     ...(project.specInsights || []).flatMap(insight => insight.evidence || []),
     ...(project.projectOperations?.evidence || []),
@@ -260,7 +265,7 @@ function projectPacket(dashboard, project) {
       ...pickSchedule(schedule),
       progress: scheduleProgress(schedule, kstDate(dashboard.generatedAt)),
     })),
-    sprintCounts: sprintCounts(project.specs || [], workItems),
+    sprintCounts: sprintCounts(project.specs || [], overdueById),
     bottlenecks: {
       confirmationWaits: confirmationWaits(activeWorkItems, kstDate(dashboard.generatedAt)),
       builds: buildSummary(project.config?.builds || []),

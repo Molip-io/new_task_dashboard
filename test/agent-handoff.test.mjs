@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { buildAgentInputPacket, writeAgentInputPacket } from '../agent/input/agent-handoff.mjs';
+import { enrichAgentPacketWithProjectOperations } from '../agent/input/agent-project-operations.mjs';
 import { AGENT_INPUT_REMOTE_READABLE_LIMIT } from '../shared/notion-storage/notion-agent-handoff.mjs';
 
 const dashboard = {
@@ -344,4 +345,21 @@ test('sprint counts come from code in sprint order, with done items in the denom
     { sprint: '스프린트3.5', workItems: 2, done: 1, completionRate: 50, overdue: 1, notStarted: 0 },
     { sprint: 'Sprint4', workItems: 1, done: 0, completionRate: 0, overdue: 0, notStarted: 1 },
   ]);
+});
+
+test('spec overdue counts come from work items, because spec tasks never carry overdue days', () => {
+  const source = {
+    generatedAt: '2026-10-01T23:00:00.000Z',
+    projects: [{ name: '포지 앤 포춘', specs: [{ id: 'spec-4', title: '보스전', sprint: 'Sprint4', status: '진행 중', tasks: [
+      { id: 'late', sprint: 'Sprint4', status: '진행 중' },
+      { id: 'on-time', sprint: 'Sprint4', status: '진행 중' },
+    ] }] }],
+    workItems: [
+      { id: 'late', project: '포지 앤 포춘', sprint: 'Sprint4', status: '진행 중', overdueDays: 2 },
+      { id: 'on-time', project: '포지 앤 포춘', sprint: 'Sprint4', status: '진행 중', overdueDays: 0 },
+    ],
+  };
+  const packet = buildAgentInputPacket(source);
+  assert.equal(packet.projects[0].specCatalog[0][6], 1);
+  assert.equal(enrichAgentPacketWithProjectOperations(packet, source).projects[0].specCatalog[0][6], 1);
 });
