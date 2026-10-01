@@ -3,13 +3,11 @@
 오늘 `Asia/Seoul` 기준 MOLIP 업무 대시보드 통합 분석을 실행해. 설정된 「MOLIP 업무 대시보드 통합 분석 에이전트 지침」 전체를 적용해. 공식 실행문은 이것 하나이며 로컬 파일·터미널·별도 실행문·외부 스킬은 필요 없어.
 
 1. **오늘 입력 검증**
-Notion 업무현황 요약 DB(`351b4a46-5003-80ff-8b85-f772cb93da32`)에서 기준 페이지 `run_id=rule-input:YYYY-MM-DD-morning`을 찾아. `payload` 속성의 위치 안내와 본문을 확인하고 페이지네이션 끝까지 읽어 caption `MOLIP_AGENT_INPUT_V1`인 JSON 코드 블록 전체를 결합·파싱해.
+Notion 업무현황 요약 DB(`351b4a46-5003-80ff-8b85-f772cb93da32`)의 기준 페이지 `run_id=rule-input:YYYY-MM-DD-morning`(caption `MOLIP_AGENT_INPUT_V1`, `packet.format=manifest-v1`)와 그 페이지가 지정한 조각(caption `MOLIP_AGENT_INPUT_PART_V1`)을 지침 §3대로 하나의 입력으로 복원해. marker·runId·generationId·상태, 조각 순번·개수, `projectMeta`, `sectionCounts`·`totalItems`, `activeSpecIds`↔`specCatalog` 1:1 검증을 모두 통과한 입력만 써.
 
-입력에 `packet.format=manifest-v1`이 있으면 기준 페이지 `payload` 속성과 본문의 marker·runId·generationId·상태가 일치하고 `status=ready`인지 검증해. 오늘의 `runId`, `generatedAt`, `generationId`, `partCount`, `parts` 목록도 확인해. 기준 페이지가 지정한 각 조각 URL을 열고 caption `MOLIP_AGENT_INPUT_PART_V1`의 코드 블록 전체를 끝까지 읽어. 조각 `payload` 속성과 본문의 marker·runId·generationId·partId·상태가 일치하는지 확인하고, 모든 조각의 `runId`, `generatedAt`, `generationId`, `partId`, `partIndex`, `partCount`를 대조해 누락·중복이 없게 해. 프로젝트별 `projectMeta`가 정확히 한 번 있는지 확인하고, `sections`의 `field`·`offset`·`totalItems`·`items`로 모든 배열을 재구성해. 기준 페이지 `sectionCounts`의 각 배열을 offset 0부터 겹침·공백 없이 선언 길이 전체까지 복원하고 `activeSpecIds`와 복원한 `specCatalog`의 ID가 1:1인지 검증해. 기준 페이지에 적힌 조각만 사용하고 검색 결과의 일부만으로 전체 입력이라고 판단하지 마.
+재구성된 입력의 `runId=YYYY-MM-DD-morning`, `outputSchema`, `rules.metrics`, `projects`, `sourceHealth`, 프로젝트별 감사 행·형식·대조 대상·스펙 목록·형식을 확인해.
 
-재구성된 입력의 `runId=YYYY-MM-DD-morning`, `outputSchema`, `rules.metrics`, `projects`, `sourceHealth`, 프로젝트별 감사 행·형식·대조 대상·스펙 목록·형식을 검증해. manifest의 모든 활성 `specId`가 조각의 `specCatalog`에 정확히 한 번씩 있는지도 확인해. 기존 단일 페이지 형식은 직렬화 JSON이 50,000자 이하이고 코드 블록이 정확히 하나이며 필수 필드가 온전한 경우에만 허용해. 50,000자를 넘는 단일 블록과 조각이 없거나 불완전한 manifest는 단일 입력처럼 분석하지 마.
-
-입력·조각이 없거나 불완전하면 외부 출처나 `dashboard-snapshot`으로 재구성하지 말고 요약을 저장하지 않은 채 failed로 종료해. `manifest-v1`이 `publishing`이면 게시 완료를 기다리는 입력이므로 분석하지 마. manifest 없는 단일 페이지 입력은 지침의 레거시 호환 검증을 통과할 때만 사용해.
+입력·조각이 없거나 불완전하면 외부 출처나 `dashboard-snapshot`으로 재구성하지 말고 요약을 저장하지 않은 채 failed로 종료해. `manifest-v1`이 `publishing`이면 게시 완료를 기다리는 입력이므로 분석하지 마.
 `rules.deltas`가 정식 경로야. 최상위 `deltas`가 없어도 유효하며 최상위 배열만 있는 호환 입력도 허용해. 둘 다 있으면 같은 배열이어야 해. 둘 다 없거나 제공된 값이 배열이 아니거나 서로 다르면 실패해. `rules.comparison.available=true`일 때만 `[]`는 변경 없음이고, false면 비교 불가야. `observedCompleteAt`은 완료를 처음 관찰한 시각이지 실제 완료일이 아니야.
 
 2. **기준 고정과 전체 범위 해석**
