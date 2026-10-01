@@ -325,3 +325,23 @@ test('Given items waiting on confirmation, When an agent packet is built, Then t
   assert.equal(waits.longest[1].days, 0);
   assert.deepEqual([packet.projects[0].sprintSchedules[0].dueChanges, packet.projects[0].sprintSchedules[0].replans], [1, 3]);
 });
+
+test('sprint counts come from code in sprint order, with done items in the denominator and cancelled items out', () => {
+  const task = (id, sprint, status, extra = {}) => ({ id, sprint, status, title: id, ...extra });
+  const packet = buildAgentInputPacket({
+    generatedAt: '2026-10-01T23:00:00.000Z',
+    projects: [{ name: '포지 앤 포춘', specs: [
+      { id: 'spec-4', title: '보스전', sprint: 'Sprint4', status: '진행 중', tasks: [task('a', 'Sprint4', '시작 전'), task('f', 'Sprint4', '중단'), task('h', null, '진행 중')] },
+      { id: 'spec-3', title: '상점', sprint: 'Sprint3', status: '진행 중', tasks: [
+        task('b', 'Sprint3', '완료'), task('c', 'Sprint3', '시작 전'),
+        task('d', '스프린트3.5', '진행 중'), task('e', 'Sprint3.5', '완료'),
+      ] },
+    ] }],
+    workItems: [{ id: 'd', project: '포지 앤 포춘', sprint: '스프린트3.5', status: '진행 중', overdueDays: 2 }],
+  });
+  assert.deepEqual(packet.projects[0].sprintCounts, [
+    { sprint: 'Sprint3', workItems: 2, done: 1, completionRate: 50, overdue: 0, notStarted: 1 },
+    { sprint: '스프린트3.5', workItems: 2, done: 1, completionRate: 50, overdue: 1, notStarted: 0 },
+    { sprint: 'Sprint4', workItems: 1, done: 0, completionRate: 0, overdue: 0, notStarted: 1 },
+  ]);
+});

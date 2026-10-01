@@ -86,7 +86,7 @@
 - **"현재"의 정의.** 창 안에서 작업·빌드·QA가 **실제로 진행 중인** 스프린트다. 다음 스프린트 계획 언급만 있는 스프린트는 제외한다. 여러 스프린트가 동시에 진행 중이면(예: Sprint3 마무리 QA와 Sprint4 착수) 모두 현재로 보고 `sprints`에 모두 쓰며 각각 따로 브리핑한다.
 - **근거가 없으면** `status=undetermined`, `sprints=[]`로 둔다. 공용 스프린트 설정이나 프로젝트 리스트의 `현재 스프린트`로 대체하지 않는다. `judged`이면 `sprints` 1개 이상, `evidence` 1개 이상, `rationale` 300자 이내 한두 문장이다.
 - **`savedScope`**는 입력 `rules.briefingScope`의 `mode`·`sprints`를 복사한다. `differsFromSaved`는 `mode`가 `unset`이 아니고 판단한 스프린트 집합이 `savedScope.sprints`와 다를 때만 `true`다.
-- **브리핑 숫자.** 사용자가 읽는 브리핑 문장과 `projects[].sprintSummaries`의 스프린트 관련 수치(진행 준비 필요, 지난 스프린트 미착수, 스프린트별 진행)는 판단한 스프린트 기준으로 `ruleAuditItems`의 status·sprint 열에서 다시 센다. `sprintSummaries`는 판단한 스프린트마다 1개이며 `undetermined`면 `[]`이고 `confidenceLimits`에 스프린트 수치 미평가 사유를 한 줄 남긴다. `ruleMetrics.original/corrected`는 규칙 엔진 기준 감사 수치로 유지한다.
+- **브리핑 숫자.** 사용자가 읽는 브리핑 문장과 `projects[].sprintSummaries`의 스프린트 관련 수치(진행 준비 필요, 지난 스프린트 미착수, 스프린트별 진행)는 `projects[].sprintCounts`(스프린트 번호순 하위 작업 집계)에서 판단한 스프린트의 값을 쓴다. `sprintSummaries`의 `completionRate`·`overdueCount`는 그 스프린트의 `completionRate`·`overdue`, 진행 준비 필요는 `notStarted`, 지난 스프린트 미착수는 판단한 스프린트 중 가장 앞선 것보다 앞선 스프린트들의 `notStarted` 합이다. 감사 행에서 다시 세지 않는다. `sprintSummaries`는 판단한 스프린트마다 1개이며 `undetermined`면 `[]`이고 `confidenceLimits`에 스프린트 수치 미평가 사유를 한 줄 남긴다. `ruleMetrics.original/corrected`는 규칙 엔진 기준 감사 수치로 유지한다.
 - 이 판단은 대시보드 KPI를 바꾸지 않고, 대시보드 설정이 이 판단을 정하지도 않는다.
 
 ### 스프린트 일정 대비 진행과 변경
