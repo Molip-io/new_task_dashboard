@@ -31,7 +31,7 @@
 
 ## 출력
 
-반드시 `schemas/slack-claim-extraction.schema.json`과 일치하는 JSON만 출력한다. Markdown, 설명문, 코드 펜스는 출력하지 않는다.
+반드시 `shared/contracts/schemas/slack-claim-extraction.schema.json`과 일치하는 JSON만 출력한다. Markdown, 설명문, 코드 펜스는 출력하지 않는다.
 
 - `messageId`, `threadTs`, `authorId`, `channelId`, `permalink`는 입력값을 그대로 사용한다.
 - `projectCandidateIds`, `specCandidateIds`, `taskCandidateIds`는 입력 카탈로그에 존재하는 ID만 사용한다.

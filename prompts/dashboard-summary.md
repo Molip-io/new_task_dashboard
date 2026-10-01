@@ -22,7 +22,7 @@
 
 ## 출력 형식
 
-반드시 `schemas/dashboard-summary.schema.json`과 일치하는 JSON만 출력한다. Markdown, 코드 펜스, 추가 설명을 출력하지 않는다.
+반드시 `shared/contracts/schemas/dashboard-summary.schema.json`과 일치하는 JSON만 출력한다. Markdown, 코드 펜스, 추가 설명을 출력하지 않는다.
 
 ```json
 {
