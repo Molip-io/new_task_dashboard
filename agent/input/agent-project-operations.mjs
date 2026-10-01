@@ -15,7 +15,8 @@ function operationRows(project) {
   ]);
 }
 
-function specCatalog(project, sprintRequired) {
+// Overdue days live on work items only, so they are read from there by task ID.
+function specCatalog(project, sprintRequired, overdueById) {
   return (project.specs || [])
     .filter(spec => !CLOSED.has(spec.status) || (spec.tasks || []).some(task => !CLOSED.has(task.status)))
     .map(spec => [
@@ -25,7 +26,7 @@ function specCatalog(project, sprintRequired) {
       spec.status || null,
       (spec.tasks || []).filter(task => !CLOSED.has(task.status)).length,
       spec.childStats?.completionRate || 0,
-      (spec.tasks || []).filter(task => task.overdueDays > 0).length,
+      (spec.tasks || []).filter(task => overdueById.get(task.id) > 0).length,
     ]);
 }
 
@@ -42,7 +43,8 @@ export function enrichAgentPacketWithProjectOperations(packet, dashboard) {
   for (const projectPacket of packet.projects || []) {
     const project = (dashboard.projects || []).find(item => item.name === projectPacket.name);
     if (!project) continue;
-    projectPacket.specCatalog = specCatalog(project, projectPacket.sprintRequired !== false);
+    const overdueById = new Map((dashboard.workItems || []).filter(item => item.project === project.name).map(item => [item.id, item.overdueDays || 0]));
+    projectPacket.specCatalog = specCatalog(project, projectPacket.sprintRequired !== false, overdueById);
     const opsRows = operationRows(project);
     const existing = new Set((projectPacket.sourceEvidence || []).map(row => `${row[0]}|${row[5] || ''}|${row[2] || ''}|${row[4] || ''}`));
     const beforeRows = projectPacket.sourceEvidence || [];
