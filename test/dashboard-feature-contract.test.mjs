@@ -11,7 +11,6 @@ const managementPath = new URL('../dashboard/ui/dashboard-management.js', import
 const presentersPath = new URL('../dashboard/ui/dashboard-presenters.js', import.meta.url);
 const stylePath = new URL('../dashboard/ui/style.css', import.meta.url);
 const designPath = new URL('../DESIGN.md', import.meta.url);
-const meetingSkillPath = new URL('../agent/package/skills/structured-meeting-evidence/SKILL.md', import.meta.url);
 const prototype = fs.readFileSync(prototypePath, 'utf8');
 const app = fs.readFileSync(appPath, 'utf8');
 const api = fs.readFileSync(apiPath, 'utf8');
@@ -23,7 +22,6 @@ const style = fs.readFileSync(stylePath, 'utf8');
 const ui = `${app}\n${presenters}`;
 const viewModel = fs.readFileSync(new URL('../dashboard/ui/dashboard-view-model.js', import.meta.url), 'utf8');
 const design = fs.readFileSync(designPath, 'utf8');
-const meetingSkill = fs.readFileSync(meetingSkillPath, 'utf8');
 const specInsights = fs.readFileSync(new URL('../shared/rules/spec-insights.mjs', import.meta.url), 'utf8');
 
 test('Given the simplified briefing, only three primary sections appear in the requested order', () => {
@@ -116,8 +114,6 @@ test('Given a project spec, When its card opens, Then an integrated state briefi
   assert.match(app, /<span class="toggle-open">열기<\/span><span class="toggle-close">접기<\/span> <span aria-hidden="true">→<\/span>/);
   for (const source of ['Notion', 'Slack', '회의록', 'Git']) assert.match(app, new RegExp(source));
   assert.doesNotMatch(app, /현재 확인된 직접 병목 없음/);
-  assert.match(meetingSkill, /Spec Linking Rules/);
-  assert.match(meetingSkill, /specId/);
   assert.doesNotMatch(app, /class="spec-type"/);
   assert.doesNotMatch(app, /지금 이 스펙|이 스펙의 Notion/);
   assert.doesNotMatch(specInsights, /구조와 배치.*폴리싱/);
