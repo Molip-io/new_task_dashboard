@@ -1,6 +1,6 @@
 # MOLIP 업무 대시보드 아침 정기 실행문
 
-오늘 `Asia/Seoul` 기준 MOLIP 업무 대시보드 통합 분석을 실행해. 설정된 「MOLIP 업무 대시보드 통합 분석 에이전트 지침」 전체를 적용해. 공식 실행문은 이것 하나이며 로컬 파일·터미널·별도 실행문·외부 스킬은 필요 없어.
+오늘 `Asia/Seoul` 기준 MOLIP 업무 대시보드 통합 분석을 실행해. 「MOLIP 업무 대시보드 통합 분석 에이전트 지침」 전체를 적용하고, 도구와 입출력 경로는 `ROUTINE_RUNTIME.md`를 따라. 별도 실행문·외부 스킬은 필요 없어.
 
 1. **오늘 입력 검증**
 Notion 업무현황 요약 DB(`351b4a46-5003-80ff-8b85-f772cb93da32`)의 기준 페이지 `run_id=rule-input:YYYY-MM-DD-morning`(caption `MOLIP_AGENT_INPUT_V1`, `packet.format=manifest-v1`)와 그 페이지가 지정한 조각(caption `MOLIP_AGENT_INPUT_PART_V1`)을 지침 §3대로 하나의 입력으로 복원해. marker·runId·generationId·상태, 조각 순번·개수, `projectMeta`, `sectionCounts`·`totalItems`, `activeSpecIds`↔`specCatalog` 1:1 검증을 모두 통과한 입력만 써.

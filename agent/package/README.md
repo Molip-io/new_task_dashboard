@@ -1,11 +1,10 @@
-# MOLIP 통합 브리핑 에이전트 설정
+# MOLIP 아침 통합 분석 루틴
 
-에이전트에 등록할 공식 문서는 두 개뿐이다.
+Claude Code 클라우드 루틴 「MOLIP 아침 통합 분석」이 이 폴더의 세 문서를 읽고 실행한다.
 
-1. `01_AGENT_INSTRUCTIONS.md`를 에이전트 기본 지침으로 등록한다.
-2. `02_DAILY_RUN_PROMPT.md`를 매일 아침 정기 실행문으로 등록한다.
-
-Claude Code 클라우드 루틴으로 실행할 때는 위 두 문서에 `ROUTINE_RUNTIME.md`(도구 대응표)를 함께 적용한다. 루틴은 `agent/runtime/` 스크립트로 Notion 입력을 읽고 결과를 저장한다.
+1. `01_AGENT_INSTRUCTIONS.md`: 분석 규칙·판단 기준·출력 계약
+2. `02_DAILY_RUN_PROMPT.md`: 매일 아침 실행 순서
+3. `ROUTINE_RUNTIME.md`: 도구와 입출력 경로. 루틴은 `agent/runtime/` 스크립트로 Notion 입력을 읽고 결과를 저장한다.
 
 ## 입력 형식
 
