@@ -179,15 +179,39 @@ function sprintCounts(specs, overdueById) {
     .sort((left, right) => sprintOrder(left.key) - sprintOrder(right.key) || left.key.localeCompare(right.key))
     .map(({ sprint, items: group }) => {
       const done = group.filter(item => item.status === '완료').length;
+      const completionRate = Math.round((done / group.length) * 100);
       return {
         sprint,
         workItems: group.length,
         done,
-        completionRate: Math.round((done / group.length) * 100),
+        completionRate,
         overdue: group.filter(item => overdueById.get(item.id) > 0).length,
         notStarted: group.filter(item => item.status === '시작 전').length,
+        label: `하위 작업 ${group.length}건 중 ${done}건 완료(${completionRate}%)`,
       };
     });
+}
+
+const monthDay = value => {
+  const match = /^\d{4}-(\d{2})-(\d{2})/.exec(String(value || ''));
+  return match ? `${Number(match[1])}/${Number(match[2])}` : null;
+};
+
+// Baseline wording the briefing quotes as is, so a percentage never appears without the
+// period or the denominator it is measured against.
+const withProgressLabel = (schedule, progress) => progress && { ...progress, label: scheduleProgressLabel(schedule, progress) };
+
+function scheduleProgressLabel(schedule, progress) {
+  const start = monthDay(schedule.start);
+  const due = monthDay(schedule.due);
+  const parts = [];
+  if (start && due && progress.elapsedPercent !== null) parts.push(`기간 ${start}~${due} 중 ${progress.elapsedPercent}% 경과`);
+  if (due && progress.daysToTarget !== null) {
+    parts.push(progress.daysToTarget >= 0 ? `목표일(${due})까지 ${progress.daysToTarget}일` : `목표일(${due}) ${-progress.daysToTarget}일 지남`);
+  }
+  const committed = schedule.committedSpecs || 0;
+  if (committed) parts.push(`약속 스펙 ${committed}건 중 ${committed - (schedule.openSpecs || 0)}건 완료(${progress.specDonePercent}%)`);
+  return parts.join(', ') || null;
 }
 
 const pickSchedule = ({ sprint, stage, testingPhase = null, buildUploadedAt = null, start, due, url, committedSpecs, openSpecs, dueChanges = 0, replans = 0, carriedOver = 0, deferredDone = 0 }) => ({ sprint, stage, testingPhase, buildUploadedAt, start, due, url, committedSpecs, openSpecs, dueChanges, replans, carriedOver, deferredDone });
@@ -263,7 +287,7 @@ function projectPacket(dashboard, project) {
     sprintScheduleRequired: project.config?.sprintScheduleRequired === true,
     sprintSchedules: (project.config?.sprintSchedules || []).map(schedule => ({
       ...pickSchedule(schedule),
-      progress: scheduleProgress(schedule, kstDate(dashboard.generatedAt)),
+      progress: withProgressLabel(schedule, scheduleProgress(schedule, kstDate(dashboard.generatedAt))),
     })),
     sprintCounts: sprintCounts(project.specs || [], overdueById),
     bottlenecks: {
@@ -342,9 +366,9 @@ export function buildAgentInputPacket(dashboard) {
       'ruleAuditItems는 ruleAuditFormat.columns 순서의 행이다. itemLevel·status·sprint·sprintRelation 값은 ruleAuditFormat.indexedValues의 해당 배열 인덱스다. missingFieldMask는 missingFieldBits의 비트 OR 값이며 issueTypeIndexes는 ruleAuditFormat.issueTypes의 인덱스다. projectInherited는 범위 판정용 상속일 뿐 project 누락 비트를 지우지 않는다.',
       '완료·일시 정지·정지·중단 항목과 그 하위 계층은 활성 집계에서 제외한다. 진행 중 상위의 완료 하위는 진행률 근거다. 마지막 전달·성과·해결 이력은 활성 업무로 세지 않으면서 역사적 근거로 사용할 수 있다.',
       '현재 스프린트의 시작 전 항목은 진행 준비 필요로 집계하고, 미래 스프린트의 시작 전 항목은 실행 준비 필드 위반에서 제외한다. 이 문장의 현재 스프린트와 rules.metrics·sprintRelation은 대시보드 공용 스프린트 설정 기준의 규칙 엔진 원본 사실이다. 브리핑의 현재 스프린트는 projects[].sprintSchedules에서 stage가 development·testing인 일정이 있으면 그 스프린트들이고(basis=schedule), 없으면 에이전트가 최근 7일 근거로 판단한다(basis=recent-activity). 브리핑 안의 스프린트 수치는 projects[].sprintCounts에서 그 스프린트의 값을 쓴다.',
-      'projects[].sprintSchedules는 작업 현황 DB의 "스프린트N 일정" 행이다. start는 작업자 킥오프일, due는 목표 업로드일이다. stage: planned=킥오프 전 선행(목표일·지연 판단 없음), development=개발 중, testing=약속한 스펙이 모두 완료된 개발 완료 상태로 내부 QA·빌드 업로드·퍼블리셔 테스트가 이어진다(QA는 일감이 없어 업로드보다 스펙 완료가 며칠 빠를 수 있다), closed=종료. progress는 실행일 기준 daysToTarget(목표 업로드일까지 남은 날, 음수면 지남)·overdueDays(개발 중인데 목표일이 지난 날수)·elapsedPercent(기간 경과율)·specDonePercent(약속 스펙 완료율)이다. 일정 행은 스펙이 아니므로 specSummaries에 넣지 않는다.',
+      'projects[].sprintSchedules는 작업 현황 DB의 "스프린트N 일정" 행이다. start는 작업자 킥오프일, due는 목표 업로드일이다. stage: planned=킥오프 전 선행(목표일·지연 판단 없음), development=개발 중, testing=약속한 스펙이 모두 완료된 개발 완료 상태로 내부 QA·빌드 업로드·퍼블리셔 테스트가 이어진다(QA는 일감이 없어 업로드보다 스펙 완료가 며칠 빠를 수 있다), closed=종료. progress는 실행일 기준 daysToTarget(목표 업로드일까지 남은 날, 음수면 지남)·overdueDays(개발 중인데 목표일이 지난 날수)·elapsedPercent(기간 경과율)·specDonePercent(약속 스펙 완료율)이다. progress.label은 이 수치를 기간·분모와 함께 적은 문구이며 브리핑에 그대로 쓴다. 일정 행은 스펙이 아니므로 specSummaries에 넣지 않는다.',
       'rules.deltas의 spec.sprint는 스펙의 Sprint 태그 변경(재배치·이월), schedule.due는 일정 행의 목표 업로드일 변경, schedule.stage는 일정 단계 전환이다. 이것은 진행이 아니라 기준선 변경이다. sprintSchedules[].dueChanges·replans는 그 일정이 열린 뒤 누적된 목표일 변경·재배치 횟수이고, carriedOver·deferredDone은 그 스프린트에서 미완성으로 이월한 스펙 수와 완성했지만 출시를 미룬 스펙 수다. progress.carryOverPercent는 이월 비율이다. testing 일정의 testingPhase는 pre-upload(스펙 완료, QA·업로드 전) 또는 publisher-test(빌드노트 업로드일 buildUploadedAt 이후 퍼블리셔 테스트)다.',
-      'projects[].sprintCounts는 스프린트 번호순 하위 작업 집계다(완료 포함, 중단 제외): workItems=전체, done=완료, completionRate=완료율, overdue=기한 초과, notStarted=시작 전. sprintSummaries의 completionRate·overdueCount는 판단한 스프린트의 completionRate·overdue다. 진행 준비 필요는 판단한 스프린트의 notStarted, 지난 스프린트 미착수는 판단한 스프린트 중 가장 앞선 것보다 앞선 스프린트들의 notStarted 합이다. 이 수치를 ruleAuditItems에서 다시 세지 않는다.',
+      'projects[].sprintCounts는 스프린트 번호순 하위 작업 집계다(완료 포함, 중단 제외): workItems=전체, done=완료, completionRate=완료율, overdue=기한 초과, notStarted=시작 전, label=브리핑에 그대로 쓰는 기준 문구(하위 작업 기준). 약속 스펙 기준인 sprintSchedules[].progress.label과 기준이 다르므로 함께 쓸 때 두 문구를 모두 남긴다. sprintSummaries의 completionRate·overdueCount는 판단한 스프린트의 completionRate·overdue다. 진행 준비 필요는 판단한 스프린트의 notStarted, 지난 스프린트 미착수는 판단한 스프린트 중 가장 앞선 것보다 앞선 스프린트들의 notStarted 합이다. 이 수치를 ruleAuditItems에서 다시 세지 않는다.',
       'projects[].bottlenecks.builds는 최근 windowDays일 빌드노트 요약이다: total·offCycle(핫픽스·비교 재빌드)·offCyclePercent, QA 기간이 기록된 빌드의 averageQaDays, 최근 빌드 목록. QA 기간은 별도 QA팀이 진행할 때만 기록되므로 비어 있으면 미기록으로 둔다.',
       'projects[].bottlenecks.confirmationWaits는 확인 요청 상태로 머문 작업 수(count)와 오래된 순 5건(longest: since=그 상태를 처음 관찰한 날, days=관찰 이후 일수)이다. 관찰 시작 전 기간은 포함하지 않으므로 실제 대기는 같거나 더 길다.',
       'rules.comparison.available이 false이면 rules.deltas의 빈 배열은 변경 없음이 아니라 비교 불가다. deltas의 observedCompleteAt은 스냅샷에서 완료를 처음 관찰한 시각이며 실제 완료일이 아니다. previousSummary는 이전 날짜의 분석이고 previousSummaryDate가 그 날짜다.',
