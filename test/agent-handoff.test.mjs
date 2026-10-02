@@ -341,9 +341,9 @@ test('sprint counts come from code in sprint order, with done items in the denom
     workItems: [{ id: 'd', project: '포지 앤 포춘', sprint: '스프린트3.5', status: '진행 중', overdueDays: 2 }],
   });
   assert.deepEqual(packet.projects[0].sprintCounts, [
-    { sprint: 'Sprint3', workItems: 2, done: 1, completionRate: 50, overdue: 0, notStarted: 1 },
-    { sprint: '스프린트3.5', workItems: 2, done: 1, completionRate: 50, overdue: 1, notStarted: 0 },
-    { sprint: 'Sprint4', workItems: 1, done: 0, completionRate: 0, overdue: 0, notStarted: 1 },
+    { sprint: 'Sprint3', workItems: 2, done: 1, completionRate: 50, overdue: 0, notStarted: 1, label: '하위 작업 2건 중 1건 완료(50%)' },
+    { sprint: '스프린트3.5', workItems: 2, done: 1, completionRate: 50, overdue: 1, notStarted: 0, label: '하위 작업 2건 중 1건 완료(50%)' },
+    { sprint: 'Sprint4', workItems: 1, done: 0, completionRate: 0, overdue: 0, notStarted: 1, label: '하위 작업 1건 중 0건 완료(0%)' },
   ]);
 });
 
@@ -362,4 +362,14 @@ test('spec overdue counts come from work items, because spec tasks never carry o
   const packet = buildAgentInputPacket(source);
   assert.equal(packet.projects[0].specCatalog[0][6], 1);
   assert.equal(enrichAgentPacketWithProjectOperations(packet, source).projects[0].specCatalog[0][6], 1);
+});
+
+test('schedule progress carries the period, the target day and the spec denominator as one quotable label', () => {
+  const schedule = { sprint: '스프린트4', stage: 'development', start: '2026-09-07', due: '2026-10-15', committedSpecs: 21, openSpecs: 17 };
+  const packet = buildAgentInputPacket({ generatedAt: '2026-10-01T23:13:10.000Z', projects: [{ name: '포지 앤 포춘', config: { sprintSchedules: [schedule] } }] });
+  assert.equal(packet.projects[0].sprintSchedules[0].progress.label, '기간 9/7~10/15 중 66% 경과, 목표일(10/15)까지 13일, 약속 스펙 21건 중 4건 완료(19%)');
+  const late = buildAgentInputPacket({ generatedAt: '2026-10-17T00:00:00.000Z', projects: [{ name: '포지 앤 포춘', config: { sprintSchedules: [schedule] } }] });
+  assert.match(late.projects[0].sprintSchedules[0].progress.label, /목표일\(10\/15\) 2일 지남/);
+  const planned = buildAgentInputPacket({ generatedAt: '2026-10-01T23:13:10.000Z', projects: [{ name: '포지 앤 포춘', config: { sprintSchedules: [{ ...schedule, stage: 'planned' }] } }] });
+  assert.equal(planned.projects[0].sprintSchedules[0].progress, null);
 });
