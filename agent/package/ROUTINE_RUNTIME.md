@@ -53,6 +53,7 @@ node agent/runtime/read-input.mjs --out /tmp/molip-agent/input.json
 - **Notion 페이지**(회의록 URL, 작업·스펙 페이지): `node agent/runtime/notion-page.mjs <URL 또는 ID>`
 - **Slack**: 입력 `slackScope.channels`에 있는 채널만 본다.
   - 커넥터 도구 중 채널 읽기(`slack_read_channel`), 스레드 읽기(`slack_read_thread`), 채널·메시지 검색만 쓴다.
+  - 메시지 검색은 `filters`에 `in:<#채널 ID>`로 허용 채널을 지정해서만 쓴다. 출시 상태를 확인할 때는 키워드에 버전 번호와 상태어(배포·릴리즈·심사)를 함께 넣고, `after:`로 기간을 좁혀 시간순으로 정렬한다.
   - 본인 계정은 DM·다른 채널도 볼 수 있다. 그래도 허용 채널 밖은 조회하지 않는다.
   - 메시지 발송·예약·초안·반응 추가·캔버스 수정 등 쓰기 도구는 쓰지 않는다.
   - 커넥터 대신 `SLACK_TOKEN`이 설정된 환경이라면 `node agent/runtime/slack-read.mjs history|thread ...`를 써도 된다.
